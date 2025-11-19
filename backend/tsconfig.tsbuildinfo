@@ -1,1 +1,1 @@
-{"root":["./src/app.ts"],"version":"5.8.2"}
+{"root":["./src/app.ts","./src/configs/database.ts","./src/controllers/authcontroller.ts","./src/controllers/jobcontroller.ts","./src/controllers/quotecontroller.ts","./src/controllers/reviewcontroller.ts","./src/controllers/usercontroller.ts","./src/middlewares/authmiddleware.ts","./src/prisma/seed.ts","./src/routes/authroutes.ts","./src/routes/jobroutes.ts","./src/routes/quoteroutes.ts","./src/routes/reviewroutes.ts","./src/routes/userroutes.ts"],"version":"5.9.3"}

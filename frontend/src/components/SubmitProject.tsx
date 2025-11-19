@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { ArrowLeft, MapPin, Calendar, DollarSign } from 'lucide-react';
+import { ArrowLeft, MapPin } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { JobLead } from '../types';
+import { jobService } from '../services/jobService';
 
 const SubmitProject = () => {
   const { state, dispatch } = useApp();
@@ -18,60 +18,25 @@ const SubmitProject = () => {
   });
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [filteredTrades, setFilteredTrades] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
   const availableTrades = [
-    'Builder',
-    'Electrician',
-    'Handyman',
-    'Painter & Decorator',
-    'Plasterer',
-    'Plumber',
-    'Roofer',
-    'Carpenter & Joiner',
-    'Landscaper',
-    'Bathroom Fitter',
-    'Bricklayer',
-    'Gas Engineer',
-    'Carpet Fitter',
-    'Kitchen Fitter',
-    'Cabinet Maker',
-    'Tiler',
-    'Door Fitter',
-    'Glazier',
-    'Stove Fitter',
-    'Window Fitter',
-    'Tree Surgeon',
-    'Gardener',
-    'Locksmith',
-    'Architectural Designer',
-    'Groundworker',
-    'Stonemason',
-    'Heating Engineer',
-    'Insulation Company',
-    'Fencer',
-    'Waste & Rubbish Clearance Company',
-    'Demolition Company',
-    'Decking Installer',
-    'Extension Builder',
-    'Security System Installer',
-    'Conservatory Installer',
-    'Driveways Installer',
-    'Flooring Fitter',
-    'Guttering Installer',
-    'Vinyl Flooring Fitter',
-    'Fireplace Installer',
-    'Architectural Technician',
-    'Chimney Repair Specialist',
-    'Garden Maintenance Company',
-    'Loft Conversion Company',
-    'Damp Proofer',
-    'Conversion Specialist',
-    'Garage Conversion Specialist',
-    'New Home Builder',
-    'Repointing Specialist',
-    'Fascias & Soffits Installer',
-    'Tarmac Driveway Company',
-    'Building Restoration & Refurbishment Company'
+    'Builder', 'Electrician', 'Handyman', 'Painter & Decorator', 'Plasterer',
+    'Plumber', 'Roofer', 'Carpenter & Joiner', 'Landscaper', 'Bathroom Fitter',
+    'Bricklayer', 'Gas Engineer', 'Carpet Fitter', 'Kitchen Fitter', 'Cabinet Maker',
+    'Tiler', 'Door Fitter', 'Glazier', 'Stove Fitter', 'Window Fitter',
+    'Tree Surgeon', 'Gardener', 'Locksmith', 'Architectural Designer', 'Groundworker',
+    'Stonemason', 'Heating Engineer', 'Insulation Company', 'Fencer',
+    'Waste & Rubbish Clearance Company', 'Demolition Company', 'Decking Installer',
+    'Extension Builder', 'Security System Installer', 'Conservatory Installer',
+    'Driveways Installer', 'Flooring Fitter', 'Guttering Installer',
+    'Vinyl Flooring Fitter', 'Fireplace Installer', 'Architectural Technician',
+    'Chimney Repair Specialist', 'Garden Maintenance Company', 'Loft Conversion Company',
+    'Damp Proofer', 'Conversion Specialist', 'Garage Conversion Specialist',
+    'New Home Builder', 'Repointing Specialist', 'Fascias & Soffits Installer',
+    'Tarmac Driveway Company', 'Building Restoration & Refurbishment Company'
   ];
 
   const budgetRanges = [
@@ -79,43 +44,48 @@ const SubmitProject = () => {
     '£5,000 - £10,000', '£10,000 - £25,000', 'Over £25,000'
   ];
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+    setSuccess(false);
     
     if (!state.currentUser) {
       dispatch({ type: 'SHOW_AUTH_MODAL', payload: { mode: 'signup', userType: 'homeowner' } });
       return;
     }
 
-    const newJobLead: JobLead = {
-      id: `job_${Date.now()}`,
-      title: formData.title,
-      description: formData.description,
-      category: formData.category,
-      location: formData.location,
-      budget: formData.budget,
-      urgency: formData.urgency,
-      postedBy: state.currentUser.id,
-      postedDate: new Date().toISOString().split('T')[0],
-      contactDetails: {
-        name: formData.contactName,
-        email: formData.contactEmail,
-        phone: formData.contactPhone
-      },
-      purchasedBy: [],
-      maxPurchases: 6,
-      price: 9.99,
-      interests: []
-    };
+    setLoading(true);
 
-    dispatch({ type: 'ADD_JOB_LEAD', payload: newJobLead });
-    dispatch({ type: 'SET_VIEW', payload: 'profile' });
-    
-    // Reset form
-    setFormData({
-      title: '', description: '', category: '', location: '', budget: '',
-      urgency: 'Medium', contactName: '', contactEmail: '', contactPhone: ''
-    });
+    try {
+      const response = await jobService.createJobLead({
+        title: formData.title,
+        description: formData.description,
+        category: formData.category,
+        location: formData.location,
+        budget: formData.budget,
+        urgency: formData.urgency,
+        contactDetails: {
+          name: formData.contactName,
+          email: formData.contactEmail,
+          phone: formData.contactPhone
+        }
+      });
+
+      setSuccess(true);
+      setFormData({
+        title: '', description: '', category: '', location: '', budget: '',
+        urgency: 'Medium', contactName: '', contactEmail: '', contactPhone: ''
+      });
+
+      setTimeout(() => {
+        dispatch({ type: 'SET_VIEW', payload: 'profile' });
+      }, 1500);
+    } catch (err: any) {
+      console.error('Failed to create job:', err);
+      setError(err.message || 'Failed to submit project. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleCategoryChange = (value: string) => {
@@ -150,6 +120,18 @@ const SubmitProject = () => {
           <h1 className="text-3xl font-bold text-gray-900">Submit Your Project</h1>
           <p className="text-gray-600 mt-2">Tell us about your project and connect with qualified professionals</p>
         </div>
+
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
+            {error}
+          </div>
+        )}
+
+        {success && (
+          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-800">
+            Project submitted successfully! Redirecting...
+          </div>
+        )}
 
         <div className="bg-white rounded-xl shadow-sm p-8">
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -201,7 +183,6 @@ const SubmitProject = () => {
                       }
                     }}
                     onBlur={() => {
-                      // Delay hiding suggestions to allow for clicks
                       setTimeout(() => setShowSuggestions(false), 200);
                     }}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -243,21 +224,19 @@ const SubmitProject = () => {
             </div>
             
             <div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Location
-                </label>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-                  <input
-                    type="text"
-                    value={formData.location}
-                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Your location"
-                    required
-                  />
-                </div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Location
+              </label>
+              <div className="relative">
+                <MapPin className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  value={formData.location}
+                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Your location"
+                  required
+                />
               </div>
             </div>
 
@@ -328,9 +307,10 @@ const SubmitProject = () => {
             <div className="flex justify-end">
               <button
                 type="submit"
-                className="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold"
+                disabled={loading}
+                className="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Submit Project
+                {loading ? 'Submitting...' : 'Submit Project'}
               </button>
             </div>
           </form>

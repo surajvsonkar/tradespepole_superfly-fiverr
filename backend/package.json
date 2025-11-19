@@ -1,21 +1,37 @@
 {
-  "name": "backend",
+  "name": "tradespeople-backend",
   "version": "1.0.0",
-  "description": "",
-  "main": "app.js",
+  "description": "Backend API for 24/7 Tradespeople platform",
+  "main": "dist/app.js",
   "scripts": {
     "build": "tsc -b",
     "start": "node dist/app.js",
     "dev": "npm run build && npm run start"
   },
-  "keywords": [],
+  "keywords": ["tradespeople", "api", "express", "postgresql"],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
   "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "@types/bcrypt": "^5.0.2",
+    "@types/cors": "^2.8.17",
     "@types/express": "^5.0.5",
     "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^22.10.5",
+    "bcrypt": "^5.1.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
     "express": "^5.1.0",
-    "jsonwebtoken": "^9.0.2"
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.13.1",
+    "prisma": "^5.22.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.3"
+  },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
   }
 }
