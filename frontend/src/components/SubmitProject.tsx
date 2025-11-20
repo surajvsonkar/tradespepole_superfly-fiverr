@@ -57,7 +57,7 @@ const SubmitProject = () => {
     setLoading(true);
 
     try {
-      const response = await jobService.createJobLead({
+      await jobService.createJobLead({
         title: formData.title,
         description: formData.description,
         category: formData.category,

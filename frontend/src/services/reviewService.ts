@@ -24,4 +24,8 @@ export const reviewService = {
   createReview: async (data: CreateReviewData) => {
     return await apiClient.post('/reviews', data);
   },
+
+  getRecentReviews: async (limit: number = 3) => {
+    return await apiClient.get(`/reviews/recent?limit=${limit}`);
+  },
 };

@@ -147,7 +147,6 @@ const AuthModal = () => {
 						workingArea: response.user.workingArea,
 					};
 
-					dispatch({ type: 'ADD_USER', payload: newUser });
 					dispatch({ type: 'SET_USER', payload: newUser });
 				}
 

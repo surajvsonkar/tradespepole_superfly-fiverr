@@ -34,6 +34,7 @@ export interface UpdateJobLeadData {
     phone: string;
   };
   isActive?: boolean;
+  hiredTradesperson?: string;
 }
 
 export const jobService = {

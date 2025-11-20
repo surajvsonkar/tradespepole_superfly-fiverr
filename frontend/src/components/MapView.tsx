@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from 'react-leaflet';
 import { Icon, LatLngExpression, divIcon } from 'leaflet';
-import { MapPin, Navigation, Filter, Users, Briefcase, ZoomIn, ZoomOut, RotateCcw, Target, X, Calendar, DollarSign, AlertTriangle, Clock, CheckCircle, CreditCard, Heart } from 'lucide-react';
+import { MapPin, Star, Heart, CreditCard, X, DollarSign, Calendar, AlertTriangle, CheckCircle, Clock, Filter, Users, Briefcase, Target } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { Interest } from '../types';
+import { Interest, JobLead, User } from '../types';
+import { jobService } from '../services/jobService';
+import { userService } from '../services/userService';
 import 'leaflet/dist/leaflet.css';
 
 // Fix for default markers in react-leaflet - use CSS-based icons instead
@@ -117,6 +119,34 @@ const MapView = ({ viewType }: MapViewProps) => {
     distance: '',
     verified: false
   });
+  const [jobLeads, setJobLeads] = useState<JobLead[]>([]);
+  const [tradespeople, setTradespeople] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch data from API
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        if (viewType === 'jobs') {
+          const response = await jobService.getJobLeads();
+          setJobLeads(response.jobLeads || []);
+        } else {
+          const response = await userService.getTradespeople();
+          setTradespeople(response.tradespeople || []);
+        }
+      } catch (err) {
+        console.error('Failed to fetch map data:', err);
+        setError('Failed to load data. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [viewType]);
 
   // Calculate pricing based on membership
   const calculateLeadPrice = (membershipType: string = 'none') => {
@@ -183,183 +213,56 @@ const MapView = ({ viewType }: MapViewProps) => {
     };
   };
 
-  // Mock location data - in real app, this would come from your database
-  const mockLocations: MapLocation[] = [
-    // Professionals
-    {
-      id: 'prof1',
-      lat: 51.5074,
-      lng: -0.1278,
-      title: 'Alex Thompson - Master Plumber',
-      type: 'professional',
-      data: {
-        name: 'Alex Thompson',
-        trade: 'Master Plumber',
-        rating: 4.9,
-        reviews: 142,
-        verified: true,
-        distance: '2.3 miles',
-        responseTime: '2 hours',
-        hourlyRate: '£45-65',
-        image: 'https://images.pexels.com/photos/1681010/pexels-photo-1681010.jpeg?auto=compress&cs=tinysrgb&w=400'
-      }
-    },
-    {
-      id: 'prof2',
-      lat: 51.5155,
-      lng: -0.0922,
-      title: 'Maya Patel - Licensed Electrician',
-      type: 'professional',
-      data: {
-        name: 'Maya Patel',
-        trade: 'Licensed Electrician',
-        rating: 4.8,
-        reviews: 108,
-        verified: true,
-        distance: '4.1 miles',
-        responseTime: '1 hour',
-        hourlyRate: '£50-70',
-        image: 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=400'
-      }
-    },
-    {
-      id: 'prof3',
-      lat: 51.4994,
-      lng: -0.1746,
-      title: 'James Mitchell - General Contractor',
-      type: 'professional',
-      data: {
-        name: 'James Mitchell',
-        trade: 'General Contractor',
-        rating: 4.9,
-        reviews: 173,
-        verified: true,
-        distance: '6.8 miles',
-        responseTime: '4 hours',
-        hourlyRate: '£60-80',
-        image: 'https://images.pexels.com/photos/1300402/pexels-photo-1300402.jpeg?auto=compress&cs=tinysrgb&w=400'
-      }
-    },
-    {
-      id: 'prof4',
-      lat: 51.4851,
-      lng: -0.1738,
-      title: 'Sophie Chen - Master Carpenter',
-      type: 'professional',
-      data: {
-        name: 'Sophie Chen',
-        trade: 'Master Carpenter',
-        rating: 4.7,
-        reviews: 96,
-        verified: true,
-        distance: '5.2 miles',
-        responseTime: '3 hours',
-        hourlyRate: '£40-60',
-        image: 'https://images.pexels.com/photos/1181519/pexels-photo-1181519.jpeg?auto=compress&cs=tinysrgb&w=400'
-      }
-    },
-    {
-      id: 'prof5',
-      lat: 51.5205,
-      lng: -0.0836,
-      title: 'Robert Davies - Roofing Specialist',
-      type: 'professional',
-      data: {
-        name: 'Robert Davies',
-        trade: 'Roofing Specialist',
-        rating: 4.6,
-        reviews: 87,
-        verified: true,
-        distance: '7.1 miles',
-        responseTime: '6 hours',
-        hourlyRate: '£35-55',
-        image: 'https://images.pexels.com/photos/1516680/pexels-photo-1516680.jpeg?auto=compress&cs=tinysrgb&w=400'
-      }
-    },
-    // Jobs
-    {
-      id: 'job1',
-      lat: 51.5205,
-      lng: -0.0836,
-      title: 'Kitchen Renovation - Full Remodel',
-      type: 'job',
-      data: {
-        title: 'Kitchen Renovation - Full Remodel',
-        category: 'Construction',
-        budget: '£15,000 - £25,000',
-        urgency: 'Medium',
-        postedDate: '2024-01-15',
-        description: 'Looking for a skilled professional to completely renovate our kitchen. Includes new cabinets, countertops, flooring, and appliances.',
-        contactName: 'Sarah Johnson'
-      }
-    },
-    {
-      id: 'job2',
-      lat: 51.5074,
-      lng: -0.1278,
-      title: 'Emergency Plumbing - Burst Pipe',
-      type: 'job',
-      data: {
-        title: 'Emergency Plumbing - Burst Pipe',
-        category: 'Plumbing',
-        budget: '£200 - £500',
-        urgency: 'High',
-        postedDate: '2024-01-16',
-        description: 'Urgent! Burst pipe in bathroom causing water damage. Need immediate professional assistance.',
-        contactName: 'David Chen'
-      }
-    },
-    {
-      id: 'job3',
-      lat: 51.4851,
-      lng: -0.1738,
-      title: 'Garden Landscaping Project',
-      type: 'job',
-      data: {
-        title: 'Garden Landscaping Project',
-        category: 'Landscaping',
-        budget: '£5,000 - £8,000',
-        urgency: 'Low',
-        postedDate: '2024-01-14',
-        description: 'Transform our back garden with new patio, flower beds, and lawn. Looking for creative landscaping ideas.',
-        contactName: 'Emma Thompson'
-      }
-    },
-    {
-      id: 'job4',
-      lat: 51.5155,
-      lng: -0.0922,
-      title: 'Electrical Rewiring - 3 Bed House',
-      type: 'job',
-      data: {
-        title: 'Electrical Rewiring - 3 Bed House',
-        category: 'Electrical',
-        budget: '£3,000 - £5,000',
-        urgency: 'Medium',
-        postedDate: '2024-01-17',
-        description: 'Complete rewiring needed for 3-bedroom Victorian house. Must be Part P certified.',
-        contactName: 'Michael Brown'
-      }
-    },
-    {
-      id: 'job5',
-      lat: 51.4994,
-      lng: -0.1746,
-      title: 'Bathroom Installation',
-      type: 'job',
-      data: {
-        title: 'Bathroom Installation',
-        category: 'Plumbing',
-        budget: '£2,000 - £4,000',
-        urgency: 'Low',
-        postedDate: '2024-01-18',
-        description: 'New bathroom suite installation including tiling, plumbing, and electrical work.',
-        contactName: 'Lisa Wilson'
-      }
+  // Convert API data to map locations
+  const getMapLocations = (): MapLocation[] => {
+    if (viewType === 'jobs') {
+      return jobLeads
+        .filter(job => job.isActive)
+        .map(job => ({
+          id: job.id,
+          lat: 51.5074 + (Math.random() - 0.5) * 0.1, // Mock coordinates - replace with real ones from job.location
+          lng: -0.1278 + (Math.random() - 0.5) * 0.1,
+          title: job.title,
+          type: 'job' as const,
+          data: {
+            title: job.title,
+            category: job.category,
+            budget: job.budget,
+            urgency: job.urgency,
+            postedDate: job.postedDate || 'Recently',
+            description: job.description,
+            contactName: job.contactDetails?.name || 'Homeowner',
+            id: job.id
+          }
+        }));
+    } else {
+      return tradespeople
+        .filter(person => person.type === 'tradesperson')
+        .map(person => ({
+          id: person.id,
+          lat: 51.5074 + (Math.random() - 0.5) * 0.1, // Mock coordinates - replace with real ones from person.location
+          lng: -0.1278 + (Math.random() - 0.5) * 0.1,
+          title: `${person.name} - ${person.trades?.[0] || 'Professional'}`,
+          type: 'professional' as const,
+          data: {
+            name: person.name,
+            trade: person.trades?.[0] || 'Professional',
+            rating: person.rating || 0,
+            reviews: person.reviews || 0,
+            verified: person.verified || false,
+            distance: '-- miles', // Calculate based on user location
+            responseTime: '-- hours',
+            hourlyRate: '£--',
+            image: person.avatar || 'https://images.pexels.com/photos/1681010/pexels-photo-1681010.jpeg?auto=compress&cs=tinysrgb&w=400',
+            id: person.id
+          }
+        }));
     }
-  ];
+  };
 
-  const filteredLocations = mockLocations.filter(location => {
+  const mapLocations = getMapLocations();
+
+  const filteredLocations = mapLocations.filter(location => {
     if (location.type !== viewType.slice(0, -1)) return false;
     
     if (filters.category !== 'all') {
@@ -420,9 +323,9 @@ const MapView = ({ viewType }: MapViewProps) => {
     }
 
     // Find the actual job lead in state (this is a mock, in real app you'd have the actual job ID)
-    const jobLead = state.jobLeads.find(lead => lead.title === selectedJob.title);
+    const jobLead = jobLeads.find(lead => lead.title === selectedJob.title);
     if (jobLead) {
-      dispatch({ type: 'PURCHASE_LEAD', payload: { leadId: jobLead.id, userId: state.currentUser.id } });
+      dispatch({ type: 'PURCHASE_LEAD', payload: { leadId: jobLead.id, tradespersonId: state.currentUser.id, price: pricing.finalPrice } });
       
       // Force a small delay to ensure state updates, then show confirmation
       setTimeout(() => {
@@ -462,7 +365,7 @@ const MapView = ({ viewType }: MapViewProps) => {
     const pricing = calculateInterestPrice(state.currentUser.membershipType);
 
     // Find the actual job lead in state
-    const jobLead = state.jobLeads.find(lead => lead.title === selectedJob.title);
+    const jobLead = jobLeads.find(lead => lead.title === selectedJob.title);
     if (jobLead) {
       const interest: Interest = {
         id: `int_${Date.now()}`,
@@ -474,7 +377,7 @@ const MapView = ({ viewType }: MapViewProps) => {
         price: pricing.finalPrice
       };
 
-      dispatch({ type: 'EXPRESS_INTEREST', payload: { leadId: jobLead.id, interest } });
+      dispatch({ type: 'EXPRESS_INTEREST', payload: { leadId: jobLead.id, tradespersonId: state.currentUser.id, message: interestMessage, price: pricing.finalPrice } });
       
       if (pricing.finalPrice === 0) {
         alert('Interest expressed successfully with your VIP membership! No charge if accepted.');
@@ -619,6 +522,23 @@ const MapView = ({ viewType }: MapViewProps) => {
       </div>
 
       {/* Map Container */}
+      {loading ? (
+        <div className="flex-1 flex items-center justify-center bg-gray-50">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600"></div>
+        </div>
+      ) : error ? (
+        <div className="flex-1 flex items-center justify-center bg-gray-50">
+          <div className="text-center">
+            <p className="text-red-600 mb-4">{error}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      ) : (
       <div className="flex-1 relative">
         <MapContainer
           center={mapCenter}
@@ -805,6 +725,7 @@ const MapView = ({ viewType }: MapViewProps) => {
           </div>
         </div>
       </div>
+      )}
 
       {/* Job Details Modal */}
       {showJobDetails && selectedJob && (
@@ -933,8 +854,8 @@ const MapView = ({ viewType }: MapViewProps) => {
                         </div>
                       </div>
                       {state.currentUser.credits !== undefined && (
-                        <p className="text-blue-700 mt-2 text-sm">
-                          <strong>Your Credits:</strong> £{state.currentUser.credits.toFixed(2)}
+                        <p className="text-sm text-gray-600 mb-4">
+                          <strong>Your Credits:</strong> £{state.currentUser.credits ? Number(state.currentUser.credits).toFixed(2) : '0.00'}
                         </p>
                       )}
                     </div>

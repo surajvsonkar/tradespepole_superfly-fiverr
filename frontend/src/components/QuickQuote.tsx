@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { X, Calculator, Clock, CheckCircle } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { QuoteRequest } from '../types';
+import { quoteService } from '../services/quoteService';
 
 interface QuickQuoteProps {
   isOpen: boolean;
@@ -12,6 +13,8 @@ interface QuickQuoteProps {
 const QuickQuote = ({ isOpen, onClose, tradeName }: QuickQuoteProps) => {
   const { state, dispatch } = useApp();
   const [step, setStep] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     projectType: '',
     urgency: '',
@@ -31,43 +34,69 @@ const QuickQuote = ({ isOpen, onClose, tradeName }: QuickQuoteProps) => {
     if (step < 3) setStep(step + 1);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!state.currentUser) {
       dispatch({ type: 'SHOW_AUTH_MODAL', payload: { mode: 'signup', userType: 'homeowner' } });
       return;
     }
 
-    const newQuoteRequest: QuoteRequest = {
-      id: `quote_${Date.now()}`,
-      homeownerId: state.currentUser.id,
-      homeownerName: state.currentUser.name,
-      projectTitle: `${tradeName} - ${formData.projectType}`,
-      projectDescription: formData.description,
-      category: tradeName,
-      location: formData.contact.postcode,
-      budget: formData.budget,
-      urgency: formData.urgency as 'Low' | 'Medium' | 'High',
-      contactDetails: {
-        name: formData.contact.name,
-        email: formData.contact.email,
-        phone: formData.contact.phone
-      },
-      createdAt: new Date().toISOString(),
-      responses: [],
-      maxResponses: 5
-    };
+    setLoading(true);
+    setError(null);
 
-    dispatch({ type: 'ADD_QUOTE_REQUEST', payload: newQuoteRequest });
-    alert('Quote request submitted! Tradespeople can now respond with their quotes.');
-    onClose();
-    setStep(1);
-    setFormData({
-      projectType: '',
-      urgency: '',
-      budget: '',
-      description: '',
-      contact: { name: '', email: '', phone: '', postcode: '' }
-    });
+    try {
+      // Map frontend urgency values to backend enum (Low, Medium, High)
+      const mapUrgency = (urgency: string): 'Low' | 'Medium' | 'High' => {
+        switch (urgency) {
+          case 'asap':
+            return 'High';
+          case 'week':
+            return 'High';
+          case 'month':
+            return 'Medium';
+          case 'flexible':
+            return 'Low';
+          default:
+            return 'Medium';
+        }
+      };
+
+      // Create quote request via API
+      const quoteData = {
+        projectTitle: `${tradeName} - ${formData.projectType}`,
+        projectDescription: formData.description,
+        category: tradeName,
+        location: formData.contact.postcode,
+        budget: formData.budget,
+        urgency: mapUrgency(formData.urgency),
+        contactDetails: {
+          name: formData.contact.name,
+          email: formData.contact.email,
+          phone: formData.contact.phone
+        }
+      };
+
+      const response = await quoteService.createQuoteRequest(quoteData);
+      
+      // Update local state with the created quote
+      dispatch({ type: 'ADD_QUOTE_REQUEST', payload: response.quoteRequest });
+      
+      alert('Quote request submitted! Tradespeople can now respond with their quotes.');
+      onClose();
+      setStep(1);
+      setFormData({
+        projectType: '',
+        urgency: '',
+        budget: '',
+        description: '',
+        contact: { name: '', email: '', phone: '', postcode: '' }
+      });
+    } catch (err: any) {
+      console.error('Failed to create quote request:', err);
+      setError(err.response?.data?.error || 'Failed to submit quote request. Please try again.');
+      alert('Failed to submit quote request. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -286,10 +315,10 @@ const QuickQuote = ({ isOpen, onClose, tradeName }: QuickQuoteProps) => {
               ) : (
                 <button
                   onClick={handleSubmit}
-                  disabled={!formData.contact.name || !formData.contact.email || !formData.contact.phone || !formData.contact.postcode}
+                  disabled={!formData.contact.name || !formData.contact.email || !formData.contact.phone || !formData.contact.postcode || loading}
                   className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
                 >
-                  Get My Quotes
+                  {loading ? 'Submitting...' : 'Get My Quotes'}
                 </button>
               )}
             </div>

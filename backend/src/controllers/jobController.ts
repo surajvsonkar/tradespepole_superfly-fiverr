@@ -431,7 +431,8 @@ export const updateJobLead = async (req: AuthRequest, res: Response): Promise<vo
       budget,
       urgency,
       contactDetails,
-      isActive
+      isActive,
+      hiredTradesperson
     } = req.body;
 
     const updatedJobLead = await prisma.jobLead.update({
@@ -444,7 +445,8 @@ export const updateJobLead = async (req: AuthRequest, res: Response): Promise<vo
         ...(budget && { budget }),
         ...(urgency && { urgency }),
         ...(contactDetails && { contactDetails }),
-        ...(isActive !== undefined && { isActive })
+        ...(isActive !== undefined && { isActive }),
+        ...(hiredTradesperson && { hiredTradesperson })
       }
     });
 

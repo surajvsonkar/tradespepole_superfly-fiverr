@@ -1,21 +1,33 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArrowLeft, User, Mail, MapPin, Calendar, Edit2, Save, X, Pause, Play, Trash2, Zap, AlertTriangle, UserCheck, Star, MessageCircle } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { Review, Conversation } from '../types';
+import { Review, Conversation, JobLead } from '../types';
 import MessagingModal from './MessagingModal';
 import ConversationsList from './ConversationsList';
+import { jobService } from '../services/jobService';
+import { userService } from '../services/userService';
+import { reviewService } from '../services/reviewService';
 
 const HomeownerProfile = () => {
   const { state, dispatch } = useApp();
   const [isEditing, setIsEditing] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [myProjects, setMyProjects] = useState<JobLead[]>([]);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showParkConfirm, setShowParkConfirm] = useState(false);
-  const [showCancelJobConfirm, setShowCancelJobConfirm] = useState(false);
   const [selectedJobToCancel, setSelectedJobToCancel] = useState<string | null>(null);
+  const [showCancelJobConfirm, setShowCancelJobConfirm] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [showConversationsList, setShowConversationsList] = useState(false);
   const [showMessaging, setShowMessaging] = useState(false);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
+  
+  const [editData, setEditData] = useState({
+    name: state.currentUser?.name || '',
+    email: state.currentUser?.email || '',
+    location: state.currentUser?.location || ''
+  });
+
   const [reviewData, setReviewData] = useState({
     jobId: '',
     tradespersonId: '',
@@ -23,11 +35,23 @@ const HomeownerProfile = () => {
     comment: ''
   });
 
-  const [editData, setEditData] = useState({
-    name: state.currentUser?.name || '',
-    email: state.currentUser?.email || '',
-    location: state.currentUser?.location || ''
-  });
+  useEffect(() => {
+    const fetchMyData = async () => {
+      if (!state.currentUser) return;
+      
+      setLoading(true);
+      try {
+        const response = await jobService.getMyJobs();
+        setMyProjects(response.jobLeads || []);
+      } catch (err) {
+        console.error('Failed to fetch my jobs:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMyData();
+  }, [state.currentUser]);
 
   if (!state.currentUser || state.currentUser.type !== 'homeowner') {
     return null;
@@ -49,37 +73,45 @@ const HomeownerProfile = () => {
     setShowReviewModal(true);
   };
 
-  const submitReview = () => {
+  const submitReview = async () => {
     if (!state.currentUser || !reviewData.comment.trim()) {
       alert('Please fill in all fields');
       return;
     }
 
-    const review: Review = {
-      id: `review_${Date.now()}`,
-      jobId: reviewData.jobId,
-      tradespersonId: reviewData.tradespersonId,
-      homeownerId: state.currentUser.id,
-      rating: reviewData.rating,
-      comment: reviewData.comment,
-      createdAt: new Date().toISOString()
-    };
+    try {
+      const review = await reviewService.createReview({
+        jobId: reviewData.jobId,
+        tradespersonId: reviewData.tradespersonId,
+        rating: reviewData.rating,
+        comment: reviewData.comment
+      });
 
-    dispatch({ type: 'ADD_REVIEW', payload: review });
-    setShowReviewModal(false);
-    setReviewData({ jobId: '', tradespersonId: '', rating: 5, comment: '' });
-    alert('Review submitted successfully!');
+      dispatch({ type: 'ADD_REVIEW', payload: review.review });
+      setShowReviewModal(false);
+      setReviewData({ jobId: '', tradespersonId: '', rating: 5, comment: '' });
+      alert('Review submitted successfully!');
+    } catch (error) {
+      console.error('Failed to submit review:', error);
+      alert('Failed to submit review');
+    }
   };
 
-  const handleSave = () => {
-    const updatedUser = {
-      ...state.currentUser,
-      name: editData.name,
-      email: editData.email,
-      location: editData.location
-    };
-    dispatch({ type: 'SET_USER', payload: updatedUser });
-    setIsEditing(false);
+  const handleSave = async () => {
+    try {
+      const response = await userService.updateProfile({
+        name: editData.name,
+        location: editData.location
+        // Email update might require separate flow or verification, but sending it if API supports
+      });
+      
+      dispatch({ type: 'SET_USER', payload: response.user });
+      setIsEditing(false);
+      alert('Profile updated successfully!');
+    } catch (error) {
+      console.error('Failed to update profile:', error);
+      alert('Failed to update profile');
+    }
   };
 
   const handleCancel = () => {
@@ -91,21 +123,29 @@ const HomeownerProfile = () => {
     setIsEditing(false);
   };
 
-  const myProjects = state.jobLeads.filter(lead => lead.postedBy === state.currentUser.id);
-
-  const handleParkAccount = () => {
-    dispatch({ type: 'PARK_ACCOUNT', payload: state.currentUser.id });
-    setShowParkConfirm(false);
-    alert('Account parked successfully. You can reactivate anytime from your profile.');
+  const handleParkAccount = async () => {
+    try {
+      dispatch({ type: 'PARK_ACCOUNT', payload: state.currentUser!.id });
+      setShowParkConfirm(false);
+      alert('Account parked successfully. You can reactivate anytime from your profile.');
+    } catch (error) {
+      console.error('Failed to park account:', error);
+      alert('Failed to park account');
+    }
   };
 
-  const handleReactivateAccount = () => {
-    dispatch({ type: 'REACTIVATE_ACCOUNT', payload: state.currentUser.id });
-    alert('Account reactivated successfully! You\'re now live again.');
+  const handleReactivateAccount = async () => {
+    try {
+      dispatch({ type: 'REACTIVATE_ACCOUNT', payload: state.currentUser!.id });
+      alert('Account reactivated successfully! You\'re now live again.');
+    } catch (error) {
+      console.error('Failed to reactivate account:', error);
+      alert('Failed to reactivate account');
+    }
   };
 
   const handleDeleteAccount = () => {
-    dispatch({ type: 'DELETE_ACCOUNT', payload: state.currentUser.id });
+    dispatch({ type: 'DELETE_ACCOUNT', payload: state.currentUser!.id });
     setShowDeleteConfirm(false);
     alert('Account deleted successfully.');
   };
@@ -119,58 +159,92 @@ const HomeownerProfile = () => {
     setShowCancelJobConfirm(true);
   };
 
-  const confirmCancelJob = () => {
+  const confirmCancelJob = async () => {
     if (!selectedJobToCancel) return;
     
-    // Mark job as inactive/cancelled
-    const updatedJobLeads = state.jobLeads.map(lead => 
-      lead.id === selectedJobToCancel 
-        ? { ...lead, isActive: false, cancelledAt: new Date().toISOString() }
-        : lead
-    );
-    
-    // Update the job leads in state
-    dispatch({ type: 'UPDATE_JOB_LEADS', payload: updatedJobLeads });
-    
-    setShowCancelJobConfirm(false);
-    setSelectedJobToCancel(null);
-    alert('Job cancelled successfully. It will no longer be visible to tradespeople.');
+    try {
+      await jobService.deleteJobLead(selectedJobToCancel);
+      
+      setMyProjects(prev => prev.map(lead => 
+        lead.id === selectedJobToCancel 
+          ? { ...lead, isActive: false, cancelledAt: new Date().toISOString() }
+          : lead
+      ));
+      
+      const updatedJobLeads = state.jobLeads.map(lead => 
+        lead.id === selectedJobToCancel 
+          ? { ...lead, isActive: false, cancelledAt: new Date().toISOString() }
+          : lead
+      );
+      dispatch({ type: 'UPDATE_JOB_LEADS', payload: updatedJobLeads });
+      
+      setShowCancelJobConfirm(false);
+      setSelectedJobToCancel(null);
+      alert('Job cancelled successfully. It will no longer be visible to tradespeople.');
+    } catch (error) {
+      console.error('Failed to cancel job:', error);
+      alert('Failed to cancel job');
+    }
   };
 
-  const handleHireTradesperson = (jobId: string, tradespersonId: string) => {
-    const job = state.jobLeads.find(lead => lead.id === jobId);
+  const handleHireTradesperson = async (jobId: string, tradespersonId: string) => {
+    const job = myProjects.find(lead => lead.id === jobId);
     const tradesperson = state.users.find(user => user.id === tradespersonId);
     
-    if (!job || !tradesperson) {
-      alert('Job or tradesperson not found');
+    if (!job) {
+      alert('Job not found');
       return;
     }
 
-    dispatch({ type: 'HIRE_TRADESPERSON', payload: { jobId, tradespersonId } });
-    alert(`You have hired ${tradesperson.name} for this job! The job is now closed to other applicants.`);
+    try {
+      // Update job lead to set hired tradesperson and deactivate
+      await jobService.updateJobLead(jobId, {
+        hiredTradesperson: tradespersonId,
+        isActive: false
+      });
+
+      dispatch({ type: 'HIRE_TRADESPERSON', payload: { jobId, tradespersonId } });
+      
+      setMyProjects(prev => prev.map(lead => 
+        lead.id === jobId 
+          ? { ...lead, hiredTradesperson: tradespersonId, isActive: false }
+          : lead
+      ));
+      
+      alert(`You have hired ${tradesperson?.name || 'the tradesperson'} for this job! The job is now closed to other applicants.`);
+    } catch (error) {
+      console.error('Failed to hire tradesperson:', error);
+      alert('Failed to hire tradesperson');
+    }
   };
 
-  const handleAcceptInterest = (leadId: string, interestId: string) => {
-    dispatch({ type: 'ACCEPT_INTEREST', payload: { leadId, interestId } });
-    
-    // Create conversation when interest is accepted
-    const lead = state.jobLeads.find(l => l.id === leadId);
-    const interest = lead?.interests.find(i => i.id === interestId);
-    
-    if (lead && interest && state.currentUser) {
-      setTimeout(() => {
-        dispatch({
-          type: 'CREATE_CONVERSATION',
-          payload: {
-            jobId: leadId,
-            homeownerId: state.currentUser!.id,
-            tradespersonId: interest.tradespersonId
-          }
-        });
-      }, 100);
+  const handleAcceptInterest = async (leadId: string, interestId: string) => {
+    try {
+      await jobService.updateInterestStatus(leadId, interestId, 'accepted');
+      
+      dispatch({ type: 'ACCEPT_INTEREST', payload: { leadId, interestId } });
+      
+      const lead = state.jobLeads.find(l => l.id === leadId);
+      const interest = lead?.interests.find(i => i.id === interestId);
+      
+      if (lead && interest && state.currentUser) {
+        setTimeout(() => {
+          dispatch({
+            type: 'CREATE_CONVERSATION',
+            payload: {
+              jobId: leadId,
+              homeownerId: state.currentUser!.id,
+              tradespersonId: interest.tradespersonId
+            }
+          });
+        }, 100);
+      }
+      
+      alert('Interest accepted! The tradesperson now has access to your contact details and can message you about the project.');
+    } catch (error) {
+      console.error('Failed to accept interest:', error);
+      alert('Failed to accept interest');
     }
-    
-    alert('Interest accepted! The tradesperson now has access to your contact details and can message you about the project.');
   };
 
   return (
@@ -293,7 +367,11 @@ const HomeownerProfile = () => {
                 </div>
               </div>
 
-              {myProjects.length === 0 ? (
+              {loading ? (
+                <div className="flex justify-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                </div>
+              ) : myProjects.length === 0 ? (
                 <div className="text-center py-8">
                   <p className="text-gray-500 mb-4">You haven't posted any projects yet</p>
                   <button
@@ -310,7 +388,6 @@ const HomeownerProfile = () => {
                     
                     return (
                       <div key={project.id} className="border border-gray-200 rounded-lg p-4 relative">
-                        {/* Cancel Job Button */}
                         {project.isActive !== false && (
                           <button
                             onClick={() => handleCancelJob(project.id)}
@@ -351,7 +428,6 @@ const HomeownerProfile = () => {
                           <span className="text-sm text-gray-500">Posted {project.postedDate}</span>
                         </div>
                         
-                        {/* Show professionals who purchased this lead with hire options */}
                         {project.purchasedBy.length > 0 && project.isActive && !project.hiredTradesperson && (
                           <div className="mt-4 pt-4 border-t border-gray-100">
                             <h4 className="font-semibold text-gray-800 mb-3">Professionals Available to Hire</h4>
@@ -372,14 +448,13 @@ const HomeownerProfile = () => {
                                           <p className="text-sm text-gray-600 truncate">{tradesperson.trades?.join(', ')}</p>
                                           <div className="flex items-center text-sm text-gray-500">
                                             <Star className="w-4 h-4 text-yellow-400 fill-current mr-1" />
-                                            {tradesperson.rating?.toFixed(1) || '0.0'} ({tradesperson.reviews || 0} reviews)
+                                            {tradesperson.rating ? Number(tradesperson.rating).toFixed(1) : '0.0'} ({tradesperson.reviews || 0} reviews)
                                           </div>
                                         </div>
                                       </div>
                                       <div className="flex space-x-2 flex-shrink-0">
                                         <button
                                           onClick={() => {
-                                            // Open messaging modal - conversation will be created when first message is sent
                                             setShowMessaging(true);
                                             setSelectedConversation({
                                               id: `temp_${project.id}_${tradespersonId}`,
@@ -414,7 +489,6 @@ const HomeownerProfile = () => {
                           </div>
                         )}
                         
-                        {/* Show hired tradesperson */}
                         {hiredTradesperson && (
                           <div className="mt-4 pt-4 border-t border-gray-100">
                             <div className="bg-green-50 border border-green-200 rounded-lg p-4">
@@ -427,7 +501,6 @@ const HomeownerProfile = () => {
                                 <div className="flex space-x-2">
                                   <button
                                     onClick={() => {
-                                      // Open messaging modal - conversation will be created when first message is sent
                                       setShowMessaging(true);
                                       setSelectedConversation({
                                         id: `temp_${project.id}_${hiredTradesperson.id}`,
@@ -524,7 +597,6 @@ const HomeownerProfile = () => {
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Park/Reactivate Account */}
             {state.currentUser.accountStatus !== 'parked' ? (
               <button
                 onClick={() => setShowParkConfirm(true)}
@@ -543,7 +615,6 @@ const HomeownerProfile = () => {
               </button>
             )}
 
-            {/* Boost Profile */}
             <button
               onClick={handleBoostProfile}
               className="flex items-center justify-center px-4 py-3 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
@@ -552,7 +623,6 @@ const HomeownerProfile = () => {
               Boost Profile
             </button>
 
-            {/* Delete Account */}
             <button
               onClick={() => setShowDeleteConfirm(true)}
               className="flex items-center justify-center px-4 py-3 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
@@ -569,7 +639,7 @@ const HomeownerProfile = () => {
           </div>
         </div>
 
-        {/* Park Account Confirmation Modal */}
+        {/* Modals */}
         {showParkConfirm && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4">
@@ -599,7 +669,6 @@ const HomeownerProfile = () => {
           </div>
         )}
 
-        {/* Delete Account Confirmation Modal */}
         {showDeleteConfirm && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4">
@@ -629,7 +698,6 @@ const HomeownerProfile = () => {
           </div>
         )}
 
-        {/* Cancel Job Confirmation Modal */}
         {showCancelJobConfirm && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4">
@@ -664,7 +732,6 @@ const HomeownerProfile = () => {
           </div>
         )}
 
-        {/* Review Modal */}
         {showReviewModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4">
@@ -724,7 +791,6 @@ const HomeownerProfile = () => {
           </div>
         )}
 
-        {/* Conversations List Modal */}
         {showConversationsList && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
@@ -742,14 +808,13 @@ const HomeownerProfile = () => {
           </div>
         )}
 
-        {/* Messaging Modal */}
-        <MessagingModal
-          isOpen={showMessaging}
-          onClose={() => setShowMessaging(false)}
-          conversation={selectedConversation?.id ? selectedConversation : undefined}
-          jobId={selectedConversation?.jobId}
-          otherUserId={selectedConversation?.otherUserId}
-        />
+        {showMessaging && selectedConversation && (
+          <MessagingModal
+            isOpen={showMessaging}
+            onClose={() => setShowMessaging(false)}
+            conversation={selectedConversation}
+          />
+        )}
       </div>
     </div>
   );

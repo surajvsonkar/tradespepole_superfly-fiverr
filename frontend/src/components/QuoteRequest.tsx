@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowLeft, MapPin, Calendar, DollarSign, Users, MessageCircle, CreditCard, CheckCircle, Clock, AlertTriangle, Star } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { QuoteRequest as QuoteRequestType, QuoteResponse } from '../types';
+import { quoteService } from '../services/quoteService';
 
 const QuoteRequest = () => {
   const { state, dispatch } = useApp();
@@ -12,6 +13,34 @@ const QuoteRequest = () => {
     description: '',
     timeline: ''
   });
+  const [quoteRequests, setQuoteRequests] = useState<QuoteRequestType[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  // Fetch quote requests from API
+  useEffect(() => {
+    const fetchQuotes = async () => {
+      if (!state.currentUser) {
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await quoteService.getQuoteRequests();
+        setQuoteRequests(response.quoteRequests || []);
+      } catch (err) {
+        console.error('Failed to fetch quote requests:', err);
+        setError('Failed to load quote requests. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchQuotes();
+  }, [state.currentUser]);
 
   // Calculate pricing based on membership
   const calculateQuotePrice = (membershipType: string = 'none') => {
@@ -72,36 +101,47 @@ const QuoteRequest = () => {
     setShowResponseModal(true);
   };
 
-  const submitQuoteResponse = () => {
+  const submitQuoteResponse = async () => {
     if (!selectedQuote || !state.currentUser || !responseData.quotedPrice || !responseData.description || !responseData.timeline) {
       alert('Please fill in all fields');
       return;
     }
 
+    setSubmitting(true);
     const pricing = calculateQuotePrice(state.currentUser.membershipType);
 
-    const response: QuoteResponse = {
-      id: `resp_${Date.now()}`,
-      tradespersonId: state.currentUser.id,
-      tradespersonName: state.currentUser.name,
-      quotedPrice: parseFloat(responseData.quotedPrice),
-      description: responseData.description,
-      timeline: responseData.timeline,
-      paidAmount: pricing.finalPrice,
-      membershipDiscount: pricing.discount,
-      createdAt: new Date().toISOString(),
-      status: 'pending'
-    };
+    try {
+      const responsePayload = {
+        quotedPrice: parseFloat(responseData.quotedPrice),
+        description: responseData.description,
+        timeline: responseData.timeline
+      };
 
-    dispatch({ type: 'RESPOND_TO_QUOTE', payload: { quoteId: selectedQuote, response } });
-    setShowResponseModal(false);
-    setResponseData({ quotedPrice: '', description: '', timeline: '' });
-    setSelectedQuote(null);
-    
-    if (pricing.finalPrice > 0) {
-      alert(`Quote submitted successfully! You've been charged £${pricing.finalPrice.toFixed(2)}.`);
-    } else {
-      alert('Quote submitted successfully! No charge due to your 5-year unlimited membership.');
+      const response = await quoteService.submitQuoteResponse(selectedQuote, responsePayload);
+      
+      // Update local state
+      setQuoteRequests(prev => prev.map(quote => 
+        quote.id === selectedQuote 
+          ? { ...quote, responses: [...quote.responses, response.response] }
+          : quote
+      ));
+      
+      dispatch({ type: 'RESPOND_TO_QUOTE', payload: { quoteId: selectedQuote, response: response.response } });
+      
+      setShowResponseModal(false);
+      setResponseData({ quotedPrice: '', description: '', timeline: '' });
+      setSelectedQuote(null);
+      
+      if (pricing.finalPrice > 0) {
+        alert(`Quote submitted successfully! You've been charged £${pricing.finalPrice.toFixed(2)}.`);
+      } else {
+        alert('Quote submitted successfully! No charge due to your 5-year unlimited membership.');
+      }
+    } catch (err: any) {
+      console.error('Failed to submit quote response:', err);
+      alert(err.response?.data?.error || 'Failed to submit quote. Please try again.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -188,8 +228,31 @@ const QuoteRequest = () => {
           </div>
         )}
 
+        {loading ? (
+          <div className="flex justify-center items-center py-20">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600"></div>
+          </div>
+        ) : error ? (
+          <div className="text-center py-20">
+            <p className="text-red-600 mb-4">{error}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        ) : quoteRequests.length === 0 ? (
+          <div className="text-center py-20 bg-white rounded-xl shadow-sm border border-gray-200">
+            <p className="text-gray-600 text-lg mb-4">
+              {state.currentUser?.type === 'homeowner'
+                ? "You haven't created any quote requests yet."
+                : "No quote requests available at the moment."}
+            </p>
+          </div>
+        ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {state.quoteRequests.map((quote) => {
+          {quoteRequests.map((quote) => {
             const canRespond = quote.responses.length < quote.maxResponses;
             const hasResponded = state.currentUser && quote.responses.some(
               response => response.tradespersonId === state.currentUser!.id
@@ -310,6 +373,7 @@ const QuoteRequest = () => {
             );
           })}
         </div>
+        )}
 
         {/* Quote Response Modal */}
         {showResponseModal && (
@@ -395,10 +459,10 @@ const QuoteRequest = () => {
                 </button>
                 <button
                   onClick={submitQuoteResponse}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-                  disabled={!responseData.quotedPrice || !responseData.description || !responseData.timeline}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
+                  disabled={!responseData.quotedPrice || !responseData.description || !responseData.timeline || submitting}
                 >
-                  Submit Quote
+                  {submitting ? 'Submitting...' : 'Submit Quote'}
                 </button>
               </div>
             </div>

@@ -22,6 +22,11 @@ export interface User {
     radius: number;
     coordinates?: { lat: number; lng: number };
   };
+  // Tradesperson-specific fields
+  phone?: string;
+  businessName?: string;
+  companyDescription?: string;
+  portfolio?: PortfolioItem[];
 }
 
 export interface JobLead {

@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
-import { ArrowLeft, User, Building, Star, FileText, Shield, CreditCard, Settings, MapPin, Users, Bell, HelpCircle, LogOut, Edit, Save, X, MessageCircle, Eye, Calendar, DollarSign, CheckCircle, Clock, AlertTriangle, Pause, Play, Trash2, Zap, Upload, Camera, Heart, Briefcase } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { ArrowLeft, User, Building, Star, FileText, Shield, CreditCard, Settings, MapPin, Users, Bell, HelpCircle, LogOut, Save, X, MessageCircle, Calendar, DollarSign, AlertTriangle, Pause, Play, Trash2, Zap, Upload, Heart } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { PortfolioItem } from '../types';
+import { PortfolioItem, Conversation, Review } from '../types';
 import IDVerification from './IDVerification';
 import WorkingAreaSelector, { WorkingAreaData } from './WorkingAreaSelector';
 import MessagingModal from './MessagingModal';
 import ConversationsList from './ConversationsList';
-import { Conversation } from '../types';
+import QuoteRequest from './QuoteRequest';
+import { userService } from '../services/userService';
+import { reviewService } from '../services/reviewService';
 
 const TradespersonProfile = () => {
   const { state, dispatch } = useApp();
@@ -93,11 +95,36 @@ const TradespersonProfile = () => {
     phone: state.currentUser?.phone || '',
     businessName: state.currentUser?.businessName || ''
   });
+  const [reviews, setReviews] = useState<Review[]>([]);
+
+  useEffect(() => {
+    const fetchProfileData = async () => {
+      if (state.currentUser?.id) {
+        try {
+          // Fetch reviews
+          const reviewsResponse = await reviewService.getUserReviews(state.currentUser.id);
+          setReviews(reviewsResponse.reviews || []);
+          
+          // Fetch latest user details
+          const userResponse = await userService.getUserById(state.currentUser.id);
+          if (userResponse.user) {
+             // dispatch({ type: 'SET_USER', payload: userResponse.user });
+          }
+
+        } catch (error) {
+          console.error('Error fetching profile data:', error);
+        }
+      }
+    };
+    
+    fetchProfileData();
+  }, [state.currentUser?.id]);
 
   const navigationItems = [
     { id: 'job-leads', label: 'New leads', action: () => dispatch({ type: 'SET_VIEW', payload: 'job-leads' }) },
     { id: 'purchased-leads', label: 'Purchased leads', action: () => setActiveTab('purchased-leads') },
     { id: 'activity', label: 'Activity', action: () => setActiveTab('activity') },
+    { id: 'quote-requests', label: 'Quote Requests', action: () => setActiveTab('quote-requests') },
     { id: 'contacts', label: 'Contacts', action: () => setShowConversationsList(true) },
     { id: 'account', label: 'My account', action: () => setActiveTab('manage-account') }
   ];
@@ -396,8 +423,8 @@ const TradespersonProfile = () => {
     alert(`${type === 'leads' ? 'Lead settings' : 'Services'} updated successfully!`);
   };
 
-  // Get user's reviews
-  const userReviews = state.reviews.filter(review => review.tradespersonId === state.currentUser.id);
+  // Get user's reviews (use fetched reviews)
+  const userReviews = reviews;
   
   // Filter purchased leads to show both purchased and accepted interests
   const purchasedLeads = state.jobLeads.filter(lead => {
@@ -438,6 +465,9 @@ const TradespersonProfile = () => {
 
   const renderContent = () => {
     switch (activeTab) {
+      case 'quote-requests':
+        return <QuoteRequest />;
+      
       case 'company-description':
         return (
           <div className="space-y-6">
@@ -522,7 +552,7 @@ const TradespersonProfile = () => {
                   />
                 ))}
                 <span className="ml-2 text-sm font-medium text-gray-700">
-                  {state.currentUser.rating?.toFixed(1) || '0.0'}
+                  {state.currentUser.rating ? Number(state.currentUser.rating).toFixed(1) : '0.0'}
                 </span>
                 <span className="text-gray-500 ml-1">({userReviews.length} reviews)</span>
               </div>
@@ -544,7 +574,7 @@ const TradespersonProfile = () => {
                     ))}
                   </div>
                   <span className="text-sm font-medium text-gray-700">
-                    {state.currentUser?.rating?.toFixed(1) || '0.0'} ({userReviews.length} reviews)
+                    {state.currentUser?.rating ? Number(state.currentUser.rating).toFixed(1) : '0.0'} ({userReviews.length} reviews)
                   </span>
                 </div>
               </div>
@@ -736,7 +766,7 @@ const TradespersonProfile = () => {
                       </div>
                       <div className="flex items-center">
                         <Heart className="w-4 h-4 mr-1 text-green-600" />
-                        Interest Fee: £{myInterest?.price.toFixed(2) || '0.00'}
+                        Interest Fee: £{myInterest?.price ? Number(myInterest.price).toFixed(2) : '0.00'}
                       </div>
                     </div>
 
@@ -1308,9 +1338,9 @@ const TradespersonProfile = () => {
             <h2 className="text-xl font-semibold text-gray-900">Balance</h2>
             <div className="bg-green-50 border border-green-200 rounded-lg p-6">
               <div className="text-center">
-                <div className="text-3xl font-bold text-green-600 mb-2">
-                  £{state.currentUser.credits?.toFixed(2) || '0.00'}
-                </div>
+                <span className="text-2xl font-bold text-gray-900">
+                  £{state.currentUser.credits ? Number(state.currentUser.credits).toFixed(2) : '0.00'}
+                </span>
                 <p className="text-green-700">Current balance</p>
                 <button className="mt-4 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
                   Top Up Balance

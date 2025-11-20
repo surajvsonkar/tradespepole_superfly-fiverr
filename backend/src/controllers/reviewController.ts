@@ -165,3 +165,40 @@ export const getReviewById = async (req: AuthRequest, res: Response): Promise<vo
     res.status(500).json({ error: 'Failed to get review' });
   }
 };
+
+// Get recent reviews (for landing page)
+export const getRecentReviews = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { limit = '3' } = req.query;
+
+    const reviews = await prisma.review.findMany({
+      include: {
+        homeowner: {
+          select: {
+            id: true,
+            name: true,
+            avatar: true,
+            location: true
+          }
+        },
+        tradesperson: {
+          select: {
+            id: true,
+            name: true,
+            trades: true,
+            avatar: true
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      },
+      take: parseInt(limit as string)
+    });
+
+    res.status(200).json({ reviews });
+  } catch (error) {
+    console.error('Get recent reviews error:', error);
+    res.status(500).json({ error: 'Failed to get recent reviews' });
+  }
+};

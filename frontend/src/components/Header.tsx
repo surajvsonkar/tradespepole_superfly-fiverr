@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Search, MapPin, Phone, Star, Menu, User, LogOut, CreditCard, X } from 'lucide-react';
+import { useState } from 'react';
+import { Menu, User, LogOut, CreditCard, X } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 const Header = () => {
@@ -44,7 +44,7 @@ const Header = () => {
     { key: 'browse-experts', label: 'Browse Experts', show: true },
     { key: 'submit-project', label: 'Submit Project', show: state.currentUser?.type !== 'tradesperson' },
     { key: 'job-leads', label: 'Job Leads', show: state.currentUser?.type === 'tradesperson' },
-    { key: 'quote-requests', label: 'Quote Requests', show: state.currentUser?.type !== 'tradesperson' },
+    { key: 'quote-requests', label: 'Quote Requests', show: state.currentUser?.type === 'homeowner' }, // Only for homeowners - tradespeople see it in their profile
     { key: 'boost', label: 'Boost Profile', show: state.currentUser?.type === 'tradesperson' },
     { key: 'membership', label: 'Membership', show: state.currentUser?.type === 'tradesperson' },
   ];
@@ -99,7 +99,7 @@ const Header = () => {
                 {state.currentUser.type === 'tradesperson' && (
                   <div className="flex items-center text-sm text-gray-600">
                     <CreditCard className="w-4 h-4 mr-1" />
-                    <span className="hidden lg:inline">£</span>{state.currentUser.credits?.toFixed(2)}
+                    <span className="hidden lg:inline">£</span>{state.currentUser.credits ? Number(state.currentUser.credits).toFixed(2) : '0.00'}
                   </div>
                 )}
                 
@@ -213,7 +213,7 @@ const Header = () => {
                     {state.currentUser.type === 'tradesperson' && (
                       <div className="flex items-center mt-2 text-sm text-gray-600">
                         <CreditCard className="w-4 h-4 mr-2" />
-                        <span>Credits: £{state.currentUser.credits?.toFixed(2)}</span>
+                        <span>Credits: £{state.currentUser.credits ? Number(state.currentUser.credits).toFixed(2) : '0.00'}</span>
                       </div>
                     )}
                   </div>

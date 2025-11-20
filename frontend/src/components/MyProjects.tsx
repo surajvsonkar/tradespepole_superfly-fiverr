@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { ArrowLeft, MapPin, Calendar, DollarSign, Users, UserCheck, Star, AlertTriangle, Clock, CheckCircle } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Review } from '../types';
@@ -228,7 +228,7 @@ const MyProjects = () => {
                               <p className="text-sm text-gray-600">{tradesperson.trades?.join(', ')}</p>
                               <div className="flex items-center text-sm text-gray-500">
                                 <Star className="w-4 h-4 text-yellow-400 fill-current mr-1" />
-                                {tradesperson.rating?.toFixed(1) || '0.0'} ({tradesperson.reviews || 0} reviews)
+                                {tradesperson.rating ? Number(tradesperson.rating).toFixed(1) : '0.0'} ({tradesperson.reviews || 0} reviews)
                               </div>
                             </div>
                             {project.isActive && !project.hiredTradesperson && (
