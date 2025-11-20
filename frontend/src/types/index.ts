@@ -105,6 +105,8 @@ export interface Review {
   rating: number;
   comment: string;
   createdAt: string;
+  homeowner?: { name: string; location?: string; avatar?: string };
+  tradesperson?: { name: string; trades?: string[]; avatar?: string };
 }
 
 export interface Message {
@@ -149,4 +151,5 @@ export interface AppState {
   showAuthModal: boolean;
   authMode: 'login' | 'signup';
   userType: 'homeowner' | 'tradesperson';
+  isLoading: boolean;
 }

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useReducer, ReactNode, useEffect } from 'react';
-import { AppState, User, Review, JobLead } from '../types';
+import { AppState, User, Review, JobLead, QuoteRequest } from '../types';
 import { authService, getAuthToken } from '../services';
+import { reviewService } from '../services/reviewService';
 
 const initialState: AppState = {
   currentUser: null,
@@ -13,7 +14,8 @@ const initialState: AppState = {
   conversations: [],
   showAuthModal: false,
   authMode: 'login',
-  userType: 'homeowner'
+  userType: 'homeowner',
+  isLoading: true
 };
 
 type Action = 
@@ -32,7 +34,13 @@ type Action =
   | { type: 'CREATE_CONVERSATION'; payload: { jobId: string; homeownerId: string; tradespersonId: string } }
   | { type: 'PURCHASE_LEAD'; payload: { leadId: string; tradespersonId: string; price: number } }
   | { type: 'EXPRESS_INTEREST'; payload: { leadId: string; tradespersonId: string; message: string; price: number } }
-  | { type: 'DISMISS_JOB'; payload: { jobId: string; tradespersonId: string } };
+  | { type: 'EXPRESS_INTEREST'; payload: { leadId: string; tradespersonId: string; message: string; price: number } }
+  | { type: 'DISMISS_JOB'; payload: { jobId: string; tradespersonId: string } }
+  | { type: 'SET_LOADING'; payload: boolean }
+  | { type: 'SET_REVIEWS'; payload: Review[] }
+  | { type: 'ADD_QUOTE_REQUEST'; payload: QuoteRequest }
+  | { type: 'RESPOND_TO_QUOTE'; payload: { quoteId: string; response: any } }
+  | { type: 'ACCEPT_QUOTE_RESPONSE'; payload: { quoteId: string; responseId: string } };
 
 const AppContext = createContext<{
   state: AppState;
@@ -165,6 +173,40 @@ function appReducer(state: AppState, action: Action): AppState {
             : lead
         )
       };
+    case 'SET_LOADING':
+      return { ...state, isLoading: action.payload };
+    case 'SET_REVIEWS':
+      return { ...state, reviews: action.payload };
+    case 'ADD_QUOTE_REQUEST':
+      return {
+        ...state,
+        quoteRequests: [action.payload, ...state.quoteRequests]
+      };
+    case 'RESPOND_TO_QUOTE':
+      return {
+        ...state,
+        quoteRequests: state.quoteRequests.map(req =>
+          req.id === action.payload.quoteId
+            ? { ...req, responses: [...req.responses, action.payload.response] }
+            : req
+        )
+      };
+    case 'ACCEPT_QUOTE_RESPONSE':
+      return {
+        ...state,
+        quoteRequests: state.quoteRequests.map(req =>
+          req.id === action.payload.quoteId
+            ? {
+                ...req,
+                responses: req.responses.map(res =>
+                  res.id === action.payload.responseId
+                    ? { ...res, status: 'accepted' as const }
+                    : res
+                )
+              }
+            : req
+        )
+      };
     default:
       return state;
   }
@@ -174,20 +216,41 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [state, dispatch] = useReducer(appReducer, initialState);
 
   useEffect(() => {
-    const initializeAuth = async () => {
-      const token = getAuthToken();
-      if (token) {
-        try {
-          const response = await authService.getMe();
-          dispatch({ type: 'SET_USER', payload: response.user });
-        } catch (error) {
-          console.error('Failed to initialize auth:', error);
-          authService.logout();
+    const initializeApp = async () => {
+      try {
+        // Fetch reviews in parallel with auth check if possible, or sequentially
+        // We want to load everything before showing the app
+        
+        const reviewsPromise = reviewService.getRecentReviews().catch(err => {
+            console.error('Failed to fetch reviews:', err);
+            return { reviews: [] };
+        });
+
+        const token = getAuthToken();
+        const authPromise = token ? authService.getMe().catch(err => {
+            console.error('Failed to initialize auth:', err);
+            authService.logout();
+            return null;
+        }) : Promise.resolve(null);
+
+        const [reviewsResponse, authResponse] = await Promise.all([reviewsPromise, authPromise]);
+
+        if (reviewsResponse?.reviews) {
+            dispatch({ type: 'SET_REVIEWS', payload: reviewsResponse.reviews });
         }
+
+        if (authResponse?.user) {
+            dispatch({ type: 'SET_USER', payload: authResponse.user });
+        }
+
+      } catch (error) {
+        console.error('Unexpected error during initialization:', error);
+      } finally {
+        dispatch({ type: 'SET_LOADING', payload: false });
       }
     };
 
-    initializeAuth();
+    initializeApp();
   }, []);
 
   return (

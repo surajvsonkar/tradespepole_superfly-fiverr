@@ -41,10 +41,10 @@ const Header = () => {
 
   const navigationItems = [
     { key: 'home', label: 'Home', show: true },
-    { key: 'browse-experts', label: 'Browse Experts', show: true },
+    { key: 'browse-experts', label: 'Browse Experts', show: state.currentUser?.type !== 'tradesperson' },
     { key: 'submit-project', label: 'Submit Project', show: state.currentUser?.type !== 'tradesperson' },
     { key: 'job-leads', label: 'Job Leads', show: state.currentUser?.type === 'tradesperson' },
-    { key: 'quote-requests', label: 'Quote Requests', show: state.currentUser?.type === 'homeowner' }, // Only for homeowners - tradespeople see it in their profile
+    { key: 'quote-requests', label: 'Quote Requests', show: true }, // Only for homeowners - tradespeople see it in their profile
     { key: 'boost', label: 'Boost Profile', show: state.currentUser?.type === 'tradesperson' },
     { key: 'membership', label: 'Membership', show: state.currentUser?.type === 'tradesperson' },
   ];
