@@ -974,6 +974,18 @@ const JobLeads = () => {
 											</>
 										)}
 
+										{/* Interest Already Expressed Button */}
+										{!isHomeowner && hasExpressedInterest && lead.isActive && (
+											<button
+												disabled
+												className="flex-1 bg-purple-100 text-purple-600 px-4 py-2 rounded-lg flex items-center justify-center cursor-not-allowed font-medium"
+											>
+												<Heart className="w-4 h-4 mr-2 fill-current" />
+												Interest Expressed
+											</button>
+										)}
+
+
 										{/* Status Messages */}
 										{!canPurchase && !hasPurchased && lead.isActive && (
 											<div className="flex-1 bg-gray-100 text-gray-500 px-4 py-2 rounded-lg text-center">
