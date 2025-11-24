@@ -253,7 +253,7 @@ const MapView = ({ viewType }: MapViewProps) => {
             distance: '-- miles', // Calculate based on user location
             responseTime: '-- hours',
             hourlyRate: '£--',
-            image: person.avatar || 'https://images.pexels.com/photos/1681010/pexels-photo-1681010.jpeg?auto=compress&cs=tinysrgb&w=400',
+            image: person.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(person.name)}&background=2563eb&color=fff&size=200`,
             id: person.id
           }
         }));

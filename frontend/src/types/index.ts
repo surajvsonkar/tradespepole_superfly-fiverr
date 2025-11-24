@@ -45,6 +45,7 @@ export interface JobLead {
     phone: string;
   };
   purchasedBy: string[];
+  purchasedByDetails?: User[]; // Full user details for purchasers
   maxPurchases: number;
   price: number;
   interests: Interest[];
@@ -58,6 +59,7 @@ export interface Interest {
   id: string;
   tradespersonId: string;
   tradespersonName: string;
+  tradespersonDetails?: User; // Full user details for the tradesperson
   message: string;
   date: string;
   status: 'pending' | 'accepted' | 'rejected';

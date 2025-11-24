@@ -184,7 +184,53 @@ export const getMyJobs = async (req: AuthRequest, res: Response): Promise<void> 
       }
     });
 
-    res.status(200).json({ jobLeads });
+    // Fetch user details for purchasedBy and interests
+    const enrichedJobLeads = await Promise.all(
+      jobLeads.map(async (jobLead) => {
+        // Get all unique user IDs from purchasedBy and interests
+        const purchaserIds = jobLead.purchasedBy;
+        const interestIds = (jobLead.interests as any[]).map((interest: any) => interest.tradespersonId);
+        const allUserIds = [...new Set([...purchaserIds, ...interestIds])];
+
+        // Fetch user details
+        const users = await prisma.user.findMany({
+          where: {
+            id: {
+              in: allUserIds
+            }
+          },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            type: true,
+            avatar: true,
+            location: true,
+            trades: true,
+            rating: true,
+            reviews: true,
+            verified: true
+          }
+        });
+
+        // Create a map for quick lookup
+        const userMap = new Map(users.map(u => [u.id, u]));
+
+        // Enrich interests with full user details
+        const enrichedInterests = (jobLead.interests as any[]).map((interest: any) => ({
+          ...interest,
+          tradespersonDetails: userMap.get(interest.tradespersonId) || null
+        }));
+
+        return {
+          ...jobLead,
+          interests: enrichedInterests,
+          purchasedByDetails: purchaserIds.map(id => userMap.get(id)).filter(Boolean)
+        };
+      })
+    );
+
+    res.status(200).json({ jobLeads: enrichedJobLeads });
   } catch (error) {
     console.error('Get my jobs error:', error);
     res.status(500).json({ error: 'Failed to get jobs' });

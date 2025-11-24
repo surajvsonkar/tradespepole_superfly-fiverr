@@ -40,7 +40,9 @@ type Action =
   | { type: 'SET_REVIEWS'; payload: Review[] }
   | { type: 'ADD_QUOTE_REQUEST'; payload: QuoteRequest }
   | { type: 'RESPOND_TO_QUOTE'; payload: { quoteId: string; response: any } }
-  | { type: 'ACCEPT_QUOTE_RESPONSE'; payload: { quoteId: string; responseId: string } };
+  | { type: 'RESPOND_TO_QUOTE'; payload: { quoteId: string; response: any } }
+  | { type: 'ACCEPT_QUOTE_RESPONSE'; payload: { quoteId: string; responseId: string } }
+  | { type: 'SET_USERS'; payload: User[] };
 
 const AppContext = createContext<{
   state: AppState;
@@ -59,6 +61,8 @@ function appReducer(state: AppState, action: Action): AppState {
       };
     case 'SET_USER':
       return { ...state, currentUser: action.payload };
+    case 'SET_USERS':
+      return { ...state, users: action.payload };
     case 'SHOW_AUTH_MODAL':
       return { 
         ...state, 

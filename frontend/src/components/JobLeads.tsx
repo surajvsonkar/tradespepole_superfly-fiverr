@@ -49,6 +49,9 @@ const JobLeads = () => {
 	const [jobLeads, setJobLeads] = useState<JobLead[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+	const [showPurchaseModal, setShowPurchaseModal] = useState(false);
+	const [selectedLeadForPurchase, setSelectedLeadForPurchase] = useState<string | null>(null);
+	const [isPurchasing, setIsPurchasing] = useState(false);
 
 	// Fetch job leads from API
 	useEffect(() => {
@@ -170,11 +173,6 @@ const JobLeads = () => {
 				return false;
 			}
 			
-			// Filter out jobs they've already purchased
-			if (lead.purchasedBy.includes(state.currentUser?.id || '')) {
-				return false;
-			}
-			
 			// Filter out jobs they've already expressed interest in
 			if (lead.interests.some(interest => interest.tradespersonId === state.currentUser?.id)) {
 				return false;
@@ -220,29 +218,48 @@ const JobLeads = () => {
 			return;
 		}
 
-		dispatch({
-			type: 'PURCHASE_LEAD',
-			payload: {
-				leadId,
-				tradespersonId: state.currentUser.id,
-				price: pricing.finalPrice,
-			},
-		});
+		setSelectedLeadForPurchase(leadId);
+		setShowPurchaseModal(true);
+	};
 
-		// Force a small delay to ensure state updates, then show confirmation
-		setTimeout(() => {
-			if (pricing.finalPrice === 0) {
-				alert(
-					'Lead purchased successfully with your VIP membership! No credits deducted. Contact details are now available.'
-				);
-			} else {
-				alert(
-					`Lead purchased successfully! £${pricing.finalPrice.toFixed(
-						2
-					)} has been deducted from your credits. Contact details are now available.`
-				);
-			}
-		}, 100);
+	const confirmPurchase = async () => {
+		if (!selectedLeadForPurchase || !state.currentUser) return;
+
+		setIsPurchasing(true);
+		const pricing = calculateLeadPrice(state.currentUser.membershipType);
+
+		try {
+			await jobService.purchaseJobLead(selectedLeadForPurchase);
+
+			dispatch({
+				type: 'PURCHASE_LEAD',
+				payload: {
+					leadId: selectedLeadForPurchase,
+					tradespersonId: state.currentUser.id,
+					price: pricing.finalPrice,
+				},
+			});
+
+			// Update local state to reflect purchase immediately
+			setJobLeads((prev) =>
+				prev.map((lead) =>
+					lead.id === selectedLeadForPurchase
+						? {
+								...lead,
+								purchasedBy: [...lead.purchasedBy, state.currentUser!.id],
+						  }
+						: lead
+				)
+			);
+
+			setShowPurchaseModal(false);
+			setSelectedLeadForPurchase(null);
+		} catch (error) {
+			console.error('Failed to purchase lead:', error);
+			alert('Failed to purchase lead. Please try again.');
+		} finally {
+			setIsPurchasing(false);
+		}
 	};
 
 	const handleExpressInterest = (leadId: string) => {
@@ -263,44 +280,62 @@ const JobLeads = () => {
 		setShowInterestModal(true);
 	};
 
-	const submitInterest = () => {
+	const submitInterest = async () => {
 		if (!selectedLead || !state.currentUser) return;
 
 		const pricing = calculateInterestPrice(state.currentUser.membershipType);
 
-		const interest: Interest = {
-			id: `int_${Date.now()}`,
-			tradespersonId: state.currentUser.id,
-			tradespersonName: state.currentUser.name,
-			message: interestMessage,
-			date: new Date().toISOString().split('T')[0],
-			status: 'pending',
-			price: pricing.finalPrice,
-		};
-
-		dispatch({
-			type: 'EXPRESS_INTEREST',
-			payload: {
-				leadId: selectedLead,
-				tradespersonId: state.currentUser.id,
+		try {
+			await jobService.expressInterest(selectedLead, {
 				message: interestMessage,
-				price: pricing.finalPrice,
-			},
-		});
-		setShowInterestModal(false);
-		setInterestMessage('');
-		setSelectedLead(null);
+				price: pricing.finalPrice
+			});
 
-		if (pricing.finalPrice === 0) {
-			alert(
-				'Interest expressed successfully with your VIP membership! No charge if accepted.'
-			);
-		} else {
-			alert(
-				`Interest expressed successfully! You will be charged £${pricing.finalPrice.toFixed(
-					2
-				)} if the homeowner accepts.`
-			);
+			const interest: Interest = {
+				id: `int_${Date.now()}`,
+				tradespersonId: state.currentUser.id,
+				tradespersonName: state.currentUser.name,
+				message: interestMessage,
+				date: new Date().toISOString().split('T')[0],
+				status: 'pending',
+				price: pricing.finalPrice,
+			};
+
+			dispatch({
+				type: 'EXPRESS_INTEREST',
+				payload: {
+					leadId: selectedLead,
+					tradespersonId: state.currentUser.id,
+					message: interestMessage,
+					price: pricing.finalPrice,
+				},
+			});
+
+			// Update local state
+			setJobLeads(prev => prev.map(lead => 
+				lead.id === selectedLead 
+					? { ...lead, interests: [...lead.interests, interest] }
+					: lead
+			));
+
+			setShowInterestModal(false);
+			setInterestMessage('');
+			setSelectedLead(null);
+
+			if (pricing.finalPrice === 0) {
+				alert(
+					'Interest expressed successfully with your VIP membership! No charge if accepted.'
+				);
+			} else {
+				alert(
+					`Interest expressed successfully! You will be charged £${pricing.finalPrice.toFixed(
+						2
+					)} if the homeowner accepts.`
+				);
+			}
+		} catch (error) {
+			console.error('Failed to express interest:', error);
+			alert('Failed to express interest. Please try again.');
 		}
 	};
 
@@ -905,6 +940,16 @@ const JobLeads = () => {
 												</>
 											)}
 
+										{hasPurchased && (
+											<button
+												disabled
+												className="flex-1 bg-gray-300 text-gray-600 px-4 py-2 rounded-lg flex items-center justify-center cursor-not-allowed font-medium"
+											>
+												<CheckCircle className="w-4 h-4 mr-2" />
+												Lead Purchased
+											</button>
+										)}
+
 										{/* Express Interest Button */}
 										{!isHomeowner && !hasExpressedInterest && lead.isActive && (
 											<>
@@ -943,9 +988,7 @@ const JobLeads = () => {
 										)}
 
 										{hasPurchased && (
-											<div className="flex-1 bg-green-100 text-green-700 px-4 py-2 rounded-lg text-center font-medium">
-												Purchased
-											</div>
+											<div className="hidden"></div> // Hidden because we show the button now
 										)}
 
 										{/* Message Homeowner Button for purchased leads */}
@@ -1020,6 +1063,48 @@ const JobLeads = () => {
 								</div>
 							);
 						})}
+					</div>
+				)}
+
+				{/* Purchase Confirmation Modal */}
+				{showPurchaseModal && (
+					<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+						<div className="bg-white rounded-xl p-6 max-w-md w-full mx-4">
+							<h3 className="text-lg font-semibold mb-4">Confirm Purchase</h3>
+							<p className="text-gray-600 mb-6">
+								Are you sure you want to purchase this lead?{' '}
+								<span className="font-semibold text-gray-900">
+									£
+									{calculateLeadPrice(
+										state.currentUser?.membershipType
+									).finalPrice.toFixed(2)}
+								</span>{' '}
+								will be deducted from your account.
+							</p>
+							<div className="flex justify-end space-x-3">
+								<button
+									onClick={() => setShowPurchaseModal(false)}
+									className="px-4 py-2 text-gray-600 hover:text-gray-800"
+									disabled={isPurchasing}
+								>
+									Cancel
+								</button>
+								<button
+									onClick={confirmPurchase}
+									className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center"
+									disabled={isPurchasing}
+								>
+									{isPurchasing ? (
+										<>
+											<div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+											Processing...
+										</>
+									) : (
+										'Confirm Purchase'
+									)}
+								</button>
+							</div>
+						</div>
 					</div>
 				)}
 
