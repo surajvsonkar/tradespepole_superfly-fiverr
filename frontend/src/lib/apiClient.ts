@@ -1,7 +1,7 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
 
 const getAuthToken = (): string | null => {
-	return localStorage.getItem('authToken');
+	return localStorage.getItem('token');
 };
 
 const setAuthToken = (token: string): void => {

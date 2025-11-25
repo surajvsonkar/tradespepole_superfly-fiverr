@@ -2,22 +2,70 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useChatContext } from '../context/ChatContext';
+import { useApp } from '../context/AppContext';
+import { Conversation } from '../types';
 
 interface ChatModalProps {
 	isOpen: boolean;
 	onClose: () => void;
-	currentUserId: string;
-	otherUserId: string;
-	conversationId: string;
+	conversation?: Conversation;
+	otherUserId?: string;
 }
 
 export const ChatModal: React.FC<ChatModalProps> = ({
 	isOpen,
 	onClose,
-	currentUserId,
-	otherUserId,
-	conversationId,
+	conversation,
+	otherUserId: propOtherUserId,
 }) => {
+	const { state } = useApp();
+	
+	// Extract required data from conversation or props
+	const currentUserId = state.currentUser?.id || '';
+	const conversationId = conversation?.id || '';
+	
+	// Determine the other user ID based on current user type
+	let otherUserId = propOtherUserId || '';
+	if (!otherUserId && conversation) {
+		// If current user is homeowner, other user is tradesperson and vice versa
+		if (state.currentUser?.type === 'homeowner') {
+			otherUserId = conversation.tradespersonId;
+		} else if (state.currentUser?.type === 'tradesperson') {
+			otherUserId = conversation.homeownerId;
+		}
+	}
+	
+	// Don't render if we don't have the required data
+	if (!currentUserId || !conversationId || !otherUserId) {
+		console.warn('⚠️ Missing required data for ChatModal:', {
+			currentUserId,
+			conversationId,
+			otherUserId,
+			hasConversation: !!conversation,
+		});
+		
+		if (isOpen) {
+			return (
+				<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+					<div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+						<div className="text-center">
+							<h2 className="text-xl font-semibold text-gray-900 mb-4">Unable to Open Chat</h2>
+							<p className="text-gray-600 mb-6">
+								Missing required information to start the conversation. Please try again.
+							</p>
+							<button
+								onClick={onClose}
+								className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+							>
+								Close
+							</button>
+						</div>
+					</div>
+				</div>
+			);
+		}
+		return null;
+	}
 	const {
 		isConnected,
 		connect,
@@ -28,6 +76,7 @@ export const ChatModal: React.FC<ChatModalProps> = ({
 		stopTyping,
 		isTyping,
 		error,
+		otherUser,
 	} = useChatContext();
 
 	const [inputValue, setInputValue] = useState('');
@@ -102,10 +151,16 @@ export const ChatModal: React.FC<ChatModalProps> = ({
 				{/* Header */}
 				<div className="flex items-center justify-between p-4 border-b">
 					<div>
-						<h2 className="font-semibold">Chat</h2>
+						<h2 className="font-semibold">
+							{otherUser?.name || 'Chat'}
+						</h2>
 						<p className="text-sm text-gray-500">
 							{isConnected ? (
-								<span className="text-green-600">● Connected</span>
+								otherUser?.isOnline ? (
+									<span className="text-green-600">● Online</span>
+								) : (
+									<span className="text-gray-500">● Offline</span>
+								)
 							) : (
 								<span className="text-red-600">● Disconnected</span>
 							)}

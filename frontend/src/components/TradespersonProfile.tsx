@@ -2111,7 +2111,6 @@ const TradespersonProfile = () => {
 				conversation={
 					selectedConversation?.id ? selectedConversation : undefined
 				}
-				jobId={selectedConversation?.jobId}
 				otherUserId={selectedConversation?.homeownerId}
 			/>
 

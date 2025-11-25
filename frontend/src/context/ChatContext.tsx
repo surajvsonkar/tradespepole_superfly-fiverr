@@ -16,10 +16,18 @@ import React, {
 interface ChatMessage {
 	id: string;
 	senderId: string;
-	receiverId: string;
+	senderName?: string;
+	receiverId?: string;
 	content: string;
 	conversationId: string;
 	timestamp: number;
+	read?: boolean;
+}
+
+interface OtherUser {
+	id: string;
+	name: string;
+	isOnline: boolean;
 }
 
 interface ChatContextType {
@@ -32,6 +40,7 @@ interface ChatContextType {
 	stopTyping: () => void;
 	isTyping: boolean;
 	error: string | null;
+	otherUser: OtherUser | null;
 }
 
 const ChatContext = createContext<ChatContextType | null>(null);
@@ -52,13 +61,14 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
 	children,
 }) => {
 	const wsRef = useRef<WebSocket | null>(null);
-	const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
-	const heartbeatIntervalRef = useRef<NodeJS.Timeout>();
+	const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const heartbeatIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
 	const [isConnected, setIsConnected] = useState(false);
 	const [messages, setMessages] = useState<ChatMessage[]>([]);
 	const [isTyping, setIsTyping] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [otherUser, setOtherUser] = useState<OtherUser | null>(null);
 
 	const currentUserIdRef = useRef<string>('');
 	const currentConversationIdRef = useRef<string>('');
@@ -171,6 +181,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
 		setIsConnected(false);
 		setMessages([]);
 		setError(null);
+		setOtherUser(null);
 	}, []);
 
 	// ========================================================================
@@ -185,6 +196,14 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
 			switch (message.type) {
 				case 'joined':
 					console.log('✅ Joined:', message.payload);
+					// Set previous messages from server
+					if (message.payload.messages) {
+						setMessages(message.payload.messages);
+					}
+					// Set other user info
+					if (message.payload.otherUser) {
+						setOtherUser(message.payload.otherUser);
+					}
 					break;
 
 				case 'new_message':
@@ -201,6 +220,16 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
 
 				case 'user_stop_typing':
 					setIsTyping(false);
+					break;
+
+				case 'user_online':
+					// Update other user's online status
+					setOtherUser((prev) => prev ? { ...prev, isOnline: true } : null);
+					break;
+
+				case 'user_offline':
+					// Update other user's online status
+					setOtherUser((prev) => prev ? { ...prev, isOnline: false } : null);
 					break;
 
 				case 'error':
@@ -303,6 +332,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
 		stopTyping,
 		isTyping,
 		error,
+		otherUser,
 	};
 
 	return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;

@@ -5,6 +5,7 @@ import { Server } from 'http';
 import { IncomingMessage } from 'http';
 import { v4 as uuidv4 } from 'uuid';
 import jwt from 'jsonwebtoken';
+import prisma from '../configs/database';
 
 // ============================================================================
 // TYPES
@@ -27,6 +28,9 @@ interface ChatMessage {
 		| 'stop_typing'
 		| 'user_typing'
 		| 'user_stop_typing'
+		| 'user_online'
+		| 'user_offline'
+		| 'online_users'
 		| 'ping'
 		| 'pong'
 		| 'error';
@@ -225,7 +229,7 @@ class ChatServer {
 	// JOIN CONVERSATION
 	// ========================================================================
 
-	private handleJoin(socketId: string, client: Client, payload: any) {
+	private async handleJoin(socketId: string, client: Client, payload: any) {
 		const { conversationId } = payload;
 
 		if (!conversationId) {
@@ -233,35 +237,100 @@ class ChatServer {
 			return;
 		}
 
-		// Update client conversation
-		client.conversationId = conversationId;
+		try {
+			// Verify conversation exists and user is part of it
+			const conversation = await prisma.conversation.findUnique({
+				where: { id: conversationId },
+				include: {
+					homeowner: { select: { id: true, name: true } },
+					tradesperson: { select: { id: true, name: true } },
+					messages: {
+						orderBy: { timestamp: 'asc' },
+						take: 100, // Load last 100 messages
+					},
+				},
+			});
 
-		// Track conversation members
-		if (!this.conversations.has(conversationId)) {
-			this.conversations.set(conversationId, new Set());
+			if (!conversation) {
+				this.sendError(socketId, 'Conversation not found');
+				return;
+			}
+
+			// Verify user is part of this conversation
+			if (
+				conversation.homeownerId !== client.userId &&
+				conversation.tradespersonId !== client.userId
+			) {
+				this.sendError(socketId, 'Unauthorized access to conversation');
+				return;
+			}
+
+			// Update client conversation
+			client.conversationId = conversationId;
+
+			// Track conversation members
+			if (!this.conversations.has(conversationId)) {
+				this.conversations.set(conversationId, new Set());
+			}
+			this.conversations.get(conversationId)!.add(client.userId);
+
+			// Determine the other user
+			const otherUser =
+				conversation.homeownerId === client.userId
+					? conversation.tradesperson
+					: conversation.homeowner;
+
+			// Check if other user is online
+			const isOtherUserOnline = this.userSockets.has(otherUser.id);
+
+			// Send confirmation with previous messages and user info
+			this.send(socketId, {
+				type: 'joined',
+				payload: {
+					conversationId,
+					userId: client.userId,
+					otherUser: {
+						id: otherUser.id,
+						name: otherUser.name,
+						isOnline: isOtherUserOnline,
+					},
+					messages: conversation.messages.map((msg) => ({
+						id: msg.id,
+						senderId: msg.senderId,
+						senderName: msg.senderName,
+						content: msg.content,
+						conversationId: msg.conversationId,
+						timestamp: msg.timestamp.getTime(),
+						read: msg.read,
+					})),
+				},
+				timestamp: Date.now(),
+			});
+
+			// Notify other user that this user is online
+			this.sendToUser(otherUser.id, {
+				type: 'user_online',
+				payload: {
+					userId: client.userId,
+					conversationId,
+				},
+				timestamp: Date.now(),
+			});
+
+			console.log(
+				`✅ User ${client.userId} joined conversation ${conversationId} with ${conversation.messages.length} previous messages`
+			);
+		} catch (error) {
+			console.error('❌ Error joining conversation:', error);
+			this.sendError(socketId, 'Failed to join conversation');
 		}
-		this.conversations.get(conversationId)!.add(client.userId);
-
-		// Send confirmation
-		this.send(socketId, {
-			type: 'joined',
-			payload: {
-				conversationId,
-				userId: client.userId,
-			},
-			timestamp: Date.now(),
-		});
-
-		console.log(
-			`✅ User ${client.userId} joined conversation ${conversationId}`
-		);
 	}
 
 	// ========================================================================
 	// CHAT MESSAGE
 	// ========================================================================
 
-	private handleChatMessage(socketId: string, client: Client, payload: any) {
+	private async handleChatMessage(socketId: string, client: Client, payload: any) {
 		const { content, receiverId } = payload;
 
 		if (!content || !receiverId) {
@@ -274,31 +343,66 @@ class ChatServer {
 			return;
 		}
 
-		// Create message object
-		const messageData = {
-			id: uuidv4(),
-			senderId: client.userId,
-			receiverId,
-			content,
-			conversationId: client.conversationId,
-			timestamp: Date.now(),
-		};
+		try {
+			// Get sender info from database
+			const sender = await prisma.user.findUnique({
+				where: { id: client.userId },
+				select: { name: true }
+			});
 
-		// Send to receiver
-		this.sendToUser(receiverId, {
-			type: 'new_message',
-			payload: messageData,
-			timestamp: Date.now(),
-		});
+			if (!sender) {
+				this.sendError(socketId, 'Sender not found');
+				return;
+			}
 
-		// Confirm to sender
-		this.send(socketId, {
-			type: 'message_sent',
-			payload: messageData,
-			timestamp: Date.now(),
-		});
+			// Save message to database
+			const savedMessage = await prisma.message.create({
+				data: {
+					conversationId: client.conversationId,
+					senderId: client.userId,
+					senderName: sender.name,
+					content,
+					read: false,
+				},
+			});
 
-		console.log(`💬 Message from ${client.userId} to ${receiverId}`);
+			// Update conversation's updatedAt timestamp
+			await prisma.conversation.update({
+				where: { id: client.conversationId },
+				data: { updatedAt: new Date() },
+			});
+
+			// Create message object for WebSocket
+			const messageData = {
+				id: savedMessage.id,
+				senderId: client.userId,
+				senderName: sender.name,
+				receiverId,
+				content,
+				conversationId: client.conversationId,
+				timestamp: savedMessage.timestamp.getTime(),
+				read: false,
+			};
+
+			// Send to receiver
+			this.sendToUser(receiverId, {
+				type: 'new_message',
+				payload: messageData,
+				timestamp: Date.now(),
+			});
+
+			// Confirm to sender
+			this.send(socketId, {
+				type: 'message_sent',
+				payload: messageData,
+				timestamp: Date.now(),
+			});
+
+			console.log(`💬 Message saved and sent from ${client.userId} to ${receiverId}`);
+		} catch (error) {
+			console.error('❌ Error saving message:', error);
+			this.sendError(socketId, 'Failed to send message');
+		}
 	}
 
 	// ========================================================================
@@ -346,10 +450,24 @@ class ChatServer {
 					if (sockets.length === 0) {
 						this.userSockets.delete(client.userId);
 
+						// Notify users in the same conversation that this user is offline
 						if (client.conversationId) {
-							this.conversations
-								.get(client.conversationId)
-								?.delete(client.userId);
+							const conversation = this.conversations.get(client.conversationId);
+							if (conversation) {
+								conversation.forEach((userId) => {
+									if (userId !== client.userId) {
+										this.sendToUser(userId, {
+											type: 'user_offline',
+											payload: {
+												userId: client.userId,
+												conversationId: client.conversationId,
+											},
+											timestamp: Date.now(),
+										});
+									}
+								});
+								conversation.delete(client.userId);
+							}
 						}
 					}
 				}

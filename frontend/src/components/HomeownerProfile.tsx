@@ -1060,7 +1060,6 @@ const HomeownerProfile = () => {
 					conversation={
 						selectedConversation?.id ? selectedConversation : undefined
 					}
-					jobId={selectedConversation?.jobId}
 					otherUserId={selectedConversation?.otherUserId}
 				/>
 			</div>
