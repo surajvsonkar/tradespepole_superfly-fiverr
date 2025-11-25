@@ -3,6 +3,7 @@ export { userService } from './userService';
 export { jobService } from './jobService';
 export { quoteService } from './quoteService';
 export { reviewService } from './reviewService';
+export { conversationService } from './conversationService';
 export { getAuthToken, setAuthToken, removeAuthToken } from '../lib/apiClient';
 
 export type { RegisterData, LoginData } from './authService';
@@ -10,3 +11,4 @@ export type { UpdateProfileData, UpdateMembershipData, UpdateCreditsData } from 
 export type { CreateJobLeadData, ExpressInterestData, UpdateJobLeadData } from './jobService';
 export type { CreateQuoteRequestData, SubmitQuoteResponseData } from './quoteService';
 export type { CreateReviewData } from './reviewService';
+export type { ConversationWithUser } from './conversationService';

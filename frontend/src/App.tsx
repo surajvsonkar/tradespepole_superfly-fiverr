@@ -20,6 +20,7 @@ import PrivacyPolicy from './components/PrivacyPolicy';
 import ProfileMockup from './components/ProfileMockup';
 import TermsOfUse from './components/TermsOfUse';
 import CookiePolicy from './components/CookiePolicy';
+import { ChatProvider } from './context/ChatContext';
 
 const PageSkeleton = () => (
   <div className="min-h-screen bg-white animate-pulse">
@@ -90,11 +91,13 @@ const AppContent = () => {
   );
 };
 function App() {
-  return (
-    <AppProvider>
-      <AppContent />
-    </AppProvider>
-  );
+	return (
+		<AppProvider>
+			<ChatProvider>
+				<AppContent />
+			</ChatProvider>
+		</AppProvider>
+	);
 }
 
 export default App;

@@ -19,7 +19,7 @@ import {
 import { useApp } from '../context/AppContext';
 import { Interest, Review, Conversation, JobLead } from '../types';
 import MapView from './MapView';
-import MessagingModal from './MessagingModal';
+import {ChatModal as MessagingModal} from './MessagingModal';
 import ConversationsList from './ConversationsList';
 import { jobService } from '../services/jobService';
 

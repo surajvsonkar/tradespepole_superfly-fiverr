@@ -225,7 +225,7 @@ export const getMyJobs = async (req: AuthRequest, res: Response): Promise<void> 
         return {
           ...jobLead,
           interests: enrichedInterests,
-          purchasedByDetails: purchaserIds.map(id => userMap.get(id)).filter(Boolean)
+          purchasedByDetails: [...new Set(purchaserIds)].map(id => userMap.get(id)).filter(Boolean)
         };
       })
     );

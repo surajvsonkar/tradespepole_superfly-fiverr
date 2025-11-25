@@ -151,6 +151,10 @@ const AuthModal = () => {
 				}
 
 				setStatus({ type: 'success', text: 'Account created successfully' });
+				
+				// Trigger WebSocket connection
+				window.dispatchEvent(new CustomEvent('user-logged-in'));
+				
 				resetForm();
 				closeModalDelayed(1800);
 			} else {
@@ -180,6 +184,9 @@ const AuthModal = () => {
 
 					dispatch({ type: 'SET_USER', payload: existingUser });
 					dispatch({ type: 'SET_VIEW', payload: 'home' });
+
+					// Trigger WebSocket connection
+					window.dispatchEvent(new CustomEvent('user-logged-in'));
 
 					setStatus({
 						type: 'success',

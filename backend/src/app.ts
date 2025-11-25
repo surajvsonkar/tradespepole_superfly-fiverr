@@ -1,17 +1,23 @@
 import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import { createServer } from 'http';
 import authRoutes from './routes/authRoutes';
 import userRoutes from './routes/userRoutes';
 import jobRoutes from './routes/jobRoutes';
 import reviewRoutes from './routes/reviewRoutes';
 import quoteRoutes from './routes/quoteRoutes';
+import conversationRoutes from './routes/conversationRoutes';
+import ChatServer from './websocket/chatServer';
 
 // Load environment variables
 dotenv.config();
 
 const app: Application = express();
+const server = createServer(app);
 const PORT = process.env.PORT || 3000;
+
+const chatServer = new ChatServer(server);
 
 // Middleware
 app.use(
@@ -48,6 +54,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/quotes', quoteRoutes);
+app.use('/api/conversations', conversationRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {
@@ -63,7 +70,8 @@ app.use((err: any, req: Request, res: Response, next: any) => {
 });
 
 // Start server
-app.listen(PORT, () => {
+server.listen(PORT, () => {
 	console.log(`Server is running on port ${PORT}`);
+	console.log(`WebSocket server initialized`);
 	console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 });

@@ -1,15 +1,19 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
 
 const getAuthToken = (): string | null => {
-  return localStorage.getItem('authToken');
+	return localStorage.getItem('authToken');
 };
 
 const setAuthToken = (token: string): void => {
-  localStorage.setItem('authToken', token);
+	localStorage.setItem('token', token);
+	// Dispatch custom event for socket reconnection
+	window.dispatchEvent(new CustomEvent('user-logged-in'));
 };
 
 const removeAuthToken = (): void => {
-  localStorage.removeItem('authToken');
+	localStorage.removeItem('token');
+	// Dispatch custom event for socket disconnection
+	window.dispatchEvent(new CustomEvent('user-logged-out'));
 };
 
 const getAuthHeaders = (): HeadersInit => {

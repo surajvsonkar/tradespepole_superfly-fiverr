@@ -32,6 +32,8 @@ type Action =
   | { type: 'HIRE_TRADESPERSON'; payload: { jobId: string; tradespersonId: string } }
   | { type: 'ACCEPT_INTEREST'; payload: { leadId: string; interestId: string } }
   | { type: 'CREATE_CONVERSATION'; payload: { jobId: string; homeownerId: string; tradespersonId: string } }
+  | { type: 'SET_CONVERSATIONS'; payload: any[] }
+  | { type: 'UPDATE_CONVERSATION'; payload: any }
   | { type: 'PURCHASE_LEAD'; payload: { leadId: string; tradespersonId: string; price: number } }
   | { type: 'EXPRESS_INTEREST'; payload: { leadId: string; tradespersonId: string; message: string; price: number } }
   | { type: 'EXPRESS_INTEREST'; payload: { leadId: string; tradespersonId: string; message: string; price: number } }
@@ -129,6 +131,15 @@ function appReducer(state: AppState, action: Action): AppState {
       // This would create a new conversation - for now just return state
       // In a real app, this would add to state.conversations
       return state;
+    case 'SET_CONVERSATIONS':
+      return { ...state, conversations: action.payload };
+    case 'UPDATE_CONVERSATION':
+      return {
+        ...state,
+        conversations: state.conversations.map(conv =>
+          conv.id === action.payload.id ? action.payload : conv
+        )
+      };
     case 'PURCHASE_LEAD':
       return {
         ...state,

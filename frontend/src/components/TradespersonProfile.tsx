@@ -30,8 +30,9 @@ import { useApp } from '../context/AppContext';
 import { PortfolioItem, Conversation, Review } from '../types';
 import IDVerification from './IDVerification';
 import WorkingAreaSelector, { WorkingAreaData } from './WorkingAreaSelector';
-import MessagingModal from './MessagingModal';
+import { ChatModal as MessagingModal } from './MessagingModal';
 import ConversationsList from './ConversationsList';
+import ContactsList from './ContactsList';
 import QuoteRequest from './QuoteRequest';
 import { userService } from '../services/userService';
 import { reviewService } from '../services/reviewService';
@@ -115,6 +116,7 @@ const TradespersonProfile = () => {
 	const [showMessaging, setShowMessaging] = useState(false);
 	const [selectedConversation, setSelectedConversation] =
 		useState<Conversation | null>(null);
+	const [conversationsLoading, setConversationsLoading] = useState(false);
 	const [portfolioData, setPortfolioData] = useState({
 		title: '',
 		description: '',
@@ -450,10 +452,22 @@ const TradespersonProfile = () => {
 		alert('Portfolio item added successfully!');
 	};
 
-	const handleSelectConversation = (conversation: Conversation) => {
+	const handleSelectConversation = (conversation: any) => {
 		setSelectedConversation(conversation);
 		setShowConversationsList(false);
 		setShowMessaging(true);
+	};
+
+	const handleOpenMessages = async () => {
+		setConversationsLoading(true);
+		try {
+			console.log('📨 Opening messages modal - fetching conversations...');
+			setShowConversationsList(true);
+		} catch (error) {
+			console.error('❌ Error opening messages:', error);
+		} finally {
+			setConversationsLoading(false);
+		}
 	};
 
 	const handleParkAccount = () => {
@@ -866,22 +880,32 @@ const TradespersonProfile = () => {
 								Purchased leads
 							</h2>
 							<button
-								onClick={() => setShowConversationsList(true)}
-								className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center"
+								onClick={handleOpenMessages}
+								disabled={conversationsLoading}
+								className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
 							>
-								<MessageCircle className="w-4 h-4 mr-2" />
-								View Messages
+								{conversationsLoading ? (
+									<>
+										<div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+										Loading...
+									</>
+								) : (
+									<>
+										<MessageCircle className="w-4 h-4 mr-2" />
+										View Messages
+									</>
+								)}
 							</button>
 						</div>
 
 						<div className="space-y-4">
 							{/* Show accepted interest leads first */}
 							{acceptedInterestLeads.map((lead) => {
-								const myInterest = lead.interests.find(
-									(interest) =>
-										interest.tradespersonId === state.currentUser!.id &&
-										interest.status === 'accepted'
-								);
+												const myInterest = lead.interests.find(
+													(interest) =>
+														interest.tradespersonId === state.currentUser?.id &&
+														interest.status === 'accepted'
+												);
 
 								return (
 									<div
@@ -2059,22 +2083,20 @@ const TradespersonProfile = () => {
 
 			{/* Conversations List Modal */}
 			{showConversationsList && (
-				<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-					<div className="bg-white rounded-xl p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+				<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+					<div className="bg-white rounded-xl p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
 						<div className="flex items-center justify-between mb-6">
 							<h3 className="text-lg font-semibold text-gray-900">
-								Your Conversations
+								Your Messages
 							</h3>
 							<button
 								onClick={() => setShowConversationsList(false)}
-								className="text-gray-400 hover:text-gray-600"
+								className="text-gray-500 hover:text-gray-700"
 							>
 								<X className="w-6 h-6" />
 							</button>
 						</div>
-						<ConversationsList
-							onSelectConversation={handleSelectConversation}
-						/>
+						<ContactsList onSelectContact={handleSelectConversation} />
 					</div>
 				</div>
 			)}

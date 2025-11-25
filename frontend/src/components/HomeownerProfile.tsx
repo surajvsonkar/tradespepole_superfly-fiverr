@@ -23,8 +23,8 @@ import {
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Review, Conversation, JobLead, User as AppUser } from '../types';
-import MessagingModal from './MessagingModal';
-import ConversationsList from './ConversationsList';
+import {ChatModal as MessagingModal} from './MessagingModal';
+import ContactsList from './ContactsList';
 import { jobService } from '../services/jobService';
 import { userService } from '../services/userService';
 import { reviewService } from '../services/reviewService';
@@ -45,10 +45,14 @@ const HomeownerProfile = () => {
 	const [showMessaging, setShowMessaging] = useState(false);
 	const [selectedConversation, setSelectedConversation] =
 		useState<Conversation | null>(null);
+	const [conversationsLoading, setConversationsLoading] = useState(false);
 	const [selectedProjectForDetails, setSelectedProjectForDetails] =
 		useState<JobLead | null>(null);
 	const [selectedTradesperson, setSelectedTradesperson] =
 		useState<AppUser | null>(null);
+	const [selectedChatUser, setSelectedChatUser] = useState<AppUser | null>(
+		null
+	);
 
 	const [editData, setEditData] = useState({
 		name: state.currentUser?.name || '',
@@ -101,10 +105,22 @@ const HomeownerProfile = () => {
 		return null;
 	}
 
-	const handleSelectConversation = (conversation: Conversation) => {
+	const handleSelectConversation = (conversation: any) => {
 		setSelectedConversation(conversation);
 		setShowConversationsList(false);
 		setShowMessaging(true);
+	};
+
+	const handleOpenMessages = async () => {
+		setConversationsLoading(true);
+		try {
+			console.log('📨 Opening messages modal - fetching conversations...');
+			setShowConversationsList(true);
+		} catch (error) {
+			console.error('❌ Error opening messages:', error);
+		} finally {
+			setConversationsLoading(false);
+		}
 	};
 
 	const handleLeaveReview = (jobId: string, tradespersonId: string) => {
@@ -146,7 +162,6 @@ const HomeownerProfile = () => {
 			const response = await userService.updateProfile({
 				name: editData.name,
 				location: editData.location,
-				// Email update might require separate flow or verification, but sending it if API supports
 			});
 
 			dispatch({ type: 'SET_USER', payload: response.user });
@@ -254,7 +269,6 @@ const HomeownerProfile = () => {
 		}
 
 		try {
-			// Update job lead to set hired tradesperson and deactivate
 			await jobService.updateJobLead(jobId, {
 				hiredTradesperson: tradespersonId,
 				isActive: false,
@@ -438,11 +452,21 @@ const HomeownerProfile = () => {
 								</h2>
 								<div className="flex space-x-3">
 									<button
-										onClick={() => setShowConversationsList(true)}
-										className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center"
+										onClick={handleOpenMessages}
+										disabled={conversationsLoading}
+										className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
 									>
-										<MessageCircle className="w-4 h-4 mr-2" />
-										Messages
+										{conversationsLoading ? (
+											<>
+												<div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+												Loading...
+											</>
+										) : (
+											<>
+												<MessageCircle className="w-4 h-4 mr-2" />
+												Messages
+											</>
+										)}
 									</button>
 									<button
 										onClick={() =>
@@ -1021,343 +1045,24 @@ const HomeownerProfile = () => {
 									<X className="w-6 h-6" />
 								</button>
 							</div>
-							<ConversationsList
-								onSelectConversation={handleSelectConversation}
-							/>
+							<ContactsList onSelectContact={handleSelectConversation} />
 						</div>
 					</div>
 				)}
 
-				{/* Project Details Modal */}
-				{selectedProjectForDetails && (
-					<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-						<div className="bg-white rounded-xl p-6 max-w-5xl w-full max-h-[90vh] overflow-y-auto">
-							<div className="flex justify-between items-center mb-6">
-								<div>
-									<h3 className="text-2xl font-bold text-gray-900">
-										{selectedProjectForDetails.title}
-									</h3>
-									<p className="text-gray-600">
-										Manage responses and hire professionals
-									</p>
-								</div>
-								<button
-									onClick={() => setSelectedProjectForDetails(null)}
-									className="text-gray-500 hover:text-gray-700"
-								>
-									<X className="w-6 h-6" />
-								</button>
-							</div>
-
-							{/* Purchased Leads Section */}
-							<div className="mb-8">
-								<h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-									<Users className="w-5 h-5 mr-2" />
-									Professionals Available to Hire (
-									{selectedProjectForDetails.purchasedByDetails?.length || 0})
-								</h4>
-								{!selectedProjectForDetails.purchasedByDetails ||
-								selectedProjectForDetails.purchasedByDetails.length === 0 ? (
-									<div className="bg-gray-50 rounded-lg p-8 text-center border border-gray-200 border-dashed">
-										<p className="text-gray-500">
-											No professionals have purchased this lead yet.
-										</p>
-									</div>
-								) : (
-									<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-										{selectedProjectForDetails.purchasedByDetails.map(
-											(tradesperson) => (
-												<div
-													key={tradesperson.id}
-													className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-md transition-shadow flex flex-col h-full"
-												>
-													<div className="flex items-center mb-4">
-														<div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold text-lg mr-3">
-															{tradesperson.name.charAt(0)}
-														</div>
-														<div>
-															<h5 className="font-semibold text-gray-900">
-																{tradesperson.name}
-															</h5>
-															<div className="flex items-center text-sm text-gray-500">
-																<Star className="w-3 h-3 text-yellow-400 fill-current mr-1" />
-																{tradesperson.rating
-																	? Number(tradesperson.rating).toFixed(1)
-																	: '0.0'}
-															</div>
-														</div>
-													</div>
-													<p className="text-sm text-gray-600 mb-4 flex-grow">
-														{tradesperson.trades?.join(', ') ||
-															'No specialties listed'}
-													</p>
-													<div className="flex space-x-2 mt-auto">
-														<button
-															onClick={() =>
-																setSelectedTradesperson(tradesperson)
-															}
-															className="flex-1 bg-gray-100 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center text-sm font-medium"
-														>
-															<Eye className="w-4 h-4 mr-1" />
-															Profile
-														</button>
-														<button
-															onClick={() => {
-																setShowMessaging(true);
-																setSelectedConversation({
-																	id: `temp_${selectedProjectForDetails.id}_${tradesperson.id}`,
-																	jobId: selectedProjectForDetails.id,
-																	jobTitle: selectedProjectForDetails.title,
-																	homeownerId: state.currentUser!.id,
-																	tradespersonId: tradesperson.id,
-																	otherUserId: tradesperson.id,
-																	messages: [],
-																	createdAt: new Date().toISOString(),
-																	unreadCount: 0,
-																});
-															}}
-															className="flex-1 bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center text-sm font-medium"
-														>
-															<MessageCircle className="w-4 h-4 mr-1" />
-															Chat
-														</button>
-														{!selectedProjectForDetails.hiredTradesperson &&
-															selectedProjectForDetails.isActive && (
-																<button
-																	onClick={() =>
-																		handleHireTradesperson(
-																			selectedProjectForDetails.id,
-																			tradesperson.id
-																		)
-																	}
-																	className="flex-1 bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center text-sm font-medium"
-																>
-																	<UserCheck className="w-4 h-4 mr-1" />
-																	Hire
-																</button>
-															)}
-													</div>
-												</div>
-											)
-										)}
-									</div>
-								)}
-							</div>
-
-							{/* Interests Section */}
-							<div>
-								<h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-									<Heart className="w-5 h-5 mr-2" />
-									Expressed Interests (
-									{selectedProjectForDetails.interests.length})
-								</h4>
-								{selectedProjectForDetails.interests.length === 0 ? (
-									<div className="bg-gray-50 rounded-lg p-8 text-center border border-gray-200 border-dashed">
-										<p className="text-gray-500">No interests expressed yet.</p>
-									</div>
-								) : (
-									<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-										{selectedProjectForDetails.interests.map((interest) => (
-											<div
-												key={interest.id}
-												className="bg-purple-50 border border-purple-100 rounded-xl p-5 hover:shadow-md transition-shadow flex flex-col h-full"
-											>
-												<div className="flex justify-between items-start mb-3">
-													<h5 className="font-semibold text-purple-900">
-														{interest.tradespersonName}
-													</h5>
-													<span className="text-xs text-purple-600 bg-purple-100 px-2 py-1 rounded-full">
-														{interest.date}
-													</span>
-												</div>
-												<p className="text-sm text-purple-800 mb-4 flex-grow italic">
-													"{interest.message}"
-												</p>
-												<div className="flex space-x-2 mt-auto">
-													{interest.status === 'pending' &&
-													selectedProjectForDetails.isActive ? (
-														<>
-															<button
-																onClick={() => {
-																	if (interest.tradespersonDetails) {
-																		setSelectedTradesperson(
-																			interest.tradespersonDetails
-																		);
-																	}
-																}}
-																className="flex-1 bg-gray-100 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center text-sm font-medium"
-															>
-																<Eye className="w-4 h-4 mr-1" />
-																Profile
-															</button>
-															<button
-																onClick={() =>
-																	handleAcceptInterest(
-																		selectedProjectForDetails.id,
-																		interest.id
-																	)
-																}
-																className="flex-1 bg-purple-600 text-white px-3 py-2 rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
-															>
-																Accept
-															</button>
-														</>
-													) : (
-														<>
-															<button
-																onClick={() => {
-																	if (interest.tradespersonDetails) {
-																		setSelectedTradesperson(
-																			interest.tradespersonDetails
-																		);
-																	}
-																}}
-																className="flex-1 bg-gray-100 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center text-sm font-medium"
-															>
-																<Eye className="w-4 h-4 mr-1" />
-																Profile
-															</button>
-															<button
-																onClick={() => {
-																	setShowMessaging(true);
-																	setSelectedConversation({
-																		id: `temp_${selectedProjectForDetails.id}_${interest.tradespersonId}`,
-																		jobId: selectedProjectForDetails.id,
-																		jobTitle: selectedProjectForDetails.title,
-																		homeownerId: state.currentUser!.id,
-																		tradespersonId: interest.tradespersonId,
-																		otherUserId: interest.tradespersonId,
-																		messages: [],
-																		createdAt: new Date().toISOString(),
-																		unreadCount: 0,
-																	});
-																}}
-																className="flex-1 bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center text-sm font-medium"
-															>
-																<MessageCircle className="w-4 h-4 mr-1" />
-																Chat
-															</button>
-															{!selectedProjectForDetails.hiredTradesperson &&
-																selectedProjectForDetails.isActive && (
-																	<button
-																		onClick={() =>
-																			handleHireTradesperson(
-																				selectedProjectForDetails.id,
-																				interest.tradespersonId
-																			)
-																		}
-																		className="flex-1 bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center text-sm font-medium"
-																	>
-																		<UserCheck className="w-4 h-4 mr-1" />
-																		Hire
-																	</button>
-																)}
-														</>
-													)}
-												</div>
-											</div>
-										))}
-									</div>
-								)}
-							</div>
-						</div>
-					</div>
-				)}
-
-				{/* Tradesperson Profile Modal */}
-				{selectedTradesperson && (
-					<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-						<div className="bg-white rounded-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-							<div className="flex justify-between items-start mb-6">
-								<div className="flex items-center">
-									<div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold text-2xl mr-4">
-										{selectedTradesperson.name.charAt(0)}
-									</div>
-									<div>
-										<h3 className="text-2xl font-bold text-gray-900">
-											{selectedTradesperson.name}
-										</h3>
-										<div className="flex items-center text-gray-600 mt-1">
-											<MapPin className="w-4 h-4 mr-1" />
-											{selectedTradesperson.location}
-										</div>
-										<div className="flex items-center mt-1">
-											<Star className="w-4 h-4 text-yellow-400 fill-current mr-1" />
-											<span className="font-medium text-gray-900 mr-1">
-												{selectedTradesperson.rating
-													? Number(selectedTradesperson.rating).toFixed(1)
-													: '0.0'}
-											</span>
-											<span className="text-gray-500">
-												({selectedTradesperson.reviews || 0} reviews)
-											</span>
-										</div>
-									</div>
-								</div>
-								<button
-									onClick={() => setSelectedTradesperson(null)}
-									className="text-gray-500 hover:text-gray-700"
-								>
-									<X className="w-6 h-6" />
-								</button>
-							</div>
-
-							<div className="space-y-6">
-								<div>
-									<h4 className="text-lg font-semibold text-gray-900 mb-2">
-										About
-									</h4>
-									<p className="text-gray-600 leading-relaxed">
-										{selectedTradesperson.companyDescription ||
-											'No description available.'}
-									</p>
-								</div>
-
-								<div>
-									<h4 className="text-lg font-semibold text-gray-900 mb-2">
-										Specialties
-									</h4>
-									<div className="flex flex-wrap gap-2">
-										{selectedTradesperson.trades?.map((trade, index) => (
-											<span
-												key={index}
-												className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-sm font-medium"
-											>
-												{trade}
-											</span>
-										))}
-									</div>
-								</div>
-
-								{selectedTradesperson.verified && (
-									<div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center">
-										<CheckCircle className="w-5 h-5 text-green-600 mr-2" />
-										<span className="text-green-700 font-medium">
-											Verified Professional
-										</span>
-									</div>
-								)}
-							</div>
-
-							<div className="mt-8 flex justify-end">
-								<button
-									onClick={() => setSelectedTradesperson(null)}
-									className="bg-gray-100 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-200 transition-colors font-medium"
-								>
-									Close
-								</button>
-							</div>
-						</div>
-					</div>
-				)}
-
-				{showMessaging && selectedConversation && (
-					<MessagingModal
-						isOpen={showMessaging}
-						onClose={() => setShowMessaging(false)}
-						conversation={selectedConversation}
-					/>
-				)}
+				{/* Messaging Modal */}
+				<MessagingModal
+					isOpen={showMessaging}
+					onClose={() => {
+						setShowMessaging(false);
+						setSelectedConversation(null);
+					}}
+					conversation={
+						selectedConversation?.id ? selectedConversation : undefined
+					}
+					jobId={selectedConversation?.jobId}
+					otherUserId={selectedConversation?.otherUserId}
+				/>
 			</div>
 		</div>
 	);
