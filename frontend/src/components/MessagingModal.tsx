@@ -19,11 +19,11 @@ export const ChatModal: React.FC<ChatModalProps> = ({
 	otherUserId: propOtherUserId,
 }) => {
 	const { state } = useApp();
-	
+
 	// Extract required data from conversation or props
 	const currentUserId = state.currentUser?.id || '';
 	const conversationId = conversation?.id || '';
-	
+
 	// Determine the other user ID based on current user type
 	let otherUserId = propOtherUserId || '';
 	if (!otherUserId && conversation) {
@@ -34,24 +34,27 @@ export const ChatModal: React.FC<ChatModalProps> = ({
 			otherUserId = conversation.homeownerId;
 		}
 	}
-	
+
 	// Don't render if we don't have the required data
 	if (!currentUserId || !conversationId || !otherUserId) {
-		console.warn('⚠️ Missing required data for ChatModal:', {
-			currentUserId,
-			conversationId,
-			otherUserId,
-			hasConversation: !!conversation,
-		});
-		
+		// console.warn('⚠️ Missing required data for ChatModal:', {
+		// 	currentUserId,
+		// 	conversationId,
+		// 	otherUserId,
+		// 	hasConversation: !!conversation,
+		// });
+
 		if (isOpen) {
 			return (
 				<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
 					<div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
 						<div className="text-center">
-							<h2 className="text-xl font-semibold text-gray-900 mb-4">Unable to Open Chat</h2>
+							<h2 className="text-xl font-semibold text-gray-900 mb-4">
+								Unable to Open Chat
+							</h2>
 							<p className="text-gray-600 mb-6">
-								Missing required information to start the conversation. Please try again.
+								Missing required information to start the conversation. Please
+								try again.
 							</p>
 							<button
 								onClick={onClose}
@@ -151,9 +154,7 @@ export const ChatModal: React.FC<ChatModalProps> = ({
 				{/* Header */}
 				<div className="flex items-center justify-between p-4 border-b">
 					<div>
-						<h2 className="font-semibold">
-							{otherUser?.name || 'Chat'}
-						</h2>
+						<h2 className="font-semibold">{otherUser?.name || 'Chat'}</h2>
 						<p className="text-sm text-gray-500">
 							{isConnected ? (
 								otherUser?.isOnline ? (
@@ -199,7 +200,7 @@ export const ChatModal: React.FC<ChatModalProps> = ({
 								>
 									<p className="text-sm">{msg.content}</p>
 									<p className="text-xs mt-1 opacity-70">
-										{new Date(msg.timestamp).toLocaleTimeString()}
+										{new Date(msg.timestamp).toLocaleString()}
 									</p>
 								</div>
 							</div>

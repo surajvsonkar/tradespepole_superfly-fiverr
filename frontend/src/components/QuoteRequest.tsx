@@ -3,6 +3,7 @@ import { ArrowLeft, MapPin, Calendar, DollarSign, Users, MessageCircle, CreditCa
 import { useApp } from '../context/AppContext';
 import { QuoteRequest as QuoteRequestType, QuoteResponse } from '../types';
 import { quoteService } from '../services/quoteService';
+import { ChatModal as MessagingModal } from './MessagingModal';
 
 const QuoteRequest = () => {
   const { state, dispatch } = useApp();

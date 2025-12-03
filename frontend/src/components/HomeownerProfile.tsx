@@ -1062,6 +1062,275 @@ const HomeownerProfile = () => {
 					}
 					otherUserId={selectedConversation?.otherUserId}
 				/>
+
+				{/* All Responses Modal */}
+				{selectedProjectForDetails && (
+					<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+						<div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+							{/* Modal Header */}
+							<div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 flex items-center justify-between">
+								<div>
+									<h3 className="text-2xl font-bold mb-1">
+										All Responses
+									</h3>
+									<p className="text-blue-100 text-sm">
+										{selectedProjectForDetails.title}
+									</p>
+								</div>
+								<button
+									onClick={() => setSelectedProjectForDetails(null)}
+									className="text-white hover:bg-white hover:bg-opacity-20 rounded-full p-2 transition-colors">
+									<X className="w-6 h-6" />
+								</button>
+							</div>
+
+							{/* Modal Content */}
+							<div className="overflow-y-auto flex-1 p-6">
+								{/* Summary Stats */}
+								<div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+									<div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+										<div className="flex items-center justify-between">
+											<div>
+												<p className="text-sm text-blue-600 font-medium">Purchased Leads</p>
+												<p className="text-2xl font-bold text-blue-900">
+													{selectedProjectForDetails.purchasedBy.length}
+												</p>
+											</div>
+											<Eye className="w-8 h-8 text-blue-400" />
+										</div>
+									</div>
+									<div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+										<div className="flex items-center justify-between">
+											<div>
+												<p className="text-sm text-purple-600 font-medium">Expressed Interest</p>
+												<p className="text-2xl font-bold text-purple-900">
+													{selectedProjectForDetails.interests.length}
+												</p>
+											</div>
+											<MessageCircle className="w-8 h-8 text-purple-400" />
+										</div>
+									</div>
+									<div className="bg-green-50 border border-green-200 rounded-lg p-4">
+										<div className="flex items-center justify-between">
+											<div>
+												<p className="text-sm text-green-600 font-medium">Total Responses</p>
+												<p className="text-2xl font-bold text-green-900">
+													{selectedProjectForDetails.purchasedBy.length + selectedProjectForDetails.interests.length}
+												</p>
+											</div>
+											<Users className="w-8 h-8 text-green-400" />
+										</div>
+									</div>
+								</div>
+
+								{/* Purchased Leads Section */}
+								{selectedProjectForDetails.purchasedBy.length > 0 && (
+									<div className="mb-6">
+										<h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+											<Eye className="w-5 h-5 mr-2 text-blue-600" />
+											Professionals Who Purchased This Lead
+										</h4>
+										<div className="space-y-3">
+											{selectedProjectForDetails.purchasedBy.map((tradespersonId) => {
+												const tradesperson = state.users.find((u) => u.id === tradespersonId);
+												if (!tradesperson) return null;
+
+												return (
+													<div
+														key={tradespersonId}
+														className="bg-blue-50 border border-blue-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+														<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+															<div className="flex items-center space-x-3 min-w-0 flex-1">
+																<div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-lg flex-shrink-0">
+																	{tradesperson.name.charAt(0)}
+																</div>
+																<div className="min-w-0 flex-1">
+																	<p className="font-semibold text-gray-900 truncate">
+																		{tradesperson.name}
+																	</p>
+																	<p className="text-sm text-gray-600 truncate">
+																		{tradesperson.trades?.join(', ') || 'General Contractor'}
+																	</p>
+																	<div className="flex items-center text-sm text-gray-500 mt-1">
+																		<Star className="w-4 h-4 text-yellow-400 fill-current mr-1" />
+																		{tradesperson.rating ? Number(tradesperson.rating).toFixed(1) : '0.0'}{' '}
+																		({tradesperson.reviews || 0} reviews)
+																	</div>
+																	{tradesperson.location && (
+																		<div className="flex items-center text-sm text-gray-500 mt-1">
+																			<MapPin className="w-4 h-4 mr-1" />
+																			{tradesperson.location}
+																		</div>
+																	)}
+																</div>
+															</div>
+															<div className="flex flex-col sm:flex-row gap-2 flex-shrink-0">
+																{!selectedProjectForDetails.hiredTradesperson && selectedProjectForDetails.isActive !== false && (
+																	<>
+																		<button
+																			onClick={() => {
+																				setShowMessaging(true);
+																				setSelectedConversation({
+																					id: `temp_${selectedProjectForDetails.id}_${tradespersonId}`,
+																					jobId: selectedProjectForDetails.id,
+																					jobTitle: selectedProjectForDetails.title,
+																					homeownerId: state.currentUser!.id,
+																					tradespersonId: tradespersonId,
+																					otherUserId: tradespersonId,
+																					messages: [],
+																					createdAt: new Date().toISOString(),
+																					unreadCount: 0,
+																				});
+																				setSelectedProjectForDetails(null);
+																			}}
+																			className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center text-sm font-medium whitespace-nowrap">
+																			<MessageCircle className="w-4 h-4 mr-1" />
+																			Message
+																		</button>
+																		<button
+																			onClick={() => {
+																				handleHireTradesperson(selectedProjectForDetails.id, tradespersonId);
+																				setSelectedProjectForDetails(null);
+																			}}
+																			className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center text-sm font-medium whitespace-nowrap">
+																			<UserCheck className="w-4 h-4 mr-1" />
+																			Hire
+																		</button>
+																	</>
+																)}
+																{selectedProjectForDetails.hiredTradesperson === tradespersonId && (
+																	<span className="bg-green-100 text-green-700 px-3 py-2 rounded-lg text-sm font-medium flex items-center whitespace-nowrap">
+																		<CheckCircle className="w-4 h-4 mr-1" />
+																		Hired
+																	</span>
+																)}
+															</div>
+														</div>
+													</div>
+												);
+											})}
+										</div>
+									</div>
+								)}
+
+								{/* Expressed Interests Section */}
+								{selectedProjectForDetails.interests.length > 0 && (
+									<div>
+										<h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+											<MessageCircle className="w-5 h-5 mr-2 text-purple-600" />
+											Professionals Who Expressed Interest
+										</h4>
+										<div className="space-y-3">
+											{selectedProjectForDetails.interests.map((interest) => {
+												const tradesperson = state.users.find((u) => u.id === interest.tradespersonId);
+												
+												return (
+													<div
+														key={interest.id}
+														className="bg-purple-50 border border-purple-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+														<div className="flex flex-col gap-4">
+															{/* Tradesperson Info */}
+															<div className="flex items-start justify-between gap-4">
+																<div className="flex items-center space-x-3 min-w-0 flex-1">
+																	<div className="w-12 h-12 bg-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-lg flex-shrink-0">
+																		{interest.tradespersonName.charAt(0)}
+																	</div>
+																	<div className="min-w-0 flex-1">
+																		<div className="flex items-center gap-2 flex-wrap">
+																			<p className="font-semibold text-gray-900">
+																				{interest.tradespersonName}
+																			</p>
+																			{interest.status === 'accepted' && (
+																				<span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-medium">
+																					Accepted
+																				</span>
+																			)}
+																		</div>
+																		{tradesperson && (
+																			<>
+																				<p className="text-sm text-gray-600">
+																					{tradesperson.trades?.join(', ') || 'General Contractor'}
+																				</p>
+																				<div className="flex items-center text-sm text-gray-500 mt-1">
+																					<Star className="w-4 h-4 text-yellow-400 fill-current mr-1" />
+																					{tradesperson.rating ? Number(tradesperson.rating).toFixed(1) : '0.0'}{' '}
+																					({tradesperson.reviews || 0} reviews)
+																				</div>
+																			</>
+																		)}
+																		<p className="text-xs text-gray-500 mt-1">{interest.date}</p>
+																	</div>
+																</div>
+															</div>
+
+															{/* Interest Message */}
+															<div className="bg-white rounded-lg p-3 border border-purple-100">
+																<p className="text-sm text-gray-700 whitespace-pre-wrap">{interest.message}</p>
+															</div>
+
+															{/* Action Buttons */}
+															<div className="flex flex-col sm:flex-row gap-2">
+																{interest.status === 'pending' && selectedProjectForDetails.isActive !== false && (
+																	<button
+																		onClick={() => {
+																			handleAcceptInterest(selectedProjectForDetails.id, interest.id);
+																		}}
+																		className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm font-medium flex items-center justify-center">
+																		<CheckCircle className="w-4 h-4 mr-1" />
+																		Accept Interest
+																	</button>
+																)}
+																{interest.status === 'accepted' && !selectedProjectForDetails.hiredTradesperson && selectedProjectForDetails.isActive !== false && (
+																	<button
+																		onClick={() => {
+																			handleHireTradesperson(selectedProjectForDetails.id, interest.tradespersonId);
+																			setSelectedProjectForDetails(null);
+																		}}
+																		className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center justify-center">
+																		<UserCheck className="w-4 h-4 mr-1" />
+																		Hire This Professional
+																	</button>
+																)}
+																{selectedProjectForDetails.hiredTradesperson === interest.tradespersonId && (
+																	<span className="bg-green-100 text-green-700 px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center">
+																		<CheckCircle className="w-4 h-4 mr-1" />
+																		Hired
+																	</span>
+																)}
+															</div>
+														</div>
+													</div>
+												);
+											})}
+										</div>
+									</div>
+								)}
+
+								{/* No Responses Message */}
+								{selectedProjectForDetails.purchasedBy.length === 0 && selectedProjectForDetails.interests.length === 0 && (
+									<div className="text-center py-12">
+										<div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+											<Users className="w-8 h-8 text-gray-400" />
+										</div>
+										<p className="text-gray-500 text-lg font-medium">No responses yet</p>
+										<p className="text-gray-400 text-sm mt-2">
+											Tradespeople will see your job and can purchase the lead or express interest.
+										</p>
+									</div>
+								)}
+							</div>
+
+							{/* Modal Footer */}
+							<div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
+								<button
+									onClick={() => setSelectedProjectForDetails(null)}
+									className="w-full bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 transition-colors font-medium">
+									Close
+								</button>
+							</div>
+						</div>
+					</div>
+				)}
 			</div>
 		</div>
 	);
