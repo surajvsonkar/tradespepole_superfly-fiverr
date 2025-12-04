@@ -4,6 +4,8 @@ export { jobService } from './jobService';
 export { quoteService } from './quoteService';
 export { reviewService } from './reviewService';
 export { conversationService } from './conversationService';
+export { paymentService } from './paymentService';
+export { geocodingService } from './geocodingService';
 export { getAuthToken, setAuthToken, removeAuthToken } from '../lib/apiClient';
 
 export type { RegisterData, LoginData } from './authService';
@@ -12,3 +14,5 @@ export type { CreateJobLeadData, ExpressInterestData, UpdateJobLeadData } from '
 export type { CreateQuoteRequestData, SubmitQuoteResponseData } from './quoteService';
 export type { CreateReviewData } from './reviewService';
 export type { ConversationWithUser } from './conversationService';
+export type { PaymentIntent, Subscription, Payment, PaymentMethod } from './paymentService';
+export type { GeocodingResult, DistanceResult } from './geocodingService';

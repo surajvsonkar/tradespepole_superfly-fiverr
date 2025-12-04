@@ -1,4 +1,4 @@
-import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AppProvider, useApp } from './context/AppContext';
 import Header from './components/Header';
 import Hero from './components/Hero';
@@ -20,7 +20,12 @@ import PrivacyPolicy from './components/PrivacyPolicy';
 import ProfileMockup from './components/ProfileMockup';
 import TermsOfUse from './components/TermsOfUse';
 import CookiePolicy from './components/CookiePolicy';
+import AdminDashboard from './components/AdminDashboard';
+import AdminLogin from './components/AdminLogin';
+import VerifyEmail from './components/VerifyEmail';
+import ResetPassword from './components/ResetPassword';
 import { ChatProvider } from './context/ChatContext';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 
 const PageSkeleton = () => (
   <div className="min-h-screen bg-white animate-pulse">
@@ -35,69 +40,111 @@ const PageSkeleton = () => (
     </div>
   </div>
 );
+
+// Home page component
+const HomePage = () => (
+  <>
+    <Hero />
+    <ServiceCategories />
+    <HowItWorks />
+    <FeaturedTradespeople />
+    <Reviews />
+    <Footer />
+  </>
+);
+
+// Protected route wrapper
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const { state } = useApp();
+  
+  if (!state.currentUser) {
+    return <Navigate to="/" replace />;
+  }
+  
+  return <>{children}</>;
+};
+
+// Protected Admin Route
+const ProtectedAdminRoute = ({ children }: { children: React.ReactNode }) => {
+  const adminToken = localStorage.getItem('adminToken');
+  
+  if (!adminToken) {
+    return <Navigate to="/admin/login" replace />;
+  }
+  
+  return <>{children}</>;
+};
+
+// Profile route that redirects based on user type
+const ProfileRoute = () => {
+  const { state } = useApp();
+  
+  if (!state.currentUser) {
+    return <Navigate to="/" replace />;
+  }
+  
+  return state.currentUser.type === 'homeowner' ? <HomeownerProfile /> : <TradespersonProfile />;
+};
+
 const AppContent = () => {
   const { state } = useApp();
+  const location = useLocation();
 
   if (state.isLoading) {
     return <PageSkeleton />;
   }
 
-  const renderCurrentView = () => {
-    switch (state.currentView) {
-      case 'profile':
-        return state.currentUser?.type === 'homeowner' ? <HomeownerProfile /> : <TradespersonProfile />;
-      case 'submit-project':
-        return <SubmitProject />;
-      case 'job-leads':
-        return <JobLeads />;
-      case 'browse-experts':
-        return <BrowseExperts />;
-      case 'membership':
-        return <Membership />;
-      case 'quote-requests':
-        return <QuoteRequest />;
-      case 'boost':
-        return <BoostPage />;
-      case 'privacy-policy':
-        return <PrivacyPolicy />;
-      case 'profile-mockup':
-        return <ProfileMockup />;
-      case 'terms-of-use':
-        return <TermsOfUse />;
-      case 'cookie-policy':
-        return <CookiePolicy />;
-      case 'home':
-      default:
-        return (
-          <>
-            <Hero />
-            <ServiceCategories />
-            <HowItWorks />
-            <FeaturedTradespeople />
-            <Reviews />
-          </>
-        );
-    }
-  };
+  // Hide header on admin pages
+  const showHeader = !location.pathname.startsWith('/admin');
 
   return (
-  
     <div className="min-h-screen bg-white">
-      <Header />
-      {renderCurrentView()}
-      {state.currentView === 'home' && <Footer />}
-      <AuthModal />
+      {showHeader && <Header />}
+      <Routes>
+        {/* Public routes */}
+        <Route path="/" element={<HomePage />} />
+        <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+        <Route path="/terms-of-use" element={<TermsOfUse />} />
+        <Route path="/cookie-policy" element={<CookiePolicy />} />
+        <Route path="/profile-mockup" element={<ProfileMockup />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+        
+        {/* Admin Routes */}
+        <Route path="/admin/login" element={<AdminLogin />} />
+        <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
+        <Route path="/admin/dashboard" element={<ProtectedAdminRoute><AdminDashboard /></ProtectedAdminRoute>} />
+        
+        {/* Protected routes */}
+        <Route path="/profile" element={<ProtectedRoute><ProfileRoute /></ProtectedRoute>} />
+        <Route path="/submit-project" element={<ProtectedRoute><SubmitProject /></ProtectedRoute>} />
+        <Route path="/job-leads" element={<ProtectedRoute><JobLeads /></ProtectedRoute>} />
+        <Route path="/browse-experts" element={<ProtectedRoute><BrowseExperts /></ProtectedRoute>} />
+        <Route path="/membership" element={<ProtectedRoute><Membership /></ProtectedRoute>} />
+        <Route path="/quote-requests" element={<ProtectedRoute><QuoteRequest /></ProtectedRoute>} />
+        <Route path="/boost" element={<ProtectedRoute><BoostPage /></ProtectedRoute>} />
+        <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
+        
+        {/* Catch all - redirect to home */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </div>
   );
 };
-function App() {
-	return (
-		<AppProvider>
-			<ChatProvider>
-				<AppContent />
-			</ChatProvider>
-		</AppProvider>
-	);
-}
+
+const App = () => {
+  return (
+    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID || "YOUR_GOOGLE_CLIENT_ID"}>
+      <AppProvider>
+        <ChatProvider>
+          <Router>
+            <AppContent />
+            <AuthModal />
+          </Router>
+        </ChatProvider>
+      </AppProvider>
+    </GoogleOAuthProvider>
+  );
+};
 
 export default App;

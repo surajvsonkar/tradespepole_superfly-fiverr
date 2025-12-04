@@ -1,15 +1,14 @@
 import { useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, User, LogOut, CreditCard, X } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { authService } from '../services';
 
 const Header = () => {
   const { state, dispatch } = useApp();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
-  const handleNavClick = (view: string) => {
-    dispatch({ type: 'SET_VIEW', payload: view });
-    setIsMobileMenuOpen(false); // Close mobile menu after navigation
-  };
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const handleAuthClick = (mode: 'login' | 'signup', userType: 'homeowner' | 'tradesperson') => {
     dispatch({ type: 'SHOW_AUTH_MODAL', payload: { mode, userType } });
@@ -17,8 +16,9 @@ const Header = () => {
   };
 
   const handleLogout = () => {
+    authService.logout();
     dispatch({ type: 'SET_USER', payload: null });
-    dispatch({ type: 'SET_VIEW', payload: 'home' });
+    navigate('/');
     setIsMobileMenuOpen(false);
   };
 
@@ -40,13 +40,13 @@ const Header = () => {
   const membershipDisplay = getMembershipDisplay();
 
   const navigationItems = [
-    { key: 'home', label: 'Home', show: true },
-    { key: 'browse-experts', label: 'Browse Experts', show: state.currentUser?.type !== 'tradesperson' },
-    { key: 'submit-project', label: 'Submit Project', show: state.currentUser?.type !== 'tradesperson' },
-    { key: 'job-leads', label: 'Job Leads', show: state.currentUser?.type === 'tradesperson' },
-    { key: 'quote-requests', label: 'Quote Requests', show: true }, // Only for homeowners - tradespeople see it in their profile
-    { key: 'boost', label: 'Boost Profile', show: state.currentUser?.type === 'tradesperson' },
-    { key: 'membership', label: 'Membership', show: state.currentUser?.type === 'tradesperson' },
+    { path: '/', label: 'Home', show: true },
+    { path: '/browse-experts', label: 'Browse Experts', show: state.currentUser?.type !== 'tradesperson' },
+    { path: '/submit-project', label: 'Submit Project', show: state.currentUser?.type !== 'tradesperson' },
+    { path: '/job-leads', label: 'Job Leads', show: state.currentUser?.type === 'tradesperson' },
+    { path: '/quote-requests', label: 'Quote Requests', show: true },
+    { path: '/boost', label: 'Boost Profile', show: state.currentUser?.type === 'tradesperson' },
+    { path: '/membership', label: 'Membership', show: state.currentUser?.type === 'tradesperson' },
   ];
 
   return (
@@ -54,29 +54,29 @@ const Header = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <div className="flex items-center flex-shrink-0">
+          <Link to="/" className="flex items-center flex-shrink-0">
             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center mr-2">
               <span className="text-white font-bold text-lg">2</span>
             </div>
             <span className="text-xl sm:text-2xl font-bold text-gray-900 truncate">
               24/7 Tradespeople
             </span>
-          </div>
+          </Link>
           
           {/* Desktop Navigation */}
           <nav className="hidden lg:flex space-x-6 xl:space-x-8">
             {navigationItems.filter(item => item.show).map((item) => (
-              <button 
-                key={item.key}
-                onClick={() => handleNavClick(item.key)}
+              <Link 
+                key={item.path}
+                to={item.path}
                 className={`transition-colors text-sm xl:text-base whitespace-nowrap ${
-                  state.currentView === item.key 
+                  location.pathname === item.path
                     ? 'text-blue-600 font-medium' 
                     : 'text-gray-700 hover:text-blue-600'
                 }`}
               >
                 {item.label}
-              </button>
+              </Link>
             ))}
           </nav>
           
@@ -104,10 +104,10 @@ const Header = () => {
                 )}
                 
                 {/* Profile Button */}
-                <button
-                  onClick={() => dispatch({ type: 'SET_VIEW', payload: 'profile' })}
+                <Link
+                  to="/profile"
                   className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
-                    state.currentView === 'profile' 
+                    location.pathname === '/profile'
                       ? 'bg-blue-50 text-blue-600' 
                       : 'hover:bg-gray-100'
                   }`}
@@ -116,7 +116,7 @@ const Header = () => {
                   <span className="text-sm font-medium text-gray-700 hidden lg:inline max-w-24 truncate">
                     {state.currentUser.name}
                   </span>
-                </button>
+                </Link>
                 
                 {/* Logout Button */}
                 <button
@@ -165,17 +165,18 @@ const Header = () => {
           <div className="px-4 py-2 space-y-1">
             {/* Navigation Items */}
             {navigationItems.filter(item => item.show).map((item) => (
-              <button
-                key={item.key}
-                onClick={() => handleNavClick(item.key)}
+              <Link
+                key={item.path}
+                to={item.path}
+                onClick={() => setIsMobileMenuOpen(false)}
                 className={`block w-full text-left px-3 py-3 rounded-lg transition-colors ${
-                  state.currentView === item.key
+                  location.pathname === item.path
                     ? 'bg-blue-50 text-blue-600 font-medium'
                     : 'text-gray-700 hover:bg-gray-50'
                 }`}
               >
                 {item.label}
-              </button>
+              </Link>
             ))}
             
             {/* User Section */}
@@ -219,10 +220,11 @@ const Header = () => {
                   </div>
                   
                   {/* Profile and Logout */}
-                  <button
-                    onClick={() => handleNavClick('profile')}
+                  <Link
+                    to="/profile"
+                    onClick={() => setIsMobileMenuOpen(false)}
                     className={`block w-full text-left px-3 py-3 rounded-lg transition-colors ${
-                      state.currentView === 'profile'
+                      location.pathname === '/profile'
                         ? 'bg-blue-50 text-blue-600 font-medium'
                         : 'text-gray-700 hover:bg-gray-50'
                     }`}
@@ -231,7 +233,7 @@ const Header = () => {
                       <User className="w-5 h-5 mr-3" />
                       My Profile
                     </div>
-                  </button>
+                  </Link>
                   
                   <button
                     onClick={handleLogout}

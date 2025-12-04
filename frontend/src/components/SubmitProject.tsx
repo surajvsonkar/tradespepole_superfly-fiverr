@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { ArrowLeft, MapPin } from 'lucide-react';
+import { ArrowLeft, MapPin, Crosshair, Loader2 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { jobService } from '../services/jobService';
+import { geocodingService } from '../services/geocodingService';
 
 const SubmitProject = () => {
   const { state, dispatch } = useApp();
@@ -14,11 +15,14 @@ const SubmitProject = () => {
     urgency: 'Medium' as 'Low' | 'Medium' | 'High',
     contactName: '',
     contactEmail: '',
-    contactPhone: ''
+    contactPhone: '',
+    latitude: null as number | null,
+    longitude: null as number | null
   });
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [filteredTrades, setFilteredTrades] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [locationLoading, setLocationLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
@@ -68,13 +72,16 @@ const SubmitProject = () => {
           name: formData.contactName,
           email: formData.contactEmail,
           phone: formData.contactPhone
-        }
+        },
+        ...(formData.latitude && { latitude: formData.latitude }),
+        ...(formData.longitude && { longitude: formData.longitude })
       });
 
       setSuccess(true);
       setFormData({
         title: '', description: '', category: '', location: '', budget: '',
-        urgency: 'Medium', contactName: '', contactEmail: '', contactPhone: ''
+        urgency: 'Medium', contactName: '', contactEmail: '', contactPhone: '',
+        latitude: null, longitude: null
       });
 
       setTimeout(() => {
@@ -104,6 +111,59 @@ const SubmitProject = () => {
   const selectTrade = (trade: string) => {
     setFormData({ ...formData, category: trade });
     setShowSuggestions(false);
+  };
+
+  const handleUseCurrentLocation = async () => {
+    setLocationLoading(true);
+    setError(null);
+
+    try {
+      // Get current position
+      const position = await geocodingService.getCurrentPosition();
+      const { latitude, longitude } = position.coords;
+
+      // Reverse geocode to get address
+      const result = await geocodingService.reverseGeocode(latitude, longitude);
+
+      if (result) {
+        // Format a user-friendly location string
+        const locationParts: string[] = [];
+        if (result.city) locationParts.push(result.city);
+        if (result.country) locationParts.push(result.country);
+        
+        const locationString = locationParts.length > 0 
+          ? locationParts.join(', ')
+          : result.displayName.split(',').slice(0, 3).join(',').trim();
+
+        setFormData(prev => ({
+          ...prev,
+          location: locationString,
+          latitude,
+          longitude
+        }));
+      } else {
+        // If reverse geocoding fails, still save coordinates
+        setFormData(prev => ({
+          ...prev,
+          latitude,
+          longitude
+        }));
+        setError('Could not determine address. Coordinates saved.');
+      }
+    } catch (err: any) {
+      console.error('Location error:', err);
+      if (err.code === 1) {
+        setError('Location access denied. Please enable location permissions in your browser settings.');
+      } else if (err.code === 2) {
+        setError('Location unavailable. Please try again or enter your location manually.');
+      } else if (err.code === 3) {
+        setError('Location request timed out. Please try again.');
+      } else {
+        setError('Could not get your location. Please enter it manually.');
+      }
+    } finally {
+      setLocationLoading(false);
+    }
   };
 
   return (
@@ -232,12 +292,36 @@ const SubmitProject = () => {
                 <input
                   type="text"
                   value={formData.location}
-                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  onChange={(e) => setFormData({ ...formData, location: e.target.value, latitude: null, longitude: null })}
+                  className="w-full pl-10 pr-32 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Your location"
                   required
                 />
+                <button
+                  type="button"
+                  onClick={handleUseCurrentLocation}
+                  disabled={locationLoading}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-600 text-sm font-medium rounded-md hover:bg-blue-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {locationLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Getting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Crosshair className="w-4 h-4" />
+                      <span>Use Current</span>
+                    </>
+                  )}
+                </button>
               </div>
+              {formData.latitude && formData.longitude && (
+                <p className="mt-1 text-xs text-green-600 flex items-center gap-1">
+                  <MapPin className="w-3 h-3" />
+                  Coordinates saved: {formData.latitude.toFixed(4)}, {formData.longitude.toFixed(4)}
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

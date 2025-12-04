@@ -8,7 +8,10 @@ import jobRoutes from './routes/jobRoutes';
 import reviewRoutes from './routes/reviewRoutes';
 import quoteRoutes from './routes/quoteRoutes';
 import conversationRoutes from './routes/conversationRoutes';
+import adminRoutes from './routes/adminRoutes';
+import paymentRoutes from './routes/paymentRoutes';
 import ChatServer from './websocket/chatServer';
+
 
 // Load environment variables
 dotenv.config();
@@ -26,6 +29,10 @@ app.use(
 		credentials: true,
 	})
 );
+
+// Stripe webhook needs raw body - must be before json middleware
+app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -55,6 +62,8 @@ app.use('/api/jobs', jobRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/quotes', quoteRoutes);
 app.use('/api/conversations', conversationRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/payments', paymentRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {

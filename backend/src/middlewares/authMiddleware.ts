@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 export interface AuthRequest extends Request {
   userId?: string;
   userType?: 'homeowner' | 'tradesperson';
+  userEmail?: string;
 }
 
 export const authenticateToken = (
@@ -23,16 +24,22 @@ export const authenticateToken = (
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret') as {
       userId: string;
       userType: 'homeowner' | 'tradesperson';
+      email?: string;
     };
     
     req.userId = decoded.userId;
     req.userType = decoded.userType;
+    req.userEmail = decoded.email;
     next();
   } catch (error) {
     res.status(403).json({ error: 'Invalid or expired token' });
     return;
   }
 };
+
+// Alias for consistency
+export const authMiddleware = authenticateToken;
+
 
 export const requireTradesperson = (
   req: AuthRequest,

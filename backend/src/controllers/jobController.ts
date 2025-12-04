@@ -21,7 +21,9 @@ export const createJobLead = async (req: AuthRequest, res: Response): Promise<vo
       urgency,
       contactDetails,
       maxPurchases,
-      price
+      price,
+      latitude,
+      longitude
     } = req.body;
 
     // Validate required fields
@@ -42,7 +44,9 @@ export const createJobLead = async (req: AuthRequest, res: Response): Promise<vo
         contactDetails,
         maxPurchases: maxPurchases || 6,
         price: price || 9.99,
-        isActive: true
+        isActive: true,
+        ...(latitude && { latitude: parseFloat(latitude) }),
+        ...(longitude && { longitude: parseFloat(longitude) })
       },
       include: {
         poster: {

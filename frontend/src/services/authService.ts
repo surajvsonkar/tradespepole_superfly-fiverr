@@ -1,4 +1,4 @@
-import { apiClient, setAuthToken, removeAuthToken } from '../lib/apiClient';
+import { apiClient, setAuthToken, removeAuthToken, setRefreshToken, getRefreshToken } from '../lib/apiClient';
 
 export interface RegisterData {
   name: string;
@@ -12,6 +12,7 @@ export interface RegisterData {
     radius: number;
     coordinates?: { lat: number; lng: number };
   };
+  captchaToken?: string;
 }
 
 export interface LoginData {
@@ -19,21 +20,66 @@ export interface LoginData {
   password: string;
 }
 
+// Store tokens from response
+const handleAuthResponse = (response: any) => {
+  if (response.token) {
+    setAuthToken(response.token);
+  }
+  if (response.refreshToken) {
+    setRefreshToken(response.refreshToken);
+  }
+  return response;
+};
+
 export const authService = {
   register: async (data: RegisterData) => {
     const response = await apiClient.post('/auth/register', data);
-    if (response.token) {
-      setAuthToken(response.token);
-    }
-    return response;
+    return handleAuthResponse(response);
   },
 
   login: async (data: LoginData) => {
     const response = await apiClient.post('/auth/login', data);
-    if (response.token) {
-      setAuthToken(response.token);
+    return handleAuthResponse(response);
+  },
+
+  verifyEmail: async (token: string) => {
+    return await apiClient.post('/auth/verify-email', { token });
+  },
+
+  forgotPassword: async (email: string) => {
+    return await apiClient.post('/auth/forgot-password', { email });
+  },
+
+  resetPassword: async (data: any) => {
+    return await apiClient.post('/auth/reset-password', data);
+  },
+
+  resendVerification: async (email: string) => {
+    return await apiClient.post('/auth/resend-verification', { email });
+  },
+
+  googleLogin: async (token: string, userType?: string) => {
+    const response = await apiClient.post('/auth/google', { token, userType });
+    return handleAuthResponse(response);
+  },
+
+  facebookLogin: async (accessToken: string, userType?: string) => {
+    const response = await apiClient.post('/auth/facebook', { accessToken, userType });
+    return handleAuthResponse(response);
+  },
+
+  linkedinLogin: async (code: string, redirectUri: string, userType?: string) => {
+    const response = await apiClient.post('/auth/linkedin', { code, redirectUri, userType });
+    return handleAuthResponse(response);
+  },
+
+  refreshToken: async () => {
+    const refreshToken = getRefreshToken();
+    if (!refreshToken) {
+      throw new Error('No refresh token available');
     }
-    return response;
+    const response = await apiClient.post('/auth/refresh-token', { refreshToken });
+    return handleAuthResponse(response);
   },
 
   getMe: async () => {
@@ -42,5 +88,6 @@ export const authService = {
 
   logout: () => {
     removeAuthToken();
+    localStorage.removeItem('refreshToken');
   },
 };

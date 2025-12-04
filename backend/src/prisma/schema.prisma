@@ -1,4 +1,3 @@
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -51,13 +50,36 @@ enum QuoteResponseStatus {
 }
 
 model User {
-  id                   String              @id @default(uuid()) @db.Uuid
-  name                 String
-  email                String              @unique
-  passwordHash         String              @map("password_hash")
-  type                 UserType
-  avatar               String?
-  location             String?
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String
+  email        String   @unique
+  phone        String?
+  passwordHash String?  @map("password_hash") // Optional for social login users
+  type         UserType
+  avatar       String?
+  location     String?
+  latitude     Decimal? @db.Decimal(10, 8)
+  longitude    Decimal? @db.Decimal(11, 8)
+
+  // Social Login
+  googleId   String? @unique @map("google_id")
+  facebookId String? @unique @map("facebook_id")
+  linkedinId String? @unique @map("linkedin_id")
+
+  // Stripe Integration
+  stripeCustomerId String? @unique @map("stripe_customer_id")
+
+  // Directory Subscription (for homeowners)
+  hasDirectoryAccess          Boolean   @default(false) @map("has_directory_access")
+  directorySubscriptionExpiry DateTime? @map("directory_subscription_expiry") @db.Timestamptz
+
+  // Verification & Security
+  isEmailVerified          Boolean   @default(false) @map("is_email_verified")
+  emailVerificationToken   String?   @map("email_verification_token")
+  emailVerificationExpires DateTime? @map("email_verification_expires") @db.Timestamptz
+
+  passwordResetToken   String?             @map("password_reset_token")
+  passwordResetExpires DateTime?           @map("password_reset_expires") @db.Timestamptz
   trades               String[]
   rating               Decimal?            @default(0) @db.Decimal(3, 2)
   reviews              Int?                @default(0)
@@ -75,12 +97,12 @@ model User {
   updatedAt            DateTime            @updatedAt @map("updated_at") @db.Timestamptz
 
   // Relations
-  postedJobLeads       JobLead[]           @relation("PostedJobLeads")
-  quoteRequests        QuoteRequest[]      @relation("HomeownerQuoteRequests")
-  reviewsGiven         Review[]            @relation("ReviewsGiven")
-  reviewsReceived      Review[]            @relation("ReviewsReceived")
-  messagesSent         Message[]           @relation("MessagesSent")
-  conversationsAsHomeowner Conversation[]  @relation("HomeownerConversations")
+  postedJobLeads              JobLead[]      @relation("PostedJobLeads")
+  quoteRequests               QuoteRequest[] @relation("HomeownerQuoteRequests")
+  reviewsGiven                Review[]       @relation("ReviewsGiven")
+  reviewsReceived             Review[]       @relation("ReviewsReceived")
+  messagesSent                Message[]      @relation("MessagesSent")
+  conversationsAsHomeowner    Conversation[] @relation("HomeownerConversations")
   conversationsAsTradesperson Conversation[] @relation("TradespersonConversations")
 
   @@index([email])
@@ -88,61 +110,66 @@ model User {
   @@index([location])
   @@index([accountStatus])
   @@index([verificationStatus])
+  @@index([latitude, longitude])
+  @@index([stripeCustomerId])
   @@map("users")
 }
 
 model JobLead {
-  id              String        @id @default(uuid()) @db.Uuid
-  title           String
-  description     String
-  category        String
-  location        String
-  budget          String
-  urgency         UrgencyLevel  @default(Medium)
-  postedBy        String        @map("posted_by") @db.Uuid
-  postedDate      DateTime      @default(now()) @map("posted_date") @db.Date
-  contactDetails  Json          @map("contact_details")
-  purchasedBy     String[]      @default([]) @map("purchased_by") @db.Uuid
-  maxPurchases    Int           @default(6) @map("max_purchases")
-  price           Decimal       @default(9.99) @db.Decimal(10, 2)
-  interests       Json[]        @default([])
-  isActive        Boolean?      @default(true) @map("is_active")
-  hiredTradesperson String?     @map("hired_tradesperson") @db.Uuid
-  dismissedBy     String[]      @default([]) @map("dismissed_by") @db.Uuid
-  cancelledAt     DateTime?     @map("cancelled_at") @db.Timestamptz
-  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt       DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+  id                String       @id @default(uuid()) @db.Uuid
+  title             String
+  description       String
+  category          String
+  location          String
+  latitude          Decimal?     @db.Decimal(10, 8)
+  longitude         Decimal?     @db.Decimal(11, 8)
+  budget            String
+  urgency           UrgencyLevel @default(Medium)
+  postedBy          String       @map("posted_by") @db.Uuid
+  postedDate        DateTime     @default(now()) @map("posted_date") @db.Date
+  contactDetails    Json         @map("contact_details")
+  purchasedBy       String[]     @default([]) @map("purchased_by") @db.Uuid
+  maxPurchases      Int          @default(6) @map("max_purchases")
+  price             Decimal      @default(9.99) @db.Decimal(10, 2)
+  interests         Json[]       @default([])
+  isActive          Boolean?     @default(true) @map("is_active")
+  hiredTradesperson String?      @map("hired_tradesperson") @db.Uuid
+  dismissedBy       String[]     @default([]) @map("dismissed_by") @db.Uuid
+  cancelledAt       DateTime?    @map("cancelled_at") @db.Timestamptz
+  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime     @updatedAt @map("updated_at") @db.Timestamptz
 
   // Relations
-  poster          User          @relation("PostedJobLeads", fields: [postedBy], references: [id], onDelete: Cascade)
-  conversations   Conversation[]
+  poster        User           @relation("PostedJobLeads", fields: [postedBy], references: [id], onDelete: Cascade)
+  conversations Conversation[]
 
   @@index([postedBy])
   @@index([category])
   @@index([location])
   @@index([urgency])
   @@index([postedDate])
+  @@index([latitude, longitude])
   @@map("job_leads")
 }
 
 model QuoteRequest {
-  id                  String        @id @default(uuid()) @db.Uuid
-  homeownerId         String        @map("homeowner_id") @db.Uuid
-  homeownerName       String        @map("homeowner_name")
-  projectTitle        String        @map("project_title")
-  projectDescription  String        @map("project_description")
-  category            String
-  location            String
-  budget              String
-  urgency             UrgencyLevel  @default(Medium)
-  contactDetails      Json          @map("contact_details")
-  responses           Json[]        @default([])
-  maxResponses        Int           @default(5) @map("max_responses")
-  createdAt           DateTime      @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt           DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+  id                 String       @id @default(uuid()) @db.Uuid
+  homeownerId        String       @map("homeowner_id") @db.Uuid
+  homeownerName      String       @map("homeowner_name")
+  projectTitle       String       @map("project_title")
+  projectDescription String       @map("project_description")
+  category           String
+  location           String
+  budget             String
+  urgency            UrgencyLevel @default(Medium)
+  contactDetails     Json         @map("contact_details")
+  responses          Json[]       @default([])
+  maxResponses       Int          @default(5) @map("max_responses")
+  createdAt          DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime     @updatedAt @map("updated_at") @db.Timestamptz
 
   // Relations
-  homeowner           User          @relation("HomeownerQuoteRequests", fields: [homeownerId], references: [id], onDelete: Cascade)
+  homeowner User @relation("HomeownerQuoteRequests", fields: [homeownerId], references: [id], onDelete: Cascade)
 
   @@index([homeownerId])
   @@index([category])
@@ -153,17 +180,17 @@ model QuoteRequest {
 }
 
 model Review {
-  id              String    @id @default(uuid()) @db.Uuid
-  jobId           String    @map("job_id") @db.Uuid
-  tradespersonId  String    @map("tradesperson_id") @db.Uuid
-  homeownerId     String    @map("homeowner_id") @db.Uuid
-  rating          Int
-  comment         String
-  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  id             String   @id @default(uuid()) @db.Uuid
+  jobId          String   @map("job_id") @db.Uuid
+  tradespersonId String   @map("tradesperson_id") @db.Uuid
+  homeownerId    String   @map("homeowner_id") @db.Uuid
+  rating         Int
+  comment        String
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   // Relations
-  tradesperson    User      @relation("ReviewsReceived", fields: [tradespersonId], references: [id], onDelete: Cascade)
-  homeowner       User      @relation("ReviewsGiven", fields: [homeownerId], references: [id], onDelete: Cascade)
+  tradesperson User @relation("ReviewsReceived", fields: [tradespersonId], references: [id], onDelete: Cascade)
+  homeowner    User @relation("ReviewsGiven", fields: [homeownerId], references: [id], onDelete: Cascade)
 
   @@index([tradespersonId])
   @@index([homeownerId])
@@ -172,17 +199,17 @@ model Review {
 }
 
 model Message {
-  id             String    @id @default(uuid()) @db.Uuid
-  conversationId String    @map("conversation_id") @db.Uuid
-  senderId       String    @map("sender_id") @db.Uuid
-  senderName     String    @map("sender_name")
+  id             String   @id @default(uuid()) @db.Uuid
+  conversationId String   @map("conversation_id") @db.Uuid
+  senderId       String   @map("sender_id") @db.Uuid
+  senderName     String   @map("sender_name")
   content        String
-  read           Boolean   @default(false)
-  timestamp      DateTime  @default(now()) @db.Timestamptz
+  read           Boolean  @default(false)
+  timestamp      DateTime @default(now()) @db.Timestamptz
 
   // Relations
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  sender         User         @relation("MessagesSent", fields: [senderId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation("MessagesSent", fields: [senderId], references: [id], onDelete: Cascade)
 
   @@index([conversationId])
   @@index([senderId])
@@ -191,23 +218,125 @@ model Message {
 }
 
 model Conversation {
-  id              String    @id @default(uuid()) @db.Uuid
-  jobId           String    @map("job_id") @db.Uuid
-  jobTitle        String    @map("job_title")
-  homeownerId     String    @map("homeowner_id") @db.Uuid
-  tradespersonId  String    @map("tradesperson_id") @db.Uuid
-  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  id             String   @id @default(uuid()) @db.Uuid
+  jobId          String   @map("job_id") @db.Uuid
+  jobTitle       String   @map("job_title")
+  homeownerId    String   @map("homeowner_id") @db.Uuid
+  tradespersonId String   @map("tradesperson_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   // Relations
-  job             JobLead   @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  homeowner       User      @relation("HomeownerConversations", fields: [homeownerId], references: [id], onDelete: Cascade)
-  tradesperson    User      @relation("TradespersonConversations", fields: [tradespersonId], references: [id], onDelete: Cascade)
-  messages        Message[]
+  job          JobLead   @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  homeowner    User      @relation("HomeownerConversations", fields: [homeownerId], references: [id], onDelete: Cascade)
+  tradesperson User      @relation("TradespersonConversations", fields: [tradespersonId], references: [id], onDelete: Cascade)
+  messages     Message[]
 
   @@unique([jobId, homeownerId, tradespersonId])
   @@index([homeownerId])
   @@index([tradespersonId])
   @@index([jobId])
   @@map("conversations")
+}
+
+model Admin {
+  id             String    @id @default(uuid()) @db.Uuid
+  email          String    @unique
+  passwordHash   String    @map("password_hash")
+  name           String?
+  resetOtp       String?   @map("reset_otp")
+  resetOtpExpiry DateTime? @map("reset_otp_expiry") @db.Timestamptz
+  lastLogin      DateTime? @map("last_login") @db.Timestamptz
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([email])
+  @@map("admins")
+}
+
+// ============= PAYMENT & SUBSCRIPTION MODELS =============
+
+enum PaymentStatus {
+  pending
+  succeeded
+  failed
+  refunded
+  disputed
+}
+
+enum PaymentType {
+  job_lead_purchase
+  interest_fee
+  directory_subscription
+  membership_purchase
+  credits_topup
+}
+
+enum SubscriptionStatus {
+  active
+  cancelled
+  expired
+  past_due
+}
+
+model Payment {
+  id               String        @id @default(uuid()) @db.Uuid
+  userId           String        @map("user_id") @db.Uuid
+  amount           Decimal       @db.Decimal(10, 2)
+  currency         String        @default("gbp")
+  type             PaymentType
+  status           PaymentStatus @default(pending)
+  stripePaymentId  String?       @unique @map("stripe_payment_id")
+  stripeCustomerId String?       @map("stripe_customer_id")
+  description      String?
+  metadata         Json? // Store additional info like jobLeadId, subscriptionId, etc.
+  refundedAmount   Decimal?      @map("refunded_amount") @db.Decimal(10, 2)
+  refundReason     String?       @map("refund_reason")
+  failureReason    String?       @map("failure_reason")
+  receiptUrl       String?       @map("receipt_url")
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([userId])
+  @@index([stripePaymentId])
+  @@index([status])
+  @@index([type])
+  @@index([createdAt])
+  @@map("payments")
+}
+
+model Subscription {
+  id                   String             @id @default(uuid()) @db.Uuid
+  userId               String             @map("user_id") @db.Uuid
+  type                 String // 'directory_access', 'basic_membership', 'premium_membership', 'unlimited_5_year'
+  status               SubscriptionStatus @default(active)
+  stripeSubscriptionId String?            @unique @map("stripe_subscription_id")
+  stripeCustomerId     String?            @map("stripe_customer_id")
+  stripePriceId        String?            @map("stripe_price_id")
+  currentPeriodStart   DateTime?          @map("current_period_start") @db.Timestamptz
+  currentPeriodEnd     DateTime?          @map("current_period_end") @db.Timestamptz
+  cancelledAt          DateTime?          @map("cancelled_at") @db.Timestamptz
+  cancelAtPeriodEnd    Boolean            @default(false) @map("cancel_at_period_end")
+  trialEnd             DateTime?          @map("trial_end") @db.Timestamptz
+  createdAt            DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime           @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([userId])
+  @@index([stripeSubscriptionId])
+  @@index([status])
+  @@index([type])
+  @@map("subscriptions")
+}
+
+model StripeCustomer {
+  id                     String   @id @default(uuid()) @db.Uuid
+  userId                 String   @unique @map("user_id") @db.Uuid
+  stripeCustomerId       String   @unique @map("stripe_customer_id")
+  defaultPaymentMethodId String?  @map("default_payment_method_id")
+  createdAt              DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt              DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([userId])
+  @@index([stripeCustomerId])
+  @@map("stripe_customers")
 }

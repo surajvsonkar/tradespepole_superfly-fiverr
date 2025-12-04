@@ -14,6 +14,8 @@ export interface CreateJobLeadData {
   };
   maxPurchases?: number;
   price?: number;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface ExpressInterestData {

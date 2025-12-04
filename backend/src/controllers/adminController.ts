@@ -2,18 +2,189 @@ import { Response } from 'express';
 import prisma from '../configs/database';
 import { AuthRequest } from '../middlewares/authMiddleware';
 import { Prisma } from '@prisma/client';
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
+import nodemailer from 'nodemailer';
 
-// Admin middleware check (you can enhance this with a proper admin role)
-const isAdmin = (req: AuthRequest): boolean => {
-	// For now, check if user email is admin (you can add admin role to User model later)
-	// This is a simple check - in production, use proper role-based access control
-	return req.userEmail === process.env.ADMIN_EMAIL || false;
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+
+// Admin middleware check
+const isAdmin = async (req: AuthRequest): Promise<boolean> => {
+	if (!req.userEmail) return false;
+	
+	// Check if user exists in Admin table
+	const admin = await prisma.admin.findUnique({
+		where: { email: req.userEmail }
+	});
+	
+	return !!admin;
+};
+
+// Admin Login
+export const adminLogin = async (req: AuthRequest, res: Response): Promise<void> => {
+	try {
+		const { email, password } = req.body;
+
+		if (!email || !password) {
+			res.status(400).json({ error: 'Email and password are required' });
+			return;
+		}
+
+		const admin = await prisma.admin.findUnique({
+			where: { email }
+		});
+
+		if (!admin) {
+			res.status(401).json({ error: 'Invalid credentials' });
+			return;
+		}
+
+		const isPasswordValid = await bcrypt.compare(password, admin.passwordHash);
+
+		if (!isPasswordValid) {
+			res.status(401).json({ error: 'Invalid credentials' });
+			return;
+		}
+
+		// Update last login
+		await prisma.admin.update({
+			where: { id: admin.id },
+			data: { lastLogin: new Date() }
+		});
+
+		const token = jwt.sign(
+			{ 
+				userId: admin.id, 
+				email: admin.email,
+				isAdmin: true 
+			}, 
+			JWT_SECRET,
+			{ expiresIn: '1d' }
+		);
+
+		res.status(200).json({
+			message: 'Login successful',
+			token,
+			admin: {
+				id: admin.id,
+				email: admin.email,
+				name: admin.name
+			}
+		});
+	} catch (error) {
+		console.error('Admin login error:', error);
+		res.status(500).json({ error: 'Failed to login' });
+	}
+};
+
+// Forgot Password - Send OTP
+export const forgotPassword = async (req: AuthRequest, res: Response): Promise<void> => {
+	try {
+		const { email } = req.body;
+
+		if (!email) {
+			res.status(400).json({ error: 'Email is required' });
+			return;
+		}
+
+		const admin = await prisma.admin.findUnique({
+			where: { email }
+		});
+
+		if (!admin) {
+			// Don't reveal if email exists
+			res.status(200).json({ message: 'If the email exists, an OTP has been sent.' });
+			return;
+		}
+
+		// Generate 6-digit OTP
+		const otp = Math.floor(100000 + Math.random() * 900000).toString();
+		const otpExpiry = new Date();
+		otpExpiry.setMinutes(otpExpiry.getMinutes() + 15); // Valid for 15 mins
+
+		await prisma.admin.update({
+			where: { id: admin.id },
+			data: {
+				resetOtp: otp,
+				resetOtpExpiry: otpExpiry
+			}
+		});
+
+		// Send email
+		// Note: Configure nodemailer with your SMTP settings in .env
+		const transporter = nodemailer.createTransport({
+			service: 'gmail', // Or use your SMTP provider
+			auth: {
+				user: process.env.SMTP_EMAIL,
+				pass: process.env.SMTP_PASSWORD
+			}
+		});
+
+		await transporter.sendMail({
+			from: process.env.SMTP_EMAIL,
+			to: email,
+			subject: 'Admin Password Reset OTP',
+			text: `Your OTP for password reset is: ${otp}. It is valid for 15 minutes.`
+		});
+
+		res.status(200).json({ message: 'If the email exists, an OTP has been sent.' });
+	} catch (error) {
+		console.error('Forgot password error:', error);
+		res.status(500).json({ error: 'Failed to process request' });
+	}
+};
+
+// Reset Password with OTP
+export const resetPassword = async (req: AuthRequest, res: Response): Promise<void> => {
+	try {
+		const { email, otp, newPassword } = req.body;
+
+		if (!email || !otp || !newPassword) {
+			res.status(400).json({ error: 'Email, OTP, and new password are required' });
+			return;
+		}
+
+		const admin = await prisma.admin.findUnique({
+			where: { email }
+		});
+
+		if (!admin || !admin.resetOtp || !admin.resetOtpExpiry) {
+			res.status(400).json({ error: 'Invalid request' });
+			return;
+		}
+
+		if (admin.resetOtp !== otp) {
+			res.status(400).json({ error: 'Invalid OTP' });
+			return;
+		}
+
+		if (new Date() > admin.resetOtpExpiry) {
+			res.status(400).json({ error: 'OTP expired' });
+			return;
+		}
+
+		const passwordHash = await bcrypt.hash(newPassword, 10);
+
+		await prisma.admin.update({
+			where: { id: admin.id },
+			data: {
+				passwordHash,
+				resetOtp: null,
+				resetOtpExpiry: null
+			}
+		});
+
+		res.status(200).json({ message: 'Password reset successfully' });
+	} catch (error) {
+		console.error('Reset password error:', error);
+		res.status(500).json({ error: 'Failed to reset password' });
+	}
 };
 
 // Get all homeowners
 export const getAllHomeowners = async (req: AuthRequest, res: Response): Promise<void> => {
 	try {
-		if (!isAdmin(req)) {
+		if (!await isAdmin(req)) {
 			res.status(403).json({ error: 'Forbidden: Admin access required' });
 			return;
 		}

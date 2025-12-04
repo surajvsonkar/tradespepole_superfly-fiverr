@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from 'react-leaflet';
 import { Icon, LatLngExpression, divIcon } from 'leaflet';
-import { MapPin, Star, Heart, CreditCard, X, DollarSign, Calendar, AlertTriangle, CheckCircle, Clock, Filter, Users, Briefcase, Target } from 'lucide-react';
+import { MapPin, Star, Heart, CreditCard, X, DollarSign, Calendar, AlertTriangle, CheckCircle, Clock, Filter, Users, Briefcase, Target, Search, Navigation } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Interest, JobLead, User } from '../types';
 import { jobService } from '../services/jobService';
 import { userService } from '../services/userService';
+import { geocodingService } from '../services/geocodingService';
 import 'leaflet/dist/leaflet.css';
 
 // Fix for default markers in react-leaflet - use CSS-based icons instead
@@ -117,14 +118,19 @@ const MapView = ({ viewType }: MapViewProps) => {
     category: 'all',
     rating: '',
     distance: '',
+    radius: 25, // Default 25 miles radius
     verified: false
   });
   const [jobLeads, setJobLeads] = useState<JobLead[]>([]);
   const [tradespeople, setTradespeople] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchLocation, setSearchLocation] = useState('');
+  const [searchCenter, setSearchCenter] = useState<{ lat: number; lng: number } | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const [geocodedLocations, setGeocodedLocations] = useState<Map<string, { lat: number; lng: number }>>(new Map());
 
-  // Fetch data from API
+  // Geocode locations and fetch data
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -132,10 +138,56 @@ const MapView = ({ viewType }: MapViewProps) => {
       try {
         if (viewType === 'jobs') {
           const response = await jobService.getJobLeads();
-          setJobLeads(response.jobLeads || []);
+          const jobs = response.jobLeads || [];
+          
+          // Geocode job locations
+          const geocoded = new Map<string, { lat: number; lng: number }>();
+          for (const job of jobs) {
+            if (job.location && !geocoded.has(job.location)) {
+              // Try to use existing coordinates if available
+              if (job.latitude && job.longitude) {
+                geocoded.set(job.location, { lat: Number(job.latitude), lng: Number(job.longitude) });
+              } else {
+                // Geocode the location
+                const result = await geocodingService.geocodeAddress(job.location);
+                if (result) {
+                  geocoded.set(job.location, { lat: result.lat, lng: result.lng });
+                } else {
+                  // Use mock coordinates as fallback
+                  geocoded.set(job.location, geocodingService.getMockCoordinates(job.location));
+                }
+              }
+            }
+          }
+          
+          setGeocodedLocations(geocoded);
+          setJobLeads(jobs);
         } else {
           const response = await userService.getTradespeople();
-          setTradespeople(response.tradespeople || []);
+          const people = response.tradespeople || [];
+          
+          // Geocode tradesperson locations
+          const geocoded = new Map<string, { lat: number; lng: number }>();
+          for (const person of people) {
+            if (person.location && !geocoded.has(person.location)) {
+              // Try to use existing coordinates if available
+              if (person.latitude && person.longitude) {
+                geocoded.set(person.location, { lat: Number(person.latitude), lng: Number(person.longitude) });
+              } else {
+                // Geocode the location
+                const result = await geocodingService.geocodeAddress(person.location);
+                if (result) {
+                  geocoded.set(person.location, { lat: result.lat, lng: result.lng });
+                } else {
+                  // Use mock coordinates as fallback
+                  geocoded.set(person.location, geocodingService.getMockCoordinates(person.location));
+                }
+              }
+            }
+          }
+          
+          setGeocodedLocations(geocoded);
+          setTradespeople(people);
         }
       } catch (err) {
         console.error('Failed to fetch map data:', err);
@@ -147,6 +199,26 @@ const MapView = ({ viewType }: MapViewProps) => {
 
     fetchData();
   }, [viewType]);
+
+  // Handle location search
+  const handleLocationSearch = useCallback(async () => {
+    if (!searchLocation.trim()) return;
+    
+    setIsSearching(true);
+    try {
+      const result = await geocodingService.geocodeAddress(searchLocation);
+      if (result) {
+        setSearchCenter({ lat: result.lat, lng: result.lng });
+        setMapCenter([result.lat, result.lng]);
+      } else {
+        alert('Location not found. Please try a different search term.');
+      }
+    } catch (err) {
+      console.error('Search error:', err);
+    } finally {
+      setIsSearching(false);
+    }
+  }, [searchLocation]);
 
   // Calculate pricing based on membership
   const calculateLeadPrice = (membershipType: string = 'none') => {
@@ -213,50 +285,89 @@ const MapView = ({ viewType }: MapViewProps) => {
     };
   };
 
-  // Convert API data to map locations
+  // Convert API data to map locations with geocoding
   const getMapLocations = (): MapLocation[] => {
+    const referencePoint = searchCenter || (userLocation ? { lat: (userLocation as [number, number])[0], lng: (userLocation as [number, number])[1] } : null);
+    
     if (viewType === 'jobs') {
       return jobLeads
         .filter(job => job.isActive)
-        .map(job => ({
-          id: job.id,
-          lat: 51.5074 + (Math.random() - 0.5) * 0.1, // Mock coordinates - replace with real ones from job.location
-          lng: -0.1278 + (Math.random() - 0.5) * 0.1,
-          title: job.title,
-          type: 'job' as const,
-          data: {
-            title: job.title,
-            category: job.category,
-            budget: job.budget,
-            urgency: job.urgency,
-            postedDate: job.postedDate || 'Recently',
-            description: job.description,
-            contactName: job.contactDetails?.name || 'Homeowner',
-            id: job.id
+        .map(job => {
+          // Get geocoded coordinates
+          const coords = geocodedLocations.get(job.location) || geocodingService.getMockCoordinates(job.location);
+          
+          // Calculate distance if we have a reference point
+          let distance = '-- miles';
+          if (referencePoint) {
+            const dist = geocodingService.calculateDistance(
+              referencePoint.lat, 
+              referencePoint.lng, 
+              coords.lat, 
+              coords.lng
+            );
+            distance = `${dist.distanceMiles.toFixed(1)} miles`;
           }
-        }));
+          
+          return {
+            id: job.id,
+            lat: coords.lat,
+            lng: coords.lng,
+            title: job.title,
+            type: 'job' as const,
+            data: {
+              title: job.title,
+              category: job.category,
+              budget: job.budget,
+              urgency: job.urgency,
+              postedDate: job.postedDate || 'Recently',
+              description: job.description,
+              contactName: job.contactDetails?.name || 'Homeowner',
+              id: job.id,
+              location: job.location,
+              distance
+            }
+          };
+        });
     } else {
       return tradespeople
         .filter(person => person.type === 'tradesperson')
-        .map(person => ({
-          id: person.id,
-          lat: 51.5074 + (Math.random() - 0.5) * 0.1, // Mock coordinates - replace with real ones from person.location
-          lng: -0.1278 + (Math.random() - 0.5) * 0.1,
-          title: `${person.name} - ${person.trades?.[0] || 'Professional'}`,
-          type: 'professional' as const,
-          data: {
-            name: person.name,
-            trade: person.trades?.[0] || 'Professional',
-            rating: person.rating || 0,
-            reviews: person.reviews || 0,
-            verified: person.verified || false,
-            distance: '-- miles', // Calculate based on user location
-            responseTime: '-- hours',
-            hourlyRate: '£--',
-            image: person.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(person.name)}&background=2563eb&color=fff&size=200`,
-            id: person.id
+        .map(person => {
+          // Get geocoded coordinates
+          const coords = geocodedLocations.get(person.location || '') || geocodingService.getMockCoordinates(person.location || 'London');
+          
+          // Calculate distance if we have a reference point
+          let distance = '-- miles';
+          if (referencePoint) {
+            const dist = geocodingService.calculateDistance(
+              referencePoint.lat, 
+              referencePoint.lng, 
+              coords.lat, 
+              coords.lng
+            );
+            distance = `${dist.distanceMiles.toFixed(1)} miles`;
           }
-        }));
+          
+          return {
+            id: person.id,
+            lat: coords.lat,
+            lng: coords.lng,
+            title: `${person.name} - ${person.trades?.[0] || 'Professional'}`,
+            type: 'professional' as const,
+            data: {
+              name: person.name,
+              trade: person.trades?.[0] || 'Professional',
+              rating: person.rating || 0,
+              reviews: person.reviews || 0,
+              verified: person.verified || false,
+              distance,
+              responseTime: '2 hours',
+              hourlyRate: '£40-60',
+              image: person.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(person.name)}&background=2563eb&color=fff&size=200`,
+              id: person.id,
+              location: person.location
+            }
+          };
+        });
     }
   };
 
@@ -265,6 +376,7 @@ const MapView = ({ viewType }: MapViewProps) => {
   const filteredLocations = mapLocations.filter(location => {
     if (location.type !== viewType.slice(0, -1)) return false;
     
+    // Category filter
     if (filters.category !== 'all') {
       if (location.type === 'professional' && !location.data.trade.toLowerCase().includes(filters.category.toLowerCase())) {
         return false;
@@ -274,8 +386,28 @@ const MapView = ({ viewType }: MapViewProps) => {
       }
     }
     
+    // Verified filter
     if (filters.verified && location.type === 'professional' && !location.data.verified) {
       return false;
+    }
+    
+    // Radius filter - only apply if we have a search center or user location
+    const referencePoint = searchCenter || (userLocation ? { lat: (userLocation as [number, number])[0], lng: (userLocation as [number, number])[1] } : null);
+    if (referencePoint && filters.radius > 0) {
+      const isWithin = geocodingService.isWithinRadius(
+        referencePoint.lat,
+        referencePoint.lng,
+        location.lat,
+        location.lng,
+        filters.radius
+      );
+      if (!isWithin) return false;
+    }
+    
+    // Rating filter for professionals
+    if (filters.rating && location.type === 'professional') {
+      const minRating = parseFloat(filters.rating);
+      if (location.data.rating < minRating) return false;
     }
     
     return true;
@@ -450,6 +582,29 @@ const MapView = ({ viewType }: MapViewProps) => {
           </div>
           
           <div className="flex items-center space-x-2">
+            {/* Location Search */}
+            <div className="flex">
+              <input
+                type="text"
+                value={searchLocation}
+                onChange={(e) => setSearchLocation(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleLocationSearch()}
+                placeholder="Search location..."
+                className="px-3 py-2 border border-gray-300 rounded-l-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm w-40"
+              />
+              <button
+                onClick={handleLocationSearch}
+                disabled={isSearching}
+                className="px-3 py-2 bg-blue-600 text-white rounded-r-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+              >
+                {isSearching ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Search className="w-4 h-4" />
+                )}
+              </button>
+            </div>
+            
             <button
               onClick={() => setShowFilters(!showFilters)}
               className={`flex items-center px-3 py-2 border rounded-lg transition-colors ${
@@ -463,7 +618,7 @@ const MapView = ({ viewType }: MapViewProps) => {
               onClick={getUserLocation}
               className="flex items-center px-3 py-2 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors"
             >
-              <Target className="w-4 h-4 mr-2" />
+              <Navigation className="w-4 h-4 mr-2" />
               My Location
             </button>
           </div>
@@ -472,9 +627,9 @@ const MapView = ({ viewType }: MapViewProps) => {
         {/* Filters */}
         {showFilters && (
           <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Category / Trade</label>
                 <select
                   value={filters.category}
                   onChange={(e) => setFilters({...filters, category: e.target.value})}
@@ -483,9 +638,34 @@ const MapView = ({ viewType }: MapViewProps) => {
                   <option value="all">All Categories</option>
                   <option value="plumber">Plumber</option>
                   <option value="electrician">Electrician</option>
-                  <option value="construction">Construction</option>
-                  <option value="landscaping">Landscaping</option>
+                  <option value="builder">Builder</option>
+                  <option value="carpenter">Carpenter</option>
+                  <option value="painter">Painter & Decorator</option>
+                  <option value="roofer">Roofer</option>
+                  <option value="landscaper">Landscaper</option>
+                  <option value="handyman">Handyman</option>
                 </select>
+              </div>
+              
+              {/* Radius Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Search Radius: {filters.radius} miles
+                </label>
+                <input
+                  type="range"
+                  min="5"
+                  max="100"
+                  step="5"
+                  value={filters.radius}
+                  onChange={(e) => setFilters({...filters, radius: parseInt(e.target.value)})}
+                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                />
+                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                  <span>5 mi</span>
+                  <span>50 mi</span>
+                  <span>100 mi</span>
+                </div>
               </div>
               
               {viewType === 'professionals' && (
@@ -500,6 +680,8 @@ const MapView = ({ viewType }: MapViewProps) => {
                       <option value="">Any rating</option>
                       <option value="4.5">4.5+ stars</option>
                       <option value="4.0">4.0+ stars</option>
+                      <option value="3.5">3.5+ stars</option>
+                      <option value="3.0">3.0+ stars</option>
                     </select>
                   </div>
                   
@@ -517,6 +699,23 @@ const MapView = ({ viewType }: MapViewProps) => {
                 </>
               )}
             </div>
+            
+            {/* Active filters indicator */}
+            {(searchCenter || userLocation) && (
+              <div className="mt-3 flex items-center text-sm text-blue-600">
+                <Target className="w-4 h-4 mr-1" />
+                Showing results within {filters.radius} miles of {searchCenter ? 'searched location' : 'your location'}
+                <button
+                  onClick={() => {
+                    setSearchCenter(null);
+                    setSearchLocation('');
+                  }}
+                  className="ml-2 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -664,6 +863,36 @@ const MapView = ({ viewType }: MapViewProps) => {
             </Marker>
           )}
 
+          {/* Search Radius Circle */}
+          {searchCenter && (
+            <Circle
+              center={[searchCenter.lat, searchCenter.lng]}
+              radius={filters.radius * 1609.34} // Convert miles to meters
+              pathOptions={{
+                color: '#10B981',
+                fillColor: '#10B981',
+                fillOpacity: 0.1,
+                weight: 2,
+                dashArray: '10, 5'
+              }}
+            />
+          )}
+
+          {/* User Location Radius Circle */}
+          {userLocation && !searchCenter && (
+            <Circle
+              center={userLocation}
+              radius={filters.radius * 1609.34} // Convert miles to meters
+              pathOptions={{
+                color: '#3B82F6',
+                fillColor: '#3B82F6',
+                fillOpacity: 0.08,
+                weight: 2,
+                dashArray: '10, 5'
+              }}
+            />
+          )}
+
           {/* Working Area Circle (if user has one set) */}
           {state.currentUser?.workingArea && state.currentUser.workingArea.coordinates && (
             <Circle
@@ -673,8 +902,8 @@ const MapView = ({ viewType }: MapViewProps) => {
               ]}
               radius={state.currentUser.workingArea.radius * 1609.34} // Convert miles to meters
               pathOptions={{
-                color: '#3B82F6',
-                fillColor: '#3B82F6',
+                color: '#8B5CF6',
+                fillColor: '#8B5CF6',
                 fillOpacity: 0.1,
                 weight: 2,
                 dashArray: '5, 5'

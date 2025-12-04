@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Star, MapPin, CheckCircle, MessageCircle, Phone, Calendar, Award, Shield, Clock, Filter, X } from 'lucide-react';
+import { ArrowLeft, Star, MapPin, CheckCircle, MessageCircle, Phone, Calendar, Award, Shield, Clock, Filter, X, Lock, CreditCard, Users } from 'lucide-react';
 import QuickQuote from './QuickQuote';
 import MapView from './MapView';
 import { useApp } from '../context/AppContext';
 import { userService } from '../services/userService';
+import { paymentService } from '../services/paymentService';
 import { User } from '../types';
+import SubscriptionModal from './SubscriptionModal';
 
 const BrowseExperts = () => {
-  const { dispatch } = useApp();
+  const { state, dispatch } = useApp();
   const [sortBy, setSortBy] = useState('rating');
   const [filterBy, setFilterBy] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
@@ -19,9 +21,50 @@ const BrowseExperts = () => {
   const [experts, setExperts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Directory access state
+  const [hasDirectoryAccess, setHasDirectoryAccess] = useState(true); // Default to true
+  const [checkingAccess, setCheckingAccess] = useState(true);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+
+  // Check directory access for homeowners
+  useEffect(() => {
+    const checkAccess = async () => {
+      if (!state.currentUser) {
+        setCheckingAccess(false);
+        return;
+      }
+
+      // Tradespeople always have access
+      if (state.currentUser.type === 'tradesperson') {
+        setHasDirectoryAccess(true);
+        setCheckingAccess(false);
+        return;
+      }
+
+      // Check homeowner subscription
+      try {
+        const response = await paymentService.checkDirectoryAccess();
+        setHasDirectoryAccess(response.hasAccess);
+      } catch (err) {
+        console.error('Failed to check directory access:', err);
+        setHasDirectoryAccess(false);
+      } finally {
+        setCheckingAccess(false);
+      }
+    };
+
+    checkAccess();
+  }, [state.currentUser]);
 
   useEffect(() => {
     const fetchExperts = async () => {
+      // Only fetch if user has access
+      if (!hasDirectoryAccess && state.currentUser?.type === 'homeowner') {
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       setError(null);
       try {
@@ -64,8 +107,10 @@ const BrowseExperts = () => {
       }
     };
 
-    fetchExperts();
-  }, [filterBy]);
+    if (!checkingAccess) {
+      fetchExperts();
+    }
+  }, [filterBy, hasDirectoryAccess, checkingAccess, state.currentUser?.type]);
 
   const handleQuickQuote = (tradeName: string) => {
     setSelectedTrade(tradeName);
@@ -207,7 +252,63 @@ const BrowseExperts = () => {
           </div>
         )}
 
-        {loading ? (
+        {/* Directory Subscription Paywall for Homeowners */}
+        {!checkingAccess && !hasDirectoryAccess && state.currentUser?.type === 'homeowner' ? (
+          <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-8 max-w-2xl mx-auto">
+            <div className="text-center">
+              <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Lock className="w-10 h-10 text-blue-600" />
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-3">
+                Unlock the Tradespeople Directory
+              </h2>
+              <p className="text-gray-600 mb-6 max-w-md mx-auto">
+                Get unlimited access to browse profiles, ratings, and contact details of verified tradespeople in your area.
+              </p>
+              
+              {/* Price Card */}
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 mb-6 border border-blue-100">
+                <div className="text-4xl font-bold text-blue-600 mb-1">£1</div>
+                <div className="text-gray-600 mb-4">per month</div>
+                
+                <div className="space-y-3 text-left max-w-xs mx-auto">
+                  <div className="flex items-center text-gray-700">
+                    <CheckCircle className="w-5 h-5 text-green-500 mr-3 flex-shrink-0" />
+                    <span>View all tradesperson profiles</span>
+                  </div>
+                  <div className="flex items-center text-gray-700">
+                    <CheckCircle className="w-5 h-5 text-green-500 mr-3 flex-shrink-0" />
+                    <span>See ratings and reviews</span>
+                  </div>
+                  <div className="flex items-center text-gray-700">
+                    <CheckCircle className="w-5 h-5 text-green-500 mr-3 flex-shrink-0" />
+                    <span>Contact tradespeople directly</span>
+                  </div>
+                  <div className="flex items-center text-gray-700">
+                    <CheckCircle className="w-5 h-5 text-green-500 mr-3 flex-shrink-0" />
+                    <span>Filter by trade, location & rating</span>
+                  </div>
+                  <div className="flex items-center text-gray-700">
+                    <CheckCircle className="w-5 h-5 text-green-500 mr-3 flex-shrink-0" />
+                    <span>Cancel anytime</span>
+                  </div>
+                </div>
+              </div>
+              
+              <button
+                onClick={() => setShowSubscriptionModal(true)}
+                className="bg-blue-600 text-white px-8 py-4 rounded-lg hover:bg-blue-700 transition-colors font-semibold text-lg flex items-center justify-center mx-auto"
+              >
+                <CreditCard className="w-5 h-5 mr-2" />
+                Subscribe for £1/month
+              </button>
+              
+              <p className="text-sm text-gray-500 mt-4">
+                Secure payment via Stripe. Cancel anytime.
+              </p>
+            </div>
+          </div>
+        ) : checkingAccess || loading ? (
           <div className="flex justify-center items-center py-20">
             <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600"></div>
           </div>
@@ -587,6 +688,17 @@ const BrowseExperts = () => {
           </div>
         </div>
       )}
+
+      {/* Subscription Modal */}
+      <SubscriptionModal
+        isOpen={showSubscriptionModal}
+        onClose={() => setShowSubscriptionModal(false)}
+        type="directory"
+        onSuccess={() => {
+          setHasDirectoryAccess(true);
+          setShowSubscriptionModal(false);
+        }}
+      />
     </div>
   );
 };
