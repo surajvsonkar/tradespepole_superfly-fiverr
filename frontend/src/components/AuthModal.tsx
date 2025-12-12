@@ -1,10 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, User, Wrench } from 'lucide-react';
+import { X, User, Wrench, Eye, EyeOff } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { User as UserType } from '../types';
 import { authService } from '../services/authService';
 import { GoogleLogin } from '@react-oauth/google';
 import ReCAPTCHA from 'react-google-recaptcha';
+
+// Check if we have a real reCAPTCHA key (not the test key)
+const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
+const USE_RECAPTCHA = RECAPTCHA_SITE_KEY && RECAPTCHA_SITE_KEY !== '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI';
 
 // Facebook SDK types
 declare global {
@@ -40,6 +44,8 @@ const AuthModal = () => {
 	});
 
 	const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+	const [showPassword, setShowPassword] = useState(false);
+	const [devResetUrl, setDevResetUrl] = useState<string | null>(null);
 
 	// Initialize Facebook SDK
 	useEffect(() => {
@@ -136,6 +142,7 @@ const AuthModal = () => {
 		});
 		setView('default');
 		setCaptchaToken(null);
+		setDevResetUrl(null);
 		if (recaptchaRef.current) recaptchaRef.current.reset();
 	};
 
@@ -248,7 +255,7 @@ const AuthModal = () => {
 		e.preventDefault();
 		setStatus(null);
 
-		if (state.authMode === 'signup' && !captchaToken) {
+		if (state.authMode === 'signup' && USE_RECAPTCHA && !captchaToken) {
 			setStatus({ type: 'error', text: 'Please complete the CAPTCHA' });
 			return;
 		}
@@ -297,10 +304,20 @@ const AuthModal = () => {
 	const handleForgotPassword = async (e: React.FormEvent) => {
 		e.preventDefault();
 		setStatus(null);
+		setDevResetUrl(null);
 		setIsLoading(true);
 		try {
-			await authService.forgotPassword(formData.email);
-			setStatus({ type: 'success', text: 'If an account exists, a reset link has been sent to your email.' });
+			const response = await authService.forgotPassword(formData.email);
+			if (response.resetUrl) {
+				// Development mode - show the reset link directly
+				setDevResetUrl(response.resetUrl);
+				setStatus({ 
+					type: 'success', 
+					text: 'Development Mode: SMTP not configured. Use the button below to reset password.' 
+				});
+			} else {
+				setStatus({ type: 'success', text: 'If an account exists, a reset link has been sent to your email.' });
+			}
 		} catch (err: any) {
 			setStatus({ type: 'error', text: 'Failed to request password reset. Please try again.' });
 		} finally {
@@ -442,6 +459,15 @@ const AuthModal = () => {
 							className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
 							required
 						/>
+						{devResetUrl && (
+							<a
+								href={devResetUrl}
+								className="block w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition-colors font-semibold text-center"
+								onClick={() => dispatch({ type: 'HIDE_AUTH_MODAL' })}
+							>
+								🔗 Click to Reset Password (Dev Mode)
+							</a>
+						)}
 						<button
 							type="submit"
 							disabled={isLoading}
@@ -489,14 +515,23 @@ const AuthModal = () => {
 							required
 						/>
 
-						<input
-							type="password"
-							placeholder="Password"
-							value={formData.password}
-							onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-							className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
-							required
-						/>
+						<div className="relative">
+							<input
+								type={showPassword ? 'text' : 'password'}
+								placeholder="Password"
+								value={formData.password}
+								onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+								className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
+								required
+							/>
+							<button
+								type="button"
+								onClick={() => setShowPassword(!showPassword)}
+								className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+							>
+								{showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+							</button>
+						</div>
 
 						{state.authMode === 'login' && (
 							<div className="flex justify-end">
@@ -542,13 +577,19 @@ const AuthModal = () => {
 									</div>
 								)}
 
-								<div className="flex justify-center my-4">
-									<ReCAPTCHA
-										ref={recaptchaRef}
-										sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY || "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"} // Test key
-										onChange={(token) => setCaptchaToken(token)}
-									/>
-								</div>
+								{USE_RECAPTCHA ? (
+									<div className="flex justify-center my-4">
+										<ReCAPTCHA
+											ref={recaptchaRef}
+											sitekey={RECAPTCHA_SITE_KEY}
+											onChange={(token) => setCaptchaToken(token)}
+										/>
+									</div>
+								) : (
+									<div className="text-center text-sm text-gray-500 my-4 p-3 bg-gray-50 rounded-lg">
+										<span className="text-green-600">✓</span> Development mode - CAPTCHA disabled
+									</div>
+								)}
 							</>
 						)}
 

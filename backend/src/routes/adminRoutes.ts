@@ -11,7 +11,10 @@ import {
 	updateUserStatus,
 	deleteUser,
 	updatePricing,
-	getDashboardStats
+	getDashboardStats,
+	changePassword,
+	getBoostPlanPrices,
+	updateBoostPlanPrices
 } from '../controllers/adminController';
 
 const router = Router();
@@ -41,5 +44,12 @@ router.get('/transactions', getTransactions);
 
 // Pricing
 router.patch('/pricing', updatePricing);
+
+// Password management
+router.post('/change-password', changePassword);
+
+// Boost plan prices
+router.get('/boost-prices', getBoostPlanPrices);
+router.patch('/boost-prices', updateBoostPlanPrices);
 
 export default router;

@@ -12,9 +12,13 @@ import {
 	Trash2,
 	XCircle,
 	Eye,
+	EyeOff,
 	BarChart3,
 	Settings,
 	FileText,
+	Lock,
+	Save,
+	RefreshCw,
 } from 'lucide-react';
 import { adminService } from '../services/adminService';
 
@@ -63,6 +67,26 @@ const AdminDashboard = () => {
 	const [selectedUser, setSelectedUser] = useState<any>(null);
 	const [showUserModal, setShowUserModal] = useState(false);
 	const [defaultLeadPrice, setDefaultLeadPrice] = useState('9.99');
+	const [transactionFilter, setTransactionFilter] = useState('all');
+	
+	// Password change state
+	const [currentPassword, setCurrentPassword] = useState('');
+	const [newPassword, setNewPassword] = useState('');
+	const [confirmPassword, setConfirmPassword] = useState('');
+	const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+	const [showNewPassword, setShowNewPassword] = useState(false);
+	const [passwordMessage, setPasswordMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+	const [savingPassword, setSavingPassword] = useState(false);
+
+	// Boost plan prices state
+	const [boostPrices, setBoostPrices] = useState<Record<string, { name: string; price: number; duration: number }>>({
+		'1_week_boost': { name: '1 Week Boost', price: 19.99, duration: 7 },
+		'1_month_boost': { name: '1 Month Boost', price: 49.99, duration: 30 },
+		'3_month_boost': { name: '3 Month Boost', price: 99.99, duration: 90 },
+		'5_year_unlimited': { name: '5 Year Unlimited Leads', price: 499.99, duration: 1825 }
+	});
+	const [savingPrices, setSavingPrices] = useState(false);
+	const [priceMessage, setPriceMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
 	useEffect(() => {
 		loadDashboardData();
@@ -77,8 +101,10 @@ const AdminDashboard = () => {
 			loadTransactions();
 		} else if (activeTab === 'analytics') {
 			loadAnalytics();
+		} else if (activeTab === 'settings') {
+			loadBoostPrices();
 		}
-	}, [activeTab, searchTerm]);
+	}, [activeTab, searchTerm, transactionFilter]);
 
 	const loadDashboardData = async () => {
 		setLoading(true);
@@ -132,12 +158,68 @@ const AdminDashboard = () => {
 	const loadTransactions = async () => {
 		setLoading(true);
 		try {
-			const data = await adminService.getTransactions();
+			const data = await adminService.getTransactions({ type: transactionFilter });
 			setTransactions(data.transactions);
 		} catch (error) {
 			console.error('Failed to load transactions:', error);
 		} finally {
 			setLoading(false);
+		}
+	};
+
+	const loadBoostPrices = async () => {
+		try {
+			const data = await adminService.getBoostPlanPrices();
+			setBoostPrices(data.prices);
+		} catch (error) {
+			console.error('Failed to load boost prices:', error);
+		}
+	};
+
+	const handleChangePassword = async () => {
+		if (newPassword !== confirmPassword) {
+			setPasswordMessage({ type: 'error', text: 'New passwords do not match' });
+			return;
+		}
+
+		if (newPassword.length < 8) {
+			setPasswordMessage({ type: 'error', text: 'Password must be at least 8 characters' });
+			return;
+		}
+
+		setSavingPassword(true);
+		setPasswordMessage(null);
+
+		try {
+			await adminService.changePassword({ currentPassword, newPassword });
+			setPasswordMessage({ type: 'success', text: 'Password changed successfully!' });
+			setCurrentPassword('');
+			setNewPassword('');
+			setConfirmPassword('');
+		} catch (error: any) {
+			setPasswordMessage({ 
+				type: 'error', 
+				text: error.response?.data?.error || 'Failed to change password' 
+			});
+		} finally {
+			setSavingPassword(false);
+		}
+	};
+
+	const handleUpdateBoostPrices = async () => {
+		setSavingPrices(true);
+		setPriceMessage(null);
+
+		try {
+			await adminService.updateBoostPlanPrices(boostPrices);
+			setPriceMessage({ type: 'success', text: 'Boost plan prices updated successfully!' });
+		} catch (error: any) {
+			setPriceMessage({ 
+				type: 'error', 
+				text: error.response?.data?.error || 'Failed to update prices' 
+			});
+		} finally {
+			setSavingPrices(false);
 		}
 	};
 
@@ -461,7 +543,29 @@ const AdminDashboard = () => {
 
 	const renderTransactions = () => (
 		<div className="space-y-6">
-			<h2 className="text-2xl font-bold text-gray-900">Transaction History</h2>
+			<div className="flex items-center justify-between">
+				<h2 className="text-2xl font-bold text-gray-900">All Transactions</h2>
+				<div className="flex items-center gap-4">
+					<select
+						value={transactionFilter}
+						onChange={(e) => setTransactionFilter(e.target.value)}
+						className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+					>
+						<option value="all">All Types</option>
+						<option value="credits_topup">Balance Top-ups</option>
+						<option value="job_lead_purchase">Lead Purchases</option>
+						<option value="membership_purchase">Boost Plans</option>
+						<option value="directory_subscription">Directory Subscriptions</option>
+					</select>
+					<button
+						onClick={loadTransactions}
+						className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+					>
+						<RefreshCw className="w-4 h-4" />
+						Refresh
+					</button>
+				</div>
+			</div>
 
 			<div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
 				<div className="overflow-x-auto">
@@ -469,38 +573,68 @@ const AdminDashboard = () => {
 						<thead className="bg-gray-50 border-b border-gray-200">
 							<tr>
 								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Job Title</th>
-								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Homeowner</th>
-								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tradesperson</th>
-								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User Type</th>
 								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
 							</tr>
 						</thead>
 						<tbody className="bg-white divide-y divide-gray-200">
-							{transactions.map((transaction) => (
-								<tr key={transaction.id} className="hover:bg-gray-50">
-									<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-										{new Date(transaction.date).toLocaleDateString()}
-									</td>
-									<td className="px-6 py-4 text-sm text-gray-900">
-										{transaction.jobTitle}
-									</td>
-									<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-										{transaction.homeowner?.name}
-									</td>
-									<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-										{transaction.tradesperson?.name}
-									</td>
-									<td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
-										£{transaction.amount.toFixed(2)}
-									</td>
-									<td className="px-6 py-4 whitespace-nowrap">
-										<span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
-											{transaction.type.replace('_', ' ')}
-										</span>
+							{transactions.length === 0 ? (
+								<tr>
+									<td colSpan={7} className="px-6 py-12 text-center text-gray-500">
+										No transactions found
 									</td>
 								</tr>
-							))}
+							) : (
+								transactions.map((transaction: any) => (
+									<tr key={transaction.id} className="hover:bg-gray-50">
+										<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+											{new Date(transaction.date).toLocaleDateString()} {new Date(transaction.date).toLocaleTimeString()}
+										</td>
+										<td className="px-6 py-4 whitespace-nowrap">
+											<div className="font-medium text-gray-900">{transaction.user?.name || 'Unknown'}</div>
+											<div className="text-sm text-gray-500">{transaction.user?.email}</div>
+										</td>
+										<td className="px-6 py-4 whitespace-nowrap">
+											<span className={`px-2 py-1 rounded-full text-xs font-medium ${
+												transaction.userType === 'homeowner' 
+													? 'bg-blue-100 text-blue-700' 
+													: 'bg-green-100 text-green-700'
+											}`}>
+												{transaction.userType}
+											</span>
+										</td>
+										<td className="px-6 py-4 whitespace-nowrap">
+											<span className={`px-2 py-1 rounded-full text-xs font-medium ${
+												transaction.type === 'credits_topup' ? 'bg-green-100 text-green-700' :
+												transaction.type === 'job_lead_purchase' ? 'bg-blue-100 text-blue-700' :
+												transaction.type === 'membership_purchase' ? 'bg-purple-100 text-purple-700' :
+												'bg-gray-100 text-gray-700'
+											}`}>
+												{transaction.type.replace(/_/g, ' ')}
+											</span>
+										</td>
+										<td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
+											{transaction.description}
+										</td>
+										<td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
+											{transaction.currency === 'EUR' ? '€' : '£'}{transaction.amount.toFixed(2)}
+										</td>
+										<td className="px-6 py-4 whitespace-nowrap">
+											<span className={`px-2 py-1 rounded-full text-xs font-medium ${
+												transaction.status === 'succeeded' ? 'bg-green-100 text-green-700' :
+												transaction.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+												'bg-red-100 text-red-700'
+											}`}>
+												{transaction.status}
+											</span>
+										</td>
+									</tr>
+								))
+							)}
 						</tbody>
 					</table>
 				</div>
@@ -601,8 +735,162 @@ const AdminDashboard = () => {
 		<div className="space-y-6">
 			<h2 className="text-2xl font-bold text-gray-900">Settings</h2>
 
+			{/* Change Password */}
 			<div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-				<h3 className="text-lg font-semibold text-gray-900 mb-4">Pricing Configuration</h3>
+				<div className="flex items-center mb-4">
+					<Lock className="w-5 h-5 text-gray-600 mr-2" />
+					<h3 className="text-lg font-semibold text-gray-900">Change Password</h3>
+				</div>
+				
+				{passwordMessage && (
+					<div className={`mb-4 p-3 rounded-lg ${
+						passwordMessage.type === 'success' 
+							? 'bg-green-50 border border-green-200 text-green-700' 
+							: 'bg-red-50 border border-red-200 text-red-700'
+					}`}>
+						{passwordMessage.text}
+					</div>
+				)}
+
+				<div className="max-w-md space-y-4">
+					<div>
+						<label className="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
+						<div className="relative">
+							<input
+								type={showCurrentPassword ? 'text' : 'password'}
+								value={currentPassword}
+								onChange={(e) => setCurrentPassword(e.target.value)}
+								className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+								placeholder="Enter current password"
+							/>
+							<button
+								type="button"
+								onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+								className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+							>
+								{showCurrentPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+							</button>
+						</div>
+					</div>
+
+					<div>
+						<label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+						<div className="relative">
+							<input
+								type={showNewPassword ? 'text' : 'password'}
+								value={newPassword}
+								onChange={(e) => setNewPassword(e.target.value)}
+								className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+								placeholder="Enter new password (min 8 characters)"
+							/>
+							<button
+								type="button"
+								onClick={() => setShowNewPassword(!showNewPassword)}
+								className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+							>
+								{showNewPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+							</button>
+						</div>
+					</div>
+
+					<div>
+						<label className="block text-sm font-medium text-gray-700 mb-1">Confirm New Password</label>
+						<input
+							type="password"
+							value={confirmPassword}
+							onChange={(e) => setConfirmPassword(e.target.value)}
+							className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+							placeholder="Confirm new password"
+						/>
+					</div>
+
+					<button
+						onClick={handleChangePassword}
+						disabled={savingPassword || !currentPassword || !newPassword || !confirmPassword}
+						className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+					>
+						{savingPassword ? (
+							<>
+								<RefreshCw className="w-4 h-4 animate-spin" />
+								Saving...
+							</>
+						) : (
+							<>
+								<Save className="w-4 h-4" />
+								Change Password
+							</>
+						)}
+					</button>
+				</div>
+			</div>
+
+			{/* Boost Plan Pricing */}
+			<div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+				<div className="flex items-center mb-4">
+					<DollarSign className="w-5 h-5 text-gray-600 mr-2" />
+					<h3 className="text-lg font-semibold text-gray-900">Boost Plan Pricing</h3>
+				</div>
+				<p className="text-gray-600 mb-4">
+					Configure the prices for tradesperson boost/membership plans
+				</p>
+
+				{priceMessage && (
+					<div className={`mb-4 p-3 rounded-lg ${
+						priceMessage.type === 'success' 
+							? 'bg-green-50 border border-green-200 text-green-700' 
+							: 'bg-red-50 border border-red-200 text-red-700'
+					}`}>
+						{priceMessage.text}
+					</div>
+				)}
+
+				<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+					{Object.entries(boostPrices).map(([planId, plan]) => (
+						<div key={planId} className="border border-gray-200 rounded-lg p-4">
+							<label className="block text-sm font-medium text-gray-700 mb-2">
+								{plan.name}
+								<span className="text-gray-400 ml-2">({plan.duration} days)</span>
+							</label>
+							<div className="flex items-center">
+								<span className="text-gray-500 mr-2">€</span>
+								<input
+									type="number"
+									step="0.01"
+									min="0"
+									value={plan.price}
+									onChange={(e) => setBoostPrices(prev => ({
+										...prev,
+										[planId]: { ...prev[planId], price: parseFloat(e.target.value) || 0 }
+									}))}
+									className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+								/>
+							</div>
+						</div>
+					))}
+				</div>
+
+				<button
+					onClick={handleUpdateBoostPrices}
+					disabled={savingPrices}
+					className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+				>
+					{savingPrices ? (
+						<>
+							<RefreshCw className="w-4 h-4 animate-spin" />
+							Saving...
+						</>
+					) : (
+						<>
+							<Save className="w-4 h-4" />
+							Update Prices
+						</>
+					)}
+				</button>
+			</div>
+
+			{/* Default Lead Pricing */}
+			<div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+				<h3 className="text-lg font-semibold text-gray-900 mb-4">Default Lead Price</h3>
 				<div className="max-w-md">
 					<label className="block text-sm font-medium text-gray-700 mb-2">
 						Default Lead Price (£)
@@ -626,16 +914,6 @@ const AdminDashboard = () => {
 						This is the default price for job lead purchases
 					</p>
 				</div>
-			</div>
-
-			<div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-				<h3 className="text-lg font-semibold text-gray-900 mb-4">Content Management</h3>
-				<p className="text-gray-600 mb-4">
-					Manage static pages and site content
-				</p>
-				<button className="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700 transition-colors">
-					Edit Site Content
-				</button>
 			</div>
 		</div>
 	);

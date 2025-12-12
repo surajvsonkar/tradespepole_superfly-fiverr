@@ -14,12 +14,54 @@ const twilioClient = twilio(
 );
 const TWILIO_PHONE = process.env.TWILIO_PHONE_NUMBER;
 
-// Stripe Price IDs (create these in Stripe Dashboard)
-const PRICE_IDS = {
-	DIRECTORY_SUBSCRIPTION: process.env.STRIPE_DIRECTORY_PRICE_ID || 'price_directory_monthly',
-	BASIC_MEMBERSHIP: process.env.STRIPE_BASIC_MEMBERSHIP_PRICE_ID || 'price_basic_monthly',
-	PREMIUM_MEMBERSHIP: process.env.STRIPE_PREMIUM_MEMBERSHIP_PRICE_ID || 'price_premium_monthly',
-	UNLIMITED_5_YEAR: process.env.STRIPE_UNLIMITED_PRICE_ID || 'price_unlimited_5year'
+// Cache for dynamically created Stripe Price IDs
+const priceCache: { [key: string]: string } = {};
+
+// Helper to get or create a Stripe Price
+const getOrCreatePrice = async (type: string, amount: number, interval: 'month' | 'year' | null): Promise<string> => {
+	const cacheKey = `${type}_${amount}_${interval || 'one_time'}`;
+	
+	if (priceCache[cacheKey]) {
+		return priceCache[cacheKey];
+	}
+
+	// Check environment variables first
+	const envPriceId = process.env[`STRIPE_${type.toUpperCase()}_PRICE_ID`];
+	if (envPriceId && envPriceId.startsWith('price_')) {
+		priceCache[cacheKey] = envPriceId;
+		return envPriceId;
+	}
+
+	// Create a product first
+	const product = await stripe.products.create({
+		name: type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+		metadata: { type }
+	});
+
+	// Create the price
+	const priceData: Stripe.PriceCreateParams = {
+		product: product.id,
+		unit_amount: Math.round(amount * 100), // Convert to pence
+		currency: 'gbp',
+	};
+
+	if (interval) {
+		priceData.recurring = { interval };
+	}
+
+	const price = await stripe.prices.create(priceData);
+	priceCache[cacheKey] = price.id;
+	
+	console.log(`Created Stripe price for ${type}: ${price.id}`);
+	return price.id;
+};
+
+// Price configurations
+const PRICE_CONFIG = {
+	directory_listing: { amount: 1.00, interval: 'month' as const }, // Tradespeople pay to be listed
+	basic_membership: { amount: 9.99, interval: 'month' as const },
+	premium_membership: { amount: 19.99, interval: 'month' as const },
+	unlimited_5_year: { amount: 499.99, interval: null }
 };
 
 // Helper to send SMS
@@ -155,22 +197,18 @@ export const createSubscription = async (req: AuthRequest, res: Response): Promi
 		// Determine price ID based on subscription type
 		let stripePriceId = priceId;
 		if (!stripePriceId) {
-			switch (type) {
-				case 'directory_access':
-					stripePriceId = PRICE_IDS.DIRECTORY_SUBSCRIPTION;
-					break;
-				case 'basic_membership':
-					stripePriceId = PRICE_IDS.BASIC_MEMBERSHIP;
-					break;
-				case 'premium_membership':
-					stripePriceId = PRICE_IDS.PREMIUM_MEMBERSHIP;
-					break;
-				case 'unlimited_5_year':
-					stripePriceId = PRICE_IDS.UNLIMITED_5_YEAR;
-					break;
-				default:
-					res.status(400).json({ error: 'Invalid subscription type' });
-					return;
+			const priceConfig = PRICE_CONFIG[type as keyof typeof PRICE_CONFIG];
+			if (!priceConfig) {
+				res.status(400).json({ error: 'Invalid subscription type' });
+				return;
+			}
+			
+			try {
+				stripePriceId = await getOrCreatePrice(type, priceConfig.amount, priceConfig.interval);
+			} catch (priceError) {
+				console.error('Error creating price:', priceError);
+				res.status(500).json({ error: 'Failed to create subscription price' });
+				return;
 			}
 		}
 
@@ -188,40 +226,78 @@ export const createSubscription = async (req: AuthRequest, res: Response): Promi
 			return;
 		}
 
-		// Create Stripe subscription
-		const subscription = await stripe.subscriptions.create({
+		// Get price config for amount
+		const priceConfig = PRICE_CONFIG[type as keyof typeof PRICE_CONFIG];
+		const amount = priceConfig?.amount || 1.00;
+
+		// For simplicity, we'll use a PaymentIntent for the first payment
+		// Then create the subscription after payment succeeds
+		const paymentIntent = await stripe.paymentIntents.create({
+			amount: Math.round(amount * 100), // Convert to pence
+			currency: 'gbp',
 			customer: customerId,
-			items: [{ price: stripePriceId }],
-			payment_behavior: 'default_incomplete',
-			payment_settings: { save_default_payment_method: 'on_subscription' },
-			expand: ['latest_invoice.payment_intent'],
 			metadata: {
 				userId,
-				type
+				type,
+				subscriptionType: type,
+				priceId: stripePriceId
+			},
+			automatic_payment_methods: {
+				enabled: true
 			}
 		});
 
-		const invoice = subscription.latest_invoice as any;
-		const paymentIntent = invoice?.payment_intent as Stripe.PaymentIntent | null;
+		// Store pending subscription info in payment metadata
+		// The actual subscription will be created after payment succeeds (via webhook or confirm endpoint)
+		
+		// For now, create subscription record with pending status
+		const now = new Date();
+		const periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days
 
-		// Create subscription record
-		await prisma.subscription.create({
+		const dbSubscription = await prisma.subscription.create({
 			data: {
 				userId,
 				type,
-				status: 'active',
-				stripeSubscriptionId: subscription.id,
+				status: 'active', // Will be pending until payment confirmed
+				stripeSubscriptionId: paymentIntent.id, // Using payment intent ID temporarily
 				stripeCustomerId: customerId,
 				stripePriceId,
-				currentPeriodStart: new Date((subscription as any).current_period_start * 1000),
-				currentPeriodEnd: new Date((subscription as any).current_period_end * 1000)
+				currentPeriodStart: now,
+				currentPeriodEnd: periodEnd
+			}
+		});
+
+		// Update user's directory listing immediately for better UX
+		// (In production, this should be done after payment confirmation)
+		if (type === 'directory_listing') {
+			await prisma.user.update({
+				where: { id: userId },
+				data: {
+					hasDirectoryListing: true,
+					directoryListingExpiry: periodEnd
+				}
+			});
+		}
+
+		// Create payment record
+		await prisma.payment.create({
+			data: {
+				userId,
+				amount,
+				type: 'directory_subscription',
+				status: 'pending',
+				stripePaymentId: paymentIntent.id,
+				stripeCustomerId: customerId,
+				description: `${type} subscription`,
+				metadata: { subscriptionId: dbSubscription.id }
 			}
 		});
 
 		res.status(200).json({
-			subscriptionId: subscription.id,
-			clientSecret: paymentIntent?.client_secret || null,
-			status: subscription.status
+			subscriptionId: dbSubscription.id,
+			clientSecret: paymentIntent.client_secret,
+			paymentIntentId: paymentIntent.id,
+			status: 'requires_payment'
 		});
 	} catch (error) {
 		console.error('Create subscription error:', error);
@@ -571,7 +647,8 @@ export const purchaseJobLead = async (req: AuthRequest, res: Response): Promise<
 	}
 };
 
-// Add Credits (Top-up)
+// Add Credits (Top-up) - For Tradespeople
+// Currency: EUR, Minimum: €10, Maximum: €1000
 export const addCredits = async (req: AuthRequest, res: Response): Promise<void> => {
 	try {
 		const userId = req.userId;
@@ -582,16 +659,45 @@ export const addCredits = async (req: AuthRequest, res: Response): Promise<void>
 
 		const { amount } = req.body;
 
-		if (!amount || amount < 5) {
-			res.status(400).json({ error: 'Minimum top-up amount is £5' });
+		// Validate amount
+		if (!amount || typeof amount !== 'number') {
+			res.status(400).json({ error: 'Amount is required and must be a number' });
+			return;
+		}
+
+		// Minimum €10
+		if (amount < 10) {
+			res.status(400).json({ error: 'Minimum top-up amount is €10' });
+			return;
+		}
+
+		// Maximum €1000
+		if (amount > 1000) {
+			res.status(400).json({ error: 'Maximum top-up amount is €1000' });
+			return;
+		}
+
+		// Verify user is a tradesperson
+		const user = await prisma.user.findUnique({
+			where: { id: userId },
+			select: { type: true }
+		});
+
+		if (!user) {
+			res.status(404).json({ error: 'User not found' });
+			return;
+		}
+
+		if (user.type !== 'tradesperson') {
+			res.status(403).json({ error: 'Only tradespeople can top up their balance' });
 			return;
 		}
 
 		const customerId = await getOrCreateStripeCustomer(userId);
 
 		const paymentIntent = await stripe.paymentIntents.create({
-			amount: Math.round(amount * 100),
-			currency: 'gbp',
+			amount: Math.round(amount * 100), // Convert to cents
+			currency: 'eur',
 			customer: customerId,
 			metadata: {
 				userId,
@@ -607,22 +713,130 @@ export const addCredits = async (req: AuthRequest, res: Response): Promise<void>
 			data: {
 				userId,
 				amount,
+				currency: 'eur',
 				type: 'credits_topup',
 				status: 'pending',
 				stripePaymentId: paymentIntent.id,
 				stripeCustomerId: customerId,
-				description: `Credits top-up: £${amount}`,
+				description: `Balance top-up: €${amount.toFixed(2)}`,
 				metadata: { creditAmount: amount }
 			}
 		});
 
 		res.status(200).json({
 			clientSecret: paymentIntent.client_secret,
-			paymentIntentId: paymentIntent.id
+			paymentIntentId: paymentIntent.id,
+			amount: amount,
+			currency: 'eur'
 		});
 	} catch (error) {
 		console.error('Add credits error:', error);
 		res.status(500).json({ error: 'Failed to add credits' });
+	}
+};
+
+// Confirm Top-Up after successful payment (called by frontend)
+export const confirmTopUp = async (req: AuthRequest, res: Response): Promise<void> => {
+	try {
+		const userId = req.userId;
+		if (!userId) {
+			res.status(401).json({ error: 'Unauthorized' });
+			return;
+		}
+
+		const { paymentIntentId } = req.body;
+
+		if (!paymentIntentId) {
+			res.status(400).json({ error: 'Payment Intent ID is required' });
+			return;
+		}
+
+		// Verify payment with Stripe
+		const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+
+		if (paymentIntent.status !== 'succeeded') {
+			res.status(400).json({ error: 'Payment has not been completed' });
+			return;
+		}
+
+		// Check if this payment was already processed
+		const existingPayment = await prisma.payment.findFirst({
+			where: { 
+				stripePaymentId: paymentIntentId,
+				status: 'succeeded'
+			}
+		});
+
+		if (existingPayment) {
+			// Already processed, return current balance
+			const user = await prisma.user.findUnique({
+				where: { id: userId },
+				select: { credits: true }
+			});
+			res.status(200).json({ 
+				message: 'Payment already processed',
+				newBalance: Number(user?.credits || 0)
+			});
+			return;
+		}
+
+		const { creditAmount, type } = paymentIntent.metadata;
+
+		if (type !== 'credits_topup' || !creditAmount) {
+			res.status(400).json({ error: 'Invalid payment type' });
+			return;
+		}
+
+		const amount = parseFloat(creditAmount);
+
+		// Get current user balance
+		const user = await prisma.user.findUnique({
+			where: { id: userId },
+			select: { credits: true, name: true, phone: true }
+		});
+
+		if (!user) {
+			res.status(404).json({ error: 'User not found' });
+			return;
+		}
+
+		const currentBalance = Number(user.credits || 0);
+		const newBalance = currentBalance + amount;
+
+		// Update user credits in database
+		await prisma.user.update({
+			where: { id: userId },
+			data: { credits: newBalance }
+		});
+
+		// Update payment record status
+		await prisma.payment.updateMany({
+			where: { stripePaymentId: paymentIntentId },
+			data: { 
+				status: 'succeeded',
+				metadata: { creditAmount: amount, newBalance }
+			}
+		});
+
+		// Send SMS notification
+		if (user.phone) {
+			await sendSMS(
+				user.phone,
+				`Hi ${user.name}, your balance has been topped up by €${amount.toFixed(2)}. Your new balance is €${newBalance.toFixed(2)}.`
+			);
+		}
+
+		console.log(`Top-up confirmed for user ${userId}: €${amount} added. New balance: €${newBalance}`);
+
+		res.status(200).json({
+			message: 'Top-up confirmed successfully',
+			amount,
+			newBalance,
+			currency: 'eur'
+		});
+	} catch (error) {
+		console.error('Confirm top-up error:', error);
+		res.status(500).json({ error: 'Failed to confirm top-up' });
 	}
 };
 
@@ -723,15 +937,53 @@ async function handlePaymentSuccess(paymentIntent: Stripe.PaymentIntent) {
 		const amount = parseFloat(creditAmount);
 		const user = await prisma.user.findUnique({ where: { id: userId } });
 		if (user) {
+			const newBalance = Number(user.credits || 0) + amount;
 			await prisma.user.update({
 				where: { id: userId },
-				data: { credits: Number(user.credits || 0) + amount }
+				data: { credits: newBalance }
 			});
 
 			if (user.phone) {
 				await sendSMS(
 					user.phone,
-					`Hi ${user.name}, your credits have been topped up by £${amount.toFixed(2)}. Your new balance is £${(Number(user.credits || 0) + amount).toFixed(2)}.`
+					`Hi ${user.name}, your balance has been topped up by €${amount.toFixed(2)}. Your new balance is €${newBalance.toFixed(2)}.`
+				);
+			}
+		}
+	}
+
+	// Handle boost plan purchase
+	if (type === 'boost_purchase') {
+		const { planId, duration, membershipType, planName } = paymentIntent.metadata;
+		if (planId && duration && membershipType) {
+			const now = new Date();
+			const expiryDate = new Date(now.getTime() + parseInt(duration) * 24 * 60 * 60 * 1000);
+
+			const user = await prisma.user.update({
+				where: { id: userId },
+				data: {
+					membershipType: membershipType as any,
+					membershipExpiry: expiryDate,
+					verified: true
+				}
+			});
+
+			// Create subscription record
+			await prisma.subscription.create({
+				data: {
+					userId,
+					type: planId,
+					status: 'active',
+					stripeSubscriptionId: paymentIntent.id,
+					currentPeriodStart: now,
+					currentPeriodEnd: expiryDate
+				}
+			});
+
+			if (user.phone) {
+				await sendSMS(
+					user.phone,
+					`Hi ${user.name}, your ${planName || 'boost plan'} has been activated! Your profile is now boosted until ${expiryDate.toLocaleDateString()}. Enjoy your premium features!`
 				);
 			}
 		}
@@ -787,13 +1039,13 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription) {
 		}
 	});
 
-	// Update user's directory access if it's a directory subscription
-	if (type === 'directory_access' && subscription.status === 'active') {
+	// Update user's directory listing if it's a directory subscription
+	if (type === 'directory_listing' && subscription.status === 'active') {
 		await prisma.user.update({
 			where: { id: userId },
 			data: {
-				hasDirectoryAccess: true,
-				directorySubscriptionExpiry: new Date(sub.current_period_end * 1000)
+				hasDirectoryListing: true,
+				directoryListingExpiry: new Date(sub.current_period_end * 1000)
 			}
 		});
 	}
@@ -812,13 +1064,13 @@ async function handleSubscriptionCancelled(subscription: Stripe.Subscription) {
 		}
 	});
 
-	// Remove directory access if it's a directory subscription
-	if (type === 'directory_access') {
+	// Remove directory listing if it's a directory subscription
+	if (type === 'directory_listing') {
 		await prisma.user.update({
 			where: { id: userId },
 			data: {
-				hasDirectoryAccess: false,
-				directorySubscriptionExpiry: null
+				hasDirectoryListing: false,
+				directoryListingExpiry: null
 			}
 		});
 	}
@@ -868,7 +1120,7 @@ async function handleDispute(dispute: Stripe.Dispute) {
 	console.log(`Dispute created for payment ${paymentIntent}`);
 }
 
-// Check Directory Access
+// Check Directory Access - Homeowners always have free access now
 export const checkDirectoryAccess = async (req: AuthRequest, res: Response): Promise<void> => {
 	try {
 		const userId = req.userId;
@@ -879,9 +1131,40 @@ export const checkDirectoryAccess = async (req: AuthRequest, res: Response): Pro
 
 		const user = await prisma.user.findUnique({
 			where: { id: userId },
+			select: { type: true }
+		});
+
+		if (!user) {
+			res.status(404).json({ error: 'User not found' });
+			return;
+		}
+
+		// Everyone has free access to browse the directory now
+		// Tradespeople need to pay to BE LISTED in the directory
+		res.status(200).json({
+			hasAccess: true,
+			reason: user.type === 'homeowner' ? 'free_access' : 'tradesperson'
+		});
+	} catch (error) {
+		console.error('Check directory access error:', error);
+		res.status(500).json({ error: 'Failed to check directory access' });
+	}
+};
+
+// Check Directory Listing Status - For tradespeople to check if they're listed
+export const checkDirectoryListing = async (req: AuthRequest, res: Response): Promise<void> => {
+	try {
+		const userId = req.userId;
+		if (!userId) {
+			res.status(401).json({ error: 'Unauthorized' });
+			return;
+		}
+
+		const user = await prisma.user.findUnique({
+			where: { id: userId },
 			select: {
-				hasDirectoryAccess: true,
-				directorySubscriptionExpiry: true,
+				hasDirectoryListing: true,
+				directoryListingExpiry: true,
 				type: true
 			}
 		});
@@ -891,25 +1174,30 @@ export const checkDirectoryAccess = async (req: AuthRequest, res: Response): Pro
 			return;
 		}
 
-		// Tradespeople always have access (they ARE the directory)
-		if (user.type === 'tradesperson') {
-			res.status(200).json({ hasAccess: true, reason: 'tradesperson' });
+		if (user.type !== 'tradesperson') {
+			res.status(400).json({ error: 'Only tradespeople can have directory listings' });
 			return;
 		}
 
-		// Check subscription status
-		const hasAccess = user.hasDirectoryAccess && 
-			user.directorySubscriptionExpiry && 
-			new Date(user.directorySubscriptionExpiry) > new Date();
+		// Check if listing is active
+		const isListed = user.hasDirectoryListing && 
+			user.directoryListingExpiry && 
+			new Date(user.directoryListingExpiry) > new Date();
 
 		res.status(200).json({
-			hasAccess,
-			expiryDate: user.directorySubscriptionExpiry,
-			subscriptionPrice: '£1/month'
+			isListed,
+			expiryDate: user.directoryListingExpiry,
+			subscriptionPrice: '€1/month',
+			benefits: [
+				'Your profile appears in homeowner searches',
+				'Homeowners can contact you directly',
+				'Increased visibility and job opportunities',
+				'Cancel anytime'
+			]
 		});
 	} catch (error) {
-		console.error('Check directory access error:', error);
-		res.status(500).json({ error: 'Failed to check directory access' });
+		console.error('Check directory listing error:', error);
+		res.status(500).json({ error: 'Failed to check directory listing' });
 	}
 };
 
@@ -974,6 +1262,397 @@ export const getPaymentMethods = async (req: AuthRequest, res: Response): Promis
 	} catch (error) {
 		console.error('Get payment methods error:', error);
 		res.status(500).json({ error: 'Failed to get payment methods' });
+	}
+};
+
+// ============= BOOST PLAN PURCHASES =============
+
+// Boost Plan Configuration
+const BOOST_PLANS = {
+	'1_week_boost': {
+		name: '1 Week Boost',
+		price: 19.99,
+		duration: 7, // days
+		membershipType: 'basic' as const,
+		features: [
+			'Priority placement in search results',
+			'3x more profile views',
+			'Featured badge on your profile',
+			'Advanced analytics dashboard',
+			'Premium customer support'
+		]
+	},
+	'1_month_boost': {
+		name: '1 Month Boost',
+		price: 49.99,
+		duration: 30, // days
+		membershipType: 'basic' as const,
+		features: [
+			'Priority placement in search results',
+			'3x more profile views',
+			'Featured badge on your profile',
+			'Advanced analytics dashboard',
+			'Premium customer support'
+		]
+	},
+	'3_month_boost': {
+		name: '3 Month Boost',
+		price: 99.99,
+		duration: 90, // days
+		membershipType: 'premium' as const,
+		features: [
+			'Priority placement in search results',
+			'3x more profile views',
+			'Featured badge on your profile',
+			'Advanced analytics dashboard',
+			'Premium customer support'
+		]
+	},
+	'5_year_unlimited': {
+		name: '5 Years Unlimited Leads',
+		price: 995.00,
+		duration: 1825, // 5 years in days
+		membershipType: 'unlimited_5_year' as const,
+		features: [
+			'Priority placement in search results',
+			'3x more profile views',
+			'Featured badge on your profile',
+			'Advanced analytics dashboard',
+			'Premium customer support',
+			'Unlimited job leads at no extra cost'
+		]
+	}
+};
+
+// Get available boost plans
+export const getBoostPlans = async (req: AuthRequest, res: Response): Promise<void> => {
+	try {
+		const plans = Object.entries(BOOST_PLANS).map(([id, plan]) => ({
+			id,
+			name: plan.name,
+			price: plan.price,
+			duration: plan.duration,
+			features: plan.features,
+			savings: id === '1_month_boost' ? '37%' : id === '3_month_boost' ? '58%' : null
+		}));
+
+		res.status(200).json({ plans });
+	} catch (error) {
+		console.error('Get boost plans error:', error);
+		res.status(500).json({ error: 'Failed to get boost plans' });
+	}
+};
+
+// Purchase Boost Plan with Stripe
+export const purchaseBoostPlan = async (req: AuthRequest, res: Response): Promise<void> => {
+	try {
+		const userId = req.userId;
+		if (!userId) {
+			res.status(401).json({ error: 'Unauthorized' });
+			return;
+		}
+
+		const { planId } = req.body;
+
+		if (!planId) {
+			res.status(400).json({ error: 'Plan ID is required' });
+			return;
+		}
+
+		const plan = BOOST_PLANS[planId as keyof typeof BOOST_PLANS];
+		if (!plan) {
+			res.status(400).json({ error: 'Invalid boost plan' });
+			return;
+		}
+
+		// Verify user is a tradesperson
+		const user = await prisma.user.findUnique({
+			where: { id: userId },
+			select: { type: true, name: true, phone: true, membershipType: true, membershipExpiry: true }
+		});
+
+		if (!user) {
+			res.status(404).json({ error: 'User not found' });
+			return;
+		}
+
+		if (user.type !== 'tradesperson') {
+			res.status(403).json({ error: 'Only tradespeople can purchase boost plans' });
+			return;
+		}
+
+		// Check if user already has an active boost/membership
+		if (user.membershipType && user.membershipType !== 'none' && user.membershipExpiry) {
+			const expiryDate = new Date(user.membershipExpiry);
+			if (expiryDate > new Date()) {
+				// User has active membership - check if they're trying to downgrade
+				const currentPlanLevel = user.membershipType === 'unlimited_5_year' ? 4 : 
+					user.membershipType === 'premium' ? 3 : 
+					user.membershipType === 'basic' ? 2 : 1;
+				const newPlanLevel = planId === '5_year_unlimited' ? 4 :
+					planId === '3_month_boost' ? 3 : 2;
+				
+				if (newPlanLevel < currentPlanLevel) {
+					res.status(400).json({ 
+						error: 'Cannot downgrade while current plan is active',
+						currentPlan: user.membershipType,
+						currentExpiry: user.membershipExpiry
+					});
+					return;
+				}
+			}
+		}
+
+		const customerId = await getOrCreateStripeCustomer(userId);
+
+		// Create payment intent for the boost plan
+		const paymentIntent = await stripe.paymentIntents.create({
+			amount: Math.round(plan.price * 100), // Convert to pence
+			currency: 'gbp',
+			customer: customerId,
+			metadata: {
+				userId,
+				type: 'boost_purchase',
+				planId,
+				planName: plan.name,
+				duration: plan.duration.toString(),
+				membershipType: plan.membershipType
+			},
+			automatic_payment_methods: {
+				enabled: true
+			}
+		});
+
+		// Create pending payment record
+		await prisma.payment.create({
+			data: {
+				userId,
+				amount: plan.price,
+				currency: 'gbp',
+				type: 'membership_purchase',
+				status: 'pending',
+				stripePaymentId: paymentIntent.id,
+				stripeCustomerId: customerId,
+				description: `Boost Plan: ${plan.name}`,
+				metadata: {
+					planId,
+					planName: plan.name,
+					duration: plan.duration,
+					membershipType: plan.membershipType,
+					features: plan.features
+				}
+			}
+		});
+
+		res.status(200).json({
+			clientSecret: paymentIntent.client_secret,
+			paymentIntentId: paymentIntent.id,
+			plan: {
+				id: planId,
+				name: plan.name,
+				price: plan.price,
+				features: plan.features
+			}
+		});
+	} catch (error) {
+		console.error('Purchase boost plan error:', error);
+		res.status(500).json({ error: 'Failed to create payment for boost plan' });
+	}
+};
+
+// Confirm Boost Plan Purchase (called after successful payment)
+export const confirmBoostPurchase = async (req: AuthRequest, res: Response): Promise<void> => {
+	try {
+		const userId = req.userId;
+		if (!userId) {
+			res.status(401).json({ error: 'Unauthorized' });
+			return;
+		}
+
+		const { paymentIntentId } = req.body;
+
+		if (!paymentIntentId) {
+			res.status(400).json({ error: 'Payment Intent ID is required' });
+			return;
+		}
+
+		// Check if this payment was already processed
+		const existingSubscription = await prisma.subscription.findFirst({
+			where: { stripeSubscriptionId: paymentIntentId }
+		});
+
+		if (existingSubscription) {
+			// Already processed, return current user membership
+			const user = await prisma.user.findUnique({
+				where: { id: userId },
+				select: { membershipType: true, membershipExpiry: true }
+			});
+			res.status(200).json({
+				message: 'Boost plan already activated',
+				user: {
+					membershipType: user?.membershipType,
+					membershipExpiry: user?.membershipExpiry
+				}
+			});
+			return;
+		}
+
+		// Verify payment with Stripe
+		const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+
+		if (paymentIntent.status !== 'succeeded') {
+			res.status(400).json({ error: 'Payment has not been completed' });
+			return;
+		}
+
+		const { planId, duration, membershipType } = paymentIntent.metadata;
+
+		if (!planId || !duration || !membershipType) {
+			res.status(400).json({ error: 'Invalid payment metadata' });
+			return;
+		}
+
+		// Calculate expiry date
+		const now = new Date();
+		const expiryDate = new Date(now.getTime() + parseInt(duration) * 24 * 60 * 60 * 1000);
+
+		// Update user membership
+		const updatedUser = await prisma.user.update({
+			where: { id: userId },
+			data: {
+				membershipType: membershipType as any,
+				membershipExpiry: expiryDate,
+				verified: true // Boost plans include verification
+			},
+			select: {
+				id: true,
+				name: true,
+				email: true,
+				membershipType: true,
+				membershipExpiry: true,
+				phone: true
+			}
+		});
+
+		// Update payment record
+		await prisma.payment.updateMany({
+			where: { stripePaymentId: paymentIntentId },
+			data: { status: 'succeeded' }
+		});
+
+		// Create subscription record (using upsert to avoid duplicates)
+		await prisma.subscription.upsert({
+			where: { stripeSubscriptionId: paymentIntentId },
+			update: {
+				status: 'active',
+				currentPeriodEnd: expiryDate
+			},
+			create: {
+				userId,
+				type: planId,
+				status: 'active',
+				stripeSubscriptionId: paymentIntentId,
+				currentPeriodStart: now,
+				currentPeriodEnd: expiryDate
+			}
+		});
+
+		// Send SMS notification
+		if (updatedUser.phone) {
+			const plan = BOOST_PLANS[planId as keyof typeof BOOST_PLANS];
+			await sendSMS(
+				updatedUser.phone,
+				`Hi ${updatedUser.name}, your ${plan?.name || 'boost plan'} has been activated! Your profile is now boosted until ${expiryDate.toLocaleDateString()}. Enjoy your premium features!`
+			);
+		}
+
+		console.log(`Boost plan confirmed for user ${userId}: ${planId}. Expires: ${expiryDate.toISOString()}`);
+
+		res.status(200).json({
+			message: 'Boost plan activated successfully!',
+			user: {
+				membershipType: updatedUser.membershipType,
+				membershipExpiry: updatedUser.membershipExpiry
+			}
+		});
+	} catch (error) {
+		console.error('Confirm boost purchase error:', error);
+		res.status(500).json({ error: 'Failed to confirm boost purchase' });
+	}
+};
+
+// Get user balance
+export const getBalance = async (req: AuthRequest, res: Response): Promise<void> => {
+	try {
+		const userId = req.userId;
+		if (!userId) {
+			res.status(401).json({ error: 'Unauthorized' });
+			return;
+		}
+
+		const user = await prisma.user.findUnique({
+			where: { id: userId },
+			select: { credits: true }
+		});
+
+		if (!user) {
+			res.status(404).json({ error: 'User not found' });
+			return;
+		}
+
+		res.status(200).json({
+			balance: Number(user.credits || 0),
+			currency: 'eur'
+		});
+	} catch (error) {
+		console.error('Get balance error:', error);
+		res.status(500).json({ error: 'Failed to get balance' });
+	}
+};
+
+// Get current membership status
+export const getMembershipStatus = async (req: AuthRequest, res: Response): Promise<void> => {
+	try {
+		const userId = req.userId;
+		if (!userId) {
+			res.status(401).json({ error: 'Unauthorized' });
+			return;
+		}
+
+		const user = await prisma.user.findUnique({
+			where: { id: userId },
+			select: {
+				membershipType: true,
+				membershipExpiry: true,
+				verified: true
+			}
+		});
+
+		if (!user) {
+			res.status(404).json({ error: 'User not found' });
+			return;
+		}
+
+		const isActive = user.membershipType && 
+			user.membershipType !== 'none' && 
+			user.membershipExpiry && 
+			new Date(user.membershipExpiry) > new Date();
+
+		let daysRemaining = 0;
+		if (isActive && user.membershipExpiry) {
+			daysRemaining = Math.ceil((new Date(user.membershipExpiry).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+		}
+
+		res.status(200).json({
+			membershipType: user.membershipType,
+			membershipExpiry: user.membershipExpiry,
+			isActive,
+			daysRemaining,
+			verified: user.verified
+		});
+	} catch (error) {
+		console.error('Get membership status error:', error);
+		res.status(500).json({ error: 'Failed to get membership status' });
 	}
 };
 

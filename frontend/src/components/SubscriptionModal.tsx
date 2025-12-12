@@ -11,21 +11,21 @@ const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || 
 interface SubscriptionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  type: 'directory' | 'basic' | 'premium' | 'unlimited';
+  type: 'directory_listing' | 'basic' | 'premium' | 'unlimited';
   onSuccess?: () => void;
 }
 
 const SUBSCRIPTION_DETAILS = {
-  directory: {
-    title: 'Directory Access',
-    price: '£1',
+  directory_listing: {
+    title: 'Directory Listing',
+    price: '€1',
     period: 'month',
-    description: 'Browse and contact local tradespeople',
+    description: 'Get your profile listed in the directory',
     features: [
-      'View all tradesperson profiles',
-      'See ratings and reviews',
-      'Contact tradespeople directly',
-      'Filter by trade, location, and rating',
+      'Your profile appears in homeowner searches',
+      'Homeowners can contact you directly',
+      'Increased visibility and job opportunities',
+      'See your profile views and analytics',
       'Cancel anytime'
     ]
   },
@@ -92,15 +92,24 @@ const CheckoutForm = ({ type, onSuccess, onClose }: { type: string; onSuccess?: 
 
     try {
       // Create subscription
-      const subscriptionType = type === 'directory' ? 'directory_access' : 
+      const subscriptionType = type === 'directory_listing' ? 'directory_listing' : 
                                type === 'basic' ? 'basic_membership' :
                                type === 'premium' ? 'premium_membership' : 'unlimited_5_year';
       
-      const { clientSecret, subscriptionId, status } = await paymentService.createSubscription(subscriptionType);
+      const response = await paymentService.createSubscription(subscriptionType);
+      const { clientSecret, subscriptionId, status } = response;
 
-      if (status === 'active') {
+      console.log('Subscription response:', response);
+
+      if (status === 'active' && !clientSecret) {
         // Subscription created without payment (free trial or already paid)
         setSuccess(true);
+        
+        // Update user state if directory listing subscription
+        if (type === 'directory_listing') {
+          dispatch({ type: 'UPDATE_USER', payload: { hasDirectoryListing: true } });
+        }
+        
         setTimeout(() => {
           onSuccess?.();
           onClose();
@@ -109,7 +118,7 @@ const CheckoutForm = ({ type, onSuccess, onClose }: { type: string; onSuccess?: 
       }
 
       if (!clientSecret) {
-        throw new Error('Failed to create subscription');
+        throw new Error('Failed to get payment details. Please try again.');
       }
 
       // Confirm card payment
@@ -132,9 +141,9 @@ const CheckoutForm = ({ type, onSuccess, onClose }: { type: string; onSuccess?: 
       if (paymentIntent?.status === 'succeeded') {
         setSuccess(true);
         
-        // Update user state if directory subscription
-        if (type === 'directory') {
-          dispatch({ type: 'UPDATE_USER', payload: { hasDirectoryAccess: true } });
+        // Update user state if directory listing subscription
+        if (type === 'directory_listing') {
+          dispatch({ type: 'UPDATE_USER', payload: { hasDirectoryListing: true } });
         }
         
         setTimeout(() => {
@@ -262,7 +271,7 @@ const SubscriptionModal = ({ isOpen, onClose, type, onSuccess }: SubscriptionMod
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center">
-              {type === 'directory' ? (
+              {type === 'directory_listing' ? (
                 <Users className="w-6 h-6 text-blue-600 mr-2" />
               ) : type === 'unlimited' ? (
                 <Star className="w-6 h-6 text-purple-600 mr-2" />

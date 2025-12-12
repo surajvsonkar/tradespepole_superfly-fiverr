@@ -27,6 +27,13 @@ export const adminService = {
 		return response.data;
 	},
 
+	async changePassword(data: { currentPassword: string; newPassword: string }) {
+		const response = await axios.post(`${API_URL}/admin/change-password`, data, {
+			headers: getAuthHeader(),
+		});
+		return response.data;
+	},
+
 	logout() {
 		localStorage.removeItem('adminToken');
 	},
@@ -66,7 +73,7 @@ export const adminService = {
 	},
 
 	// Get transactions
-	async getTransactions(params?: { limit?: number; offset?: number }) {
+	async getTransactions(params?: { limit?: number; offset?: number; type?: string }) {
 		const response = await axios.get(`${API_URL}/admin/transactions`, {
 			headers: getAuthHeader(),
 			params,
@@ -97,6 +104,22 @@ export const adminService = {
 	// Update pricing
 	async updatePricing(data: { defaultLeadPrice: number }) {
 		const response = await axios.patch(`${API_URL}/admin/pricing`, data, {
+			headers: getAuthHeader(),
+		});
+		return response.data;
+	},
+
+	// Get boost plan prices
+	async getBoostPlanPrices() {
+		const response = await axios.get(`${API_URL}/admin/boost-prices`, {
+			headers: getAuthHeader(),
+		});
+		return response.data;
+	},
+
+	// Update boost plan prices
+	async updateBoostPlanPrices(prices: Record<string, { name: string; price: number; duration: number }>) {
+		const response = await axios.patch(`${API_URL}/admin/boost-prices`, { prices }, {
 			headers: getAuthHeader(),
 		});
 		return response.data;

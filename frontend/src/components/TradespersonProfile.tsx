@@ -34,8 +34,10 @@ import { ChatModal as MessagingModal } from './MessagingModal';
 import ConversationsList from './ConversationsList';
 import ContactsList from './ContactsList';
 import QuoteRequest from './QuoteRequest';
+import BalanceTopUp from './BalanceTopUp';
 import { userService } from '../services/userService';
 import { reviewService } from '../services/reviewService';
+import { paymentService } from '../services/paymentService';
 
 const TradespersonProfile = () => {
 	const { state, dispatch } = useApp();
@@ -117,6 +119,9 @@ const TradespersonProfile = () => {
 	const [selectedConversation, setSelectedConversation] =
 		useState<Conversation | null>(null);
 	const [conversationsLoading, setConversationsLoading] = useState(false);
+	const [showBalanceTopUp, setShowBalanceTopUp] = useState(false);
+	const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
+	const [loadingPaymentHistory, setLoadingPaymentHistory] = useState(false);
 	const [portfolioData, setPortfolioData] = useState({
 		title: '',
 		description: '',
@@ -342,6 +347,12 @@ const TradespersonProfile = () => {
 			id: 'balance',
 			label: 'Balance',
 			icon: CreditCard,
+			type: 'nav',
+		},
+		{
+			id: 'directory-listing',
+			label: 'Directory Listing',
+			icon: Users,
 			type: 'nav',
 		},
 		{
@@ -1710,22 +1721,242 @@ const TradespersonProfile = () => {
 				);
 
 			case 'balance':
+				const fetchBalanceData = async () => {
+					// Fetch current balance from database
+					try {
+						const balanceResponse = await paymentService.getBalance();
+						if (balanceResponse.balance !== Number(state.currentUser?.credits || 0)) {
+							// Update local state if different from database
+							dispatch({
+								type: 'UPDATE_USER',
+								payload: { credits: balanceResponse.balance },
+							});
+						}
+					} catch (error) {
+						console.error('Error fetching balance:', error);
+					}
+
+					// Fetch payment history
+					if (paymentHistory.length === 0 && !loadingPaymentHistory) {
+						setLoadingPaymentHistory(true);
+						try {
+							const response = await paymentService.getPaymentHistory({ limit: 10, type: 'credits_topup' });
+							setPaymentHistory(response.payments || []);
+						} catch (error) {
+							console.error('Error fetching payment history:', error);
+						} finally {
+							setLoadingPaymentHistory(false);
+						}
+					}
+				};
+				fetchBalanceData();
+
 				return (
 					<div className="space-y-6">
-						<h2 className="text-xl font-semibold text-gray-900">Balance</h2>
-						<div className="bg-green-50 border border-green-200 rounded-lg p-6">
-							<div className="text-center">
-								<span className="text-2xl font-bold text-gray-900">
-									£
-									{state.currentUser.credits
-										? Number(state.currentUser.credits).toFixed(2)
-										: '0.00'}
+						<div className="flex items-center justify-between">
+							<h2 className="text-xl font-semibold text-gray-900">Balance</h2>
+						</div>
+
+						{/* Balance Card */}
+						<div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl p-6 text-white shadow-lg">
+							<div className="flex items-center justify-between mb-4">
+								<div className="flex items-center">
+									<CreditCard className="w-6 h-6 mr-2" />
+									<span className="font-medium">Available Balance</span>
+								</div>
+								<span className="text-xs bg-white/20 px-2 py-1 rounded-full">
+									EUR
 								</span>
-								<p className="text-green-700">Current balance</p>
-								<button className="mt-4 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
-									Top Up Balance
-								</button>
 							</div>
+							<div className="text-4xl font-bold mb-6">
+								€{state.currentUser.credits
+									? Number(state.currentUser.credits).toFixed(2)
+									: '0.00'}
+							</div>
+							<button
+								onClick={() => setShowBalanceTopUp(true)}
+								className="w-full bg-white text-emerald-600 py-3 px-4 rounded-xl font-semibold hover:bg-emerald-50 transition-colors flex items-center justify-center"
+							>
+								<DollarSign className="w-5 h-5 mr-2" />
+								Top Up Balance
+							</button>
+						</div>
+
+						{/* Top-up Info */}
+						<div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+							<h4 className="font-semibold text-blue-800 mb-2">About Balance Top-Up</h4>
+							<ul className="text-sm text-blue-700 space-y-1">
+								<li>• Minimum top-up: €10</li>
+								<li>• Maximum top-up: €1,000</li>
+								<li>• Use your balance to purchase job leads</li>
+								<li>• Secure payment via Stripe</li>
+							</ul>
+						</div>
+
+						{/* Payment History */}
+						<div>
+							<h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Top-Ups</h3>
+							{loadingPaymentHistory ? (
+								<div className="text-center py-8">
+									<div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 mx-auto"></div>
+									<p className="text-gray-500 mt-2">Loading...</p>
+								</div>
+							) : paymentHistory.length === 0 ? (
+								<div className="bg-gray-50 rounded-lg p-8 text-center">
+									<CreditCard className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+									<p className="text-gray-600">No top-up history yet</p>
+									<p className="text-sm text-gray-500 mt-2">
+										Your balance top-up transactions will appear here
+									</p>
+								</div>
+							) : (
+								<div className="space-y-3">
+									{paymentHistory.map((payment) => (
+										<div
+											key={payment.id}
+											className="bg-white border border-gray-200 rounded-lg p-4 flex items-center justify-between"
+										>
+											<div className="flex items-center">
+												<div className={`w-10 h-10 rounded-full flex items-center justify-center mr-3 ${
+													payment.status === 'succeeded'
+														? 'bg-green-100'
+														: payment.status === 'pending'
+														? 'bg-yellow-100'
+														: 'bg-red-100'
+												}`}>
+													<DollarSign className={`w-5 h-5 ${
+														payment.status === 'succeeded'
+															? 'text-green-600'
+															: payment.status === 'pending'
+															? 'text-yellow-600'
+															: 'text-red-600'
+													}`} />
+												</div>
+												<div>
+													<p className="font-medium text-gray-900">Balance Top-Up</p>
+													<p className="text-sm text-gray-500">
+														{new Date(payment.createdAt).toLocaleDateString('en-GB', {
+															day: 'numeric',
+															month: 'short',
+															year: 'numeric',
+															hour: '2-digit',
+															minute: '2-digit'
+														})}
+													</p>
+												</div>
+											</div>
+											<div className="text-right">
+												<p className="font-semibold text-green-600">
+													+€{Number(payment.amount).toFixed(2)}
+												</p>
+												<span className={`text-xs px-2 py-1 rounded-full ${
+													payment.status === 'succeeded'
+														? 'bg-green-100 text-green-800'
+														: payment.status === 'pending'
+														? 'bg-yellow-100 text-yellow-800'
+														: 'bg-red-100 text-red-800'
+												}`}>
+													{payment.status}
+												</span>
+											</div>
+										</div>
+									))}
+								</div>
+							)}
+						</div>
+					</div>
+				);
+
+			case 'directory-listing':
+				return (
+					<div className="space-y-6">
+						<div className="flex items-center justify-between">
+							<h2 className="text-xl font-semibold text-gray-900">Directory Listing</h2>
+						</div>
+
+						{/* Directory Listing Status Card */}
+						<div className={`rounded-2xl p-6 text-white shadow-lg ${
+							state.currentUser?.hasDirectoryListing 
+								? 'bg-gradient-to-br from-green-500 to-emerald-600'
+								: 'bg-gradient-to-br from-gray-500 to-gray-600'
+						}`}>
+							<div className="flex items-center justify-between mb-4">
+								<div className="flex items-center">
+									<Users className="w-6 h-6 mr-2" />
+									<span className="font-medium">Directory Status</span>
+								</div>
+								<span className={`text-xs px-3 py-1 rounded-full ${
+									state.currentUser?.hasDirectoryListing 
+										? 'bg-white/20'
+										: 'bg-red-500/50'
+								}`}>
+									{state.currentUser?.hasDirectoryListing ? 'ACTIVE' : 'NOT LISTED'}
+								</span>
+							</div>
+							<div className="text-3xl font-bold mb-2">
+								{state.currentUser?.hasDirectoryListing 
+									? 'You are listed in the directory!'
+									: 'Get discovered by homeowners'
+								}
+							</div>
+							<p className="text-white/80 text-sm">
+								{state.currentUser?.hasDirectoryListing 
+									? 'Homeowners can find and contact you directly'
+									: 'Subscribe to appear in homeowner searches'
+								}
+							</p>
+						</div>
+
+						{/* Subscription Info */}
+						<div className="bg-white border border-gray-200 rounded-xl p-6">
+							<h3 className="text-lg font-semibold text-gray-900 mb-4">
+								Directory Listing Subscription
+							</h3>
+							
+							<div className="flex items-center justify-between mb-6">
+								<div>
+									<div className="text-3xl font-bold text-blue-600">€1</div>
+									<div className="text-gray-600">per month</div>
+								</div>
+								{!state.currentUser?.hasDirectoryListing && (
+									<button
+										onClick={() => {
+											// Open subscription modal for directory listing
+											dispatch({ type: 'SET_VIEW', payload: 'subscribe-directory' });
+										}}
+										className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold flex items-center"
+									>
+										<CreditCard className="w-5 h-5 mr-2" />
+										Subscribe Now
+									</button>
+								)}
+							</div>
+
+							<div className="space-y-3">
+								<h4 className="font-medium text-gray-900">What you get:</h4>
+								{[
+									'Your profile appears in homeowner searches',
+									'Homeowners can contact you directly',
+									'Increased visibility for job opportunities',
+									'Profile analytics and view counts',
+									'Cancel anytime - no commitment'
+								].map((benefit, index) => (
+									<div key={index} className="flex items-center text-gray-700">
+										<CheckCircle className="w-5 h-5 text-green-500 mr-3 flex-shrink-0" />
+										<span>{benefit}</span>
+									</div>
+								))}
+							</div>
+						</div>
+
+						{/* Why List */}
+						<div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+							<h4 className="font-semibold text-blue-800 mb-2">Why list your profile?</h4>
+							<p className="text-sm text-blue-700">
+								When you're listed in the directory, homeowners browsing for tradespeople 
+								in your area will be able to find you, view your profile, see your reviews, 
+								and contact you directly for potential jobs. It's the best way to get discovered!
+							</p>
 						</div>
 					</div>
 				);
@@ -2178,6 +2409,24 @@ const TradespersonProfile = () => {
 					</div>
 				</div>
 			)}
+
+			{/* Balance Top-Up Modal */}
+			<BalanceTopUp
+				isOpen={showBalanceTopUp}
+				onClose={() => setShowBalanceTopUp(false)}
+				onSuccess={(newBalance) => {
+					// Update the user's credits in state
+					if (state.currentUser) {
+						const updatedUser = {
+							...state.currentUser,
+							credits: newBalance,
+						};
+						dispatch({ type: 'SET_USER', payload: updatedUser });
+					}
+					// Refresh payment history
+					setPaymentHistory([]);
+				}}
+			/>
 		</div>
 	);
 };

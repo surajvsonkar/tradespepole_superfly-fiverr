@@ -94,12 +94,23 @@ export const paymentService = {
     });
   },
 
-  // Add credits (top-up)
-  addCredits: async (amount: number): Promise<PaymentIntent> => {
+  // Add credits (top-up) - For tradespeople balance
+  // Min: €10, Max: €1000
+  addCredits: async (amount: number): Promise<PaymentIntent & { amount: number; currency: string }> => {
     return await apiClient.post('/payments/add-credits', { amount });
   },
 
-  // Check directory access (for homeowners)
+  // Confirm top-up after successful Stripe payment
+  confirmTopUp: async (paymentIntentId: string): Promise<{
+    message: string;
+    amount: number;
+    newBalance: number;
+    currency: string;
+  }> => {
+    return await apiClient.post('/payments/confirm-topup', { paymentIntentId });
+  },
+
+  // Check directory access (for homeowners - now always free)
   checkDirectoryAccess: async (): Promise<{
     hasAccess: boolean;
     expiryDate?: string;
@@ -107,6 +118,16 @@ export const paymentService = {
     reason?: string;
   }> => {
     return await apiClient.get('/payments/directory-access');
+  },
+
+  // Check directory listing status (for tradespeople)
+  checkDirectoryListing: async (): Promise<{
+    isListed: boolean;
+    expiryDate?: string;
+    subscriptionPrice?: string;
+    benefits?: string[];
+  }> => {
+    return await apiClient.get('/payments/directory-listing');
   },
 
   // Create setup intent for saving cards
@@ -117,6 +138,57 @@ export const paymentService = {
   // Get saved payment methods
   getPaymentMethods: async (): Promise<{ paymentMethods: PaymentMethod[] }> => {
     return await apiClient.get('/payments/payment-methods');
+  },
+
+  // ============= BOOST PLAN METHODS =============
+
+  // Get available boost plans
+  getBoostPlans: async (): Promise<{
+    plans: Array<{
+      id: string;
+      name: string;
+      price: number;
+      duration: number;
+      features: string[];
+      savings?: string | null;
+    }>;
+  }> => {
+    return await apiClient.get('/payments/boost-plans');
+  },
+
+  // Purchase boost plan
+  purchaseBoostPlan: async (planId: string): Promise<PaymentIntent & { plan: any }> => {
+    return await apiClient.post('/payments/purchase-boost', { planId });
+  },
+
+  // Confirm boost purchase after successful payment
+  confirmBoostPurchase: async (paymentIntentId: string): Promise<{
+    message: string;
+    user: {
+      membershipType: string;
+      membershipExpiry: string;
+    };
+  }> => {
+    return await apiClient.post('/payments/confirm-boost', { paymentIntentId });
+  },
+
+  // Get current membership status
+  getMembershipStatus: async (): Promise<{
+    membershipType: string | null;
+    membershipExpiry: string | null;
+    isActive: boolean;
+    daysRemaining: number;
+    verified: boolean;
+  }> => {
+    return await apiClient.get('/payments/membership-status');
+  },
+
+  // Get current balance from database
+  getBalance: async (): Promise<{
+    balance: number;
+    currency: string;
+  }> => {
+    return await apiClient.get('/payments/balance');
   }
 };
 

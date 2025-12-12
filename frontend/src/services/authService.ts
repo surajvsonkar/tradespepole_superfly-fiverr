@@ -46,7 +46,7 @@ export const authService = {
     return await apiClient.post('/auth/verify-email', { token });
   },
 
-  forgotPassword: async (email: string) => {
+  forgotPassword: async (email: string): Promise<{ message: string; resetUrl?: string; developmentNote?: string }> => {
     return await apiClient.post('/auth/forgot-password', { email });
   },
 

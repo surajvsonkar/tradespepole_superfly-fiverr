@@ -63,21 +63,34 @@ const verifyCaptcha = async (token: string): Promise<boolean> => {
 };
 
 // Helper to send email
-const sendEmail = async (to: string, subject: string, text: string) => {
+const sendEmail = async (to: string, subject: string, text: string): Promise<boolean> => {
 	if (!process.env.SMTP_EMAIL || !process.env.SMTP_PASSWORD) {
-		console.log('SMTP not configured. Email would be:', { to, subject, text });
-		return;
+		console.log('\n===========================================');
+		console.log('📧 EMAIL NOT SENT - SMTP NOT CONFIGURED');
+		console.log('===========================================');
+		console.log('To:', to);
+		console.log('Subject:', subject);
+		console.log('Content:', text);
+		console.log('===========================================\n');
+		return false; // Email not actually sent
 	}
 	
-	const transporter = nodemailer.createTransport({
-		service: 'gmail',
-		auth: {
-			user: process.env.SMTP_EMAIL,
-			pass: process.env.SMTP_PASSWORD
-		}
-	});
-	
-	await transporter.sendMail({ from: process.env.SMTP_EMAIL, to, subject, text });
+	try {
+		const transporter = nodemailer.createTransport({
+			service: 'gmail',
+			auth: {
+				user: process.env.SMTP_EMAIL,
+				pass: process.env.SMTP_PASSWORD
+			}
+		});
+		
+		await transporter.sendMail({ from: process.env.SMTP_EMAIL, to, subject, text });
+		console.log(`✅ Email sent successfully to ${to}`);
+		return true;
+	} catch (error) {
+		console.error('❌ Failed to send email:', error);
+		return false;
+	}
 };
 
 // Register a new user
@@ -282,13 +295,22 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
 		});
 
 		const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password?token=${resetToken}`;
-		await sendEmail(
+		const emailSent = await sendEmail(
 			email,
 			'Password Reset Request',
 			`Click here to reset your password: ${resetUrl}`
 		);
 
-		res.status(200).json({ message: 'If email exists, reset instructions sent.' });
+		// In development mode (when SMTP is not configured), include the reset link in response
+		const isDevelopment = !process.env.SMTP_EMAIL || !process.env.SMTP_PASSWORD;
+		
+		res.status(200).json({ 
+			message: 'If email exists, reset instructions sent.',
+			...(isDevelopment && { 
+				developmentNote: 'SMTP not configured. Use the link below to reset password.',
+				resetUrl 
+			})
+		});
 	} catch (error) {
 		console.error('Forgot password error:', error);
 		res.status(500).json({ error: 'Failed to process request' });

@@ -69,9 +69,9 @@ model User {
   // Stripe Integration
   stripeCustomerId String? @unique @map("stripe_customer_id")
 
-  // Directory Subscription (for homeowners)
-  hasDirectoryAccess          Boolean   @default(false) @map("has_directory_access")
-  directorySubscriptionExpiry DateTime? @map("directory_subscription_expiry") @db.Timestamptz
+  // Directory Listing (for tradespeople - pay to be listed in directory)
+  hasDirectoryListing          Boolean   @default(false) @map("has_directory_listing")
+  directoryListingExpiry       DateTime? @map("directory_listing_expiry") @db.Timestamptz
 
   // Verification & Security
   isEmailVerified          Boolean   @default(false) @map("is_email_verified")

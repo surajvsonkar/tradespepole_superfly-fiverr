@@ -49,8 +49,6 @@ async function main() {
         latitude: 51.5074,
         longitude: -0.1278,
         isEmailVerified: true,
-        hasDirectoryAccess: true,
-        directorySubscriptionExpiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
         accountStatus: AccountStatus.active,
       }
     }),
@@ -65,7 +63,6 @@ async function main() {
         latitude: 53.4808,
         longitude: -2.2426,
         isEmailVerified: true,
-        hasDirectoryAccess: false,
         accountStatus: AccountStatus.active,
       }
     }),
@@ -80,8 +77,6 @@ async function main() {
         latitude: 52.4862,
         longitude: -1.8904,
         isEmailVerified: true,
-        hasDirectoryAccess: true,
-        directorySubscriptionExpiry: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000),
         accountStatus: AccountStatus.active,
       }
     }),
@@ -110,8 +105,6 @@ async function main() {
         latitude: 51.4545,
         longitude: -2.5879,
         isEmailVerified: true,
-        hasDirectoryAccess: true,
-        directorySubscriptionExpiry: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
         accountStatus: AccountStatus.active,
       }
     }),
@@ -145,6 +138,8 @@ async function main() {
         isEmailVerified: true,
         accountStatus: AccountStatus.active,
         workingArea: { radius: 25, unit: 'miles' },
+        hasDirectoryListing: true,
+        directoryListingExpiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         verificationData: {
           idVerified: true,
           insuranceVerified: true,
@@ -175,6 +170,8 @@ async function main() {
         isEmailVerified: true,
         accountStatus: AccountStatus.active,
         workingArea: { radius: 30, unit: 'miles' },
+        hasDirectoryListing: true,
+        directoryListingExpiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         verificationData: {
           idVerified: true,
           insuranceVerified: true,
@@ -204,6 +201,8 @@ async function main() {
         verificationStatus: VerificationStatus.verified,
         isEmailVerified: true,
         accountStatus: AccountStatus.active,
+        hasDirectoryListing: true,
+        directoryListingExpiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         workingArea: { radius: 40, unit: 'miles' },
         verificationData: {
           idVerified: true,
@@ -1346,7 +1345,7 @@ async function main() {
   console.log('');
   console.log('   HOMEOWNERS (Password for all: Test@123):');
   homeowners.forEach((h, i) => {
-    console.log(`     ${i + 1}. ${h.email} - ${h.location}${h.hasDirectoryAccess ? ' [Directory Access]' : ''}`);
+    console.log(`     ${i + 1}. ${h.email} - ${h.location}`);
   });
   console.log('');
   console.log('   TRADESPEOPLE (Password for all: Test@123):');

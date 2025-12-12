@@ -105,7 +105,7 @@ export const updateProfile = async (req: AuthRequest, res: Response): Promise<vo
   }
 };
 
-// Get all tradespeople with filters
+// Get all tradespeople with filters (only those with active directory listings)
 export const getTradespeople = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const {
@@ -114,13 +114,22 @@ export const getTradespeople = async (req: AuthRequest, res: Response): Promise<
       verified,
       minRating,
       limit = '20',
-      offset = '0'
+      offset = '0',
+      includeUnlisted = 'false' // For admin purposes
     } = req.query;
 
     const where: any = {
       type: 'tradesperson',
       accountStatus: 'active'
     };
+
+    // Only show tradespeople with active directory listings (unless admin override)
+    if (includeUnlisted !== 'true') {
+      where.hasDirectoryListing = true;
+      where.directoryListingExpiry = {
+        gt: new Date()
+      };
+    }
 
     if (trade) {
       where.trades = {

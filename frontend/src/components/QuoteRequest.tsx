@@ -304,9 +304,11 @@ const QuoteRequest = () => {
                       <div key={response.id} className="bg-white border rounded-lg p-3 mb-2 last:mb-0">
                         <div className="flex justify-between items-start mb-2">
                           <div>
-                            <p className="font-medium text-gray-900">{response.tradespersonName}</p>
-                            <p className="text-lg font-bold text-green-600">£{response.quotedPrice.toFixed(2)}</p>
-                            <p className="text-sm text-gray-600">{response.timeline}</p>
+                            <p className="font-medium text-gray-900">{response.tradespersonName || 'Unknown'}</p>
+                            <p className="text-lg font-bold text-green-600">
+                              £{typeof response.quotedPrice === 'number' ? response.quotedPrice.toFixed(2) : (response.quotedPrice || '0.00')}
+                            </p>
+                            <p className="text-sm text-gray-600">{response.timeline || 'Not specified'}</p>
                           </div>
                           <div className="text-right">
                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -314,16 +316,16 @@ const QuoteRequest = () => {
                               response.status === 'declined' ? 'bg-red-100 text-red-800' :
                               'bg-yellow-100 text-yellow-800'
                             }`}>
-                              {response.status}
+                              {response.status || 'pending'}
                             </span>
-                            {response.membershipDiscount > 0 && (
+                            {response.membershipDiscount && response.membershipDiscount > 0 && (
                               <p className="text-xs text-blue-600 mt-1">
                                 {response.membershipDiscount}% member discount
                               </p>
                             )}
                           </div>
                         </div>
-                        <p className="text-sm text-gray-600 mb-2">{response.description}</p>
+                        <p className="text-sm text-gray-600 mb-2">{response.description || 'No description provided'}</p>
                         {isOwner && response.status === 'pending' && (
                           <button
                             onClick={() => handleAcceptQuote(quote.id, response.id)}

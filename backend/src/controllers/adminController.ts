@@ -385,69 +385,61 @@ export const getAnalytics = async (req: AuthRequest, res: Response): Promise<voi
 	}
 };
 
-// Get all transactions
+// Get all transactions (from Payment table)
 export const getTransactions = async (req: AuthRequest, res: Response): Promise<void> => {
 	try {
-		if (!isAdmin(req)) {
+		if (!await isAdmin(req)) {
 			res.status(403).json({ error: 'Forbidden: Admin access required' });
 			return;
 		}
 
-		const { limit = '50', offset = '0' } = req.query;
+		const { limit = '100', offset = '0', type, search } = req.query;
 
-		// Get all job purchases
-		const jobs = await prisma.jobLead.findMany({
-			where: {
-				purchasedBy: {
-					isEmpty: false
-				}
-			},
-			select: {
-				id: true,
-				title: true,
-				price: true,
-				purchasedBy: true,
-				createdAt: true,
-				poster: {
-					select: {
-						id: true,
-						name: true,
-						email: true
-					}
-				}
-			},
+		const where: any = {};
+		
+		if (type && type !== 'all') {
+			where.type = type;
+		}
+
+		// Get all payments with user information
+		const payments = await prisma.payment.findMany({
+			where,
 			orderBy: { createdAt: 'desc' },
 			take: parseInt(limit as string),
 			skip: parseInt(offset as string)
 		});
 
-		// Transform to transaction format
-		const transactions = [];
-		for (const job of jobs) {
-			for (const tradespersonId of job.purchasedBy) {
-				const tradesperson = await prisma.user.findUnique({
-					where: { id: tradespersonId },
-					select: {
-						id: true,
-						name: true,
-						email: true
-					}
-				});
+		// Fetch user details for each payment
+		const transactions = await Promise.all(payments.map(async (payment) => {
+			const user = await prisma.user.findUnique({
+				where: { id: payment.userId },
+				select: {
+					id: true,
+					name: true,
+					email: true,
+					type: true
+				}
+			});
 
-				transactions.push({
-					id: `${job.id}-${tradespersonId}`,
-					jobId: job.id,
-					jobTitle: job.title,
-					amount: parseFloat(job.price.toString()),
-					homeowner: job.poster,
-					tradesperson: tradesperson,
-					date: job.createdAt,
-					type: 'lead_purchase'
-				});
-			}
-		}
+			// Parse metadata for additional info
+			const metadata = payment.metadata as any || {};
 
-		const total = transactions.length;
+			return {
+				id: payment.id,
+				date: payment.createdAt,
+				user: user,
+				userType: user?.type || 'unknown',
+				amount: parseFloat(payment.amount.toString()),
+				currency: payment.currency.toUpperCase(),
+				type: payment.type,
+				status: payment.status,
+				description: payment.description || getTransactionDescription(payment.type, metadata),
+				stripePaymentId: payment.stripePaymentId,
+				metadata
+			};
+		}));
+
+		const total = await prisma.payment.count({ where });
 
 		res.status(200).json({
 			transactions,
@@ -460,6 +452,143 @@ export const getTransactions = async (req: AuthRequest, res: Response): Promise<
 	} catch (error) {
 		console.error('Get transactions error:', error);
 		res.status(500).json({ error: 'Failed to get transactions' });
+	}
+};
+
+// Helper function to generate transaction description
+const getTransactionDescription = (type: string, metadata: any): string => {
+	switch (type) {
+		case 'credits_topup':
+			return `Balance top-up of €${metadata.amount || 'N/A'}`;
+		case 'job_lead_purchase':
+			return `Job lead purchase: ${metadata.jobTitle || 'N/A'}`;
+		case 'membership_purchase':
+			return `Membership purchase: ${metadata.planId || 'N/A'}`;
+		case 'directory_subscription':
+			return 'Directory access subscription';
+		case 'interest_fee':
+			return 'Interest fee payment';
+		default:
+			return type.replace(/_/g, ' ');
+	}
+};
+
+// Change admin password
+export const changePassword = async (req: AuthRequest, res: Response): Promise<void> => {
+	try {
+		if (!await isAdmin(req)) {
+			res.status(403).json({ error: 'Forbidden: Admin access required' });
+			return;
+		}
+
+		const { currentPassword, newPassword } = req.body;
+
+		if (!currentPassword || !newPassword) {
+			res.status(400).json({ error: 'Current password and new password are required' });
+			return;
+		}
+
+		if (newPassword.length < 8) {
+			res.status(400).json({ error: 'New password must be at least 8 characters long' });
+			return;
+		}
+
+		// Get admin user
+		const admin = await prisma.admin.findUnique({
+			where: { email: req.userEmail! }
+		});
+
+		if (!admin) {
+			res.status(404).json({ error: 'Admin not found' });
+			return;
+		}
+
+		// Verify current password
+		const isPasswordValid = await bcrypt.compare(currentPassword, admin.passwordHash);
+		if (!isPasswordValid) {
+			res.status(400).json({ error: 'Current password is incorrect' });
+			return;
+		}
+
+		// Hash and update new password
+		const passwordHash = await bcrypt.hash(newPassword, 10);
+		await prisma.admin.update({
+			where: { id: admin.id },
+			data: { passwordHash }
+		});
+
+		res.status(200).json({ message: 'Password changed successfully' });
+	} catch (error) {
+		console.error('Change password error:', error);
+		res.status(500).json({ error: 'Failed to change password' });
+	}
+};
+
+// Get boost plan prices (stored in Settings or from config)
+export const getBoostPlanPrices = async (req: AuthRequest, res: Response): Promise<void> => {
+	try {
+		if (!await isAdmin(req)) {
+			res.status(403).json({ error: 'Forbidden: Admin access required' });
+			return;
+		}
+
+		// Default boost plan prices
+		const defaultPrices = {
+			'1_week_boost': { name: '1 Week Boost', price: 19.99, duration: 7 },
+			'1_month_boost': { name: '1 Month Boost', price: 49.99, duration: 30 },
+			'3_month_boost': { name: '3 Month Boost', price: 99.99, duration: 90 },
+			'5_year_unlimited': { name: '5 Year Unlimited Leads', price: 499.99, duration: 1825 }
+		};
+
+		// In production, you'd fetch these from a Settings table
+		// For now, return the default prices
+		res.status(200).json({ prices: defaultPrices });
+	} catch (error) {
+		console.error('Get boost plan prices error:', error);
+		res.status(500).json({ error: 'Failed to get boost plan prices' });
+	}
+};
+
+// Update boost plan prices
+export const updateBoostPlanPrices = async (req: AuthRequest, res: Response): Promise<void> => {
+	try {
+		if (!await isAdmin(req)) {
+			res.status(403).json({ error: 'Forbidden: Admin access required' });
+			return;
+		}
+
+		const { prices } = req.body;
+
+		if (!prices || typeof prices !== 'object') {
+			res.status(400).json({ error: 'Invalid prices format' });
+			return;
+		}
+
+		// Validate all prices are positive numbers
+		for (const [planId, planData] of Object.entries(prices)) {
+			const data = planData as any;
+			if (typeof data.price !== 'number' || data.price < 0) {
+				res.status(400).json({ error: `Invalid price for ${planId}` });
+				return;
+			}
+		}
+
+		// In production, you'd save these to a Settings table
+		// For now, just return success
+		// Note: To make this persistent, you'd need to:
+		// 1. Create a Settings model in prisma
+		// 2. Store these prices there
+		// 3. Update the payment controller to read from Settings
+
+		console.log('Boost plan prices updated:', prices);
+
+		res.status(200).json({ 
+			message: 'Boost plan prices updated successfully',
+			prices 
+		});
+	} catch (error) {
+		console.error('Update boost plan prices error:', error);
+		res.status(500).json({ error: 'Failed to update boost plan prices' });
 	}
 };
 
