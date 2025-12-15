@@ -25,6 +25,7 @@ import {
 	Zap,
 	Upload,
 	Heart,
+	CheckCircle,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { PortfolioItem, Conversation, Review } from '../types';
@@ -501,27 +502,19 @@ const TradespersonProfile = () => {
 		alert('Account deleted successfully.');
 	};
 
-	const MAX_TRADES = 3;
-
 	const handleTradeToggle = (trade: string, type: 'leads' | 'services') => {
 		if (type === 'leads') {
-			setSelectedTrades((prev) => {
-				if (prev.includes(trade)) {
-					return prev.filter((t) => t !== trade);
-				} else if (prev.length < MAX_TRADES) {
-					return [...prev, trade];
-				}
-				return prev; // Don't add if already at max
-			});
+			setSelectedTrades((prev) =>
+				prev.includes(trade)
+					? prev.filter((t) => t !== trade)
+					: [...prev, trade]
+			);
 		} else {
-			setSelectedServices((prev) => {
-				if (prev.includes(trade)) {
-					return prev.filter((t) => t !== trade);
-				} else if (prev.length < MAX_TRADES) {
-					return [...prev, trade];
-				}
-				return prev; // Don't add if already at max
-			});
+			setSelectedServices((prev) =>
+				prev.includes(trade)
+					? prev.filter((t) => t !== trade)
+					: [...prev, trade]
+			);
 		}
 	};
 
@@ -1620,22 +1613,15 @@ const TradespersonProfile = () => {
 
 						<div className="bg-white border border-gray-200 rounded-lg p-6">
 							<h3 className="text-lg font-semibold text-gray-900 mb-4">
-								Select Trades for Lead Notifications (Max {MAX_TRADES})
+								Select Trades for Lead Notifications
 							</h3>
 							<p className="text-gray-600 mb-4">
-								Choose which types of jobs you want to receive notifications
-								for. You can select up to {MAX_TRADES} trades.
+								Choose which types of jobs you want to receive notifications for.
 							</p>
 							
-							<div className="mb-4">
-								<p className="text-sm text-gray-500">
-									Selected: {selectedTrades.length}/{MAX_TRADES}
-									{selectedTrades.length >= MAX_TRADES && (
-										<span className="text-orange-600 ml-2 font-medium">Maximum reached</span>
-									)}
-								</p>
-								{selectedTrades.length > 0 && (
-									<div className="flex flex-wrap gap-2 mt-2">
+							{selectedTrades.length > 0 && (
+								<div className="mb-4">
+									<div className="flex flex-wrap gap-2">
 										{selectedTrades.map((trade) => (
 											<span
 												key={trade}
@@ -1652,32 +1638,28 @@ const TradespersonProfile = () => {
 											</span>
 										))}
 									</div>
-								)}
-							</div>
+								</div>
+							)}
 
 							<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
 								{availableTrades.map((trade) => {
 									const isSelected = selectedTrades.includes(trade);
-									const isDisabled = !isSelected && selectedTrades.length >= MAX_TRADES;
 									return (
 										<label
 											key={trade}
-											className={`flex items-center p-3 border rounded-lg ${
-												isDisabled 
-													? 'border-gray-100 bg-gray-50 cursor-not-allowed opacity-50' 
-													: isSelected
-														? 'border-blue-300 bg-blue-50'
-														: 'border-gray-200 hover:bg-gray-50 cursor-pointer'
+											className={`flex items-center p-3 border rounded-lg cursor-pointer ${
+												isSelected
+													? 'border-blue-300 bg-blue-50'
+													: 'border-gray-200 hover:bg-gray-50'
 											}`}
 										>
 											<input
 												type="checkbox"
 												checked={isSelected}
 												onChange={() => handleTradeToggle(trade, 'leads')}
-												disabled={isDisabled}
-												className="mr-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:cursor-not-allowed"
+												className="mr-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
 											/>
-											<span className={`text-sm ${isDisabled ? 'text-gray-400' : 'text-gray-700'}`}>{trade}</span>
+											<span className="text-sm text-gray-700">{trade}</span>
 										</label>
 									);
 								})}
@@ -1706,21 +1688,15 @@ const TradespersonProfile = () => {
 
 						<div className="bg-white border border-gray-200 rounded-lg p-6">
 							<h3 className="text-lg font-semibold text-gray-900 mb-4">
-								Your Service Offerings (Max {MAX_TRADES})
+								Your Service Offerings
 							</h3>
 							<p className="text-gray-600 mb-4">
-								Select the services you provide to customers. You can select up to {MAX_TRADES} services.
+								Select the services you provide to customers.
 							</p>
 
-							<div className="mb-4">
-								<p className="text-sm text-gray-500">
-									Selected: {selectedServices.length}/{MAX_TRADES}
-									{selectedServices.length >= MAX_TRADES && (
-										<span className="text-orange-600 ml-2 font-medium">Maximum reached</span>
-									)}
-								</p>
-								{selectedServices.length > 0 && (
-									<div className="flex flex-wrap gap-2 mt-2">
+							{selectedServices.length > 0 && (
+								<div className="mb-4">
+									<div className="flex flex-wrap gap-2">
 										{selectedServices.map((trade) => (
 											<span
 												key={trade}
@@ -1737,32 +1713,28 @@ const TradespersonProfile = () => {
 											</span>
 										))}
 									</div>
-								)}
-							</div>
+								</div>
+							)}
 
 							<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
 								{availableTrades.map((trade) => {
 									const isSelected = selectedServices.includes(trade);
-									const isDisabled = !isSelected && selectedServices.length >= MAX_TRADES;
 									return (
 										<label
 											key={trade}
-											className={`flex items-center p-3 border rounded-lg ${
-												isDisabled 
-													? 'border-gray-100 bg-gray-50 cursor-not-allowed opacity-50' 
-													: isSelected
-														? 'border-blue-300 bg-blue-50'
-														: 'border-gray-200 hover:bg-gray-50 cursor-pointer'
+											className={`flex items-center p-3 border rounded-lg cursor-pointer ${
+												isSelected
+													? 'border-blue-300 bg-blue-50'
+													: 'border-gray-200 hover:bg-gray-50'
 											}`}
 										>
 											<input
 												type="checkbox"
 												checked={isSelected}
 												onChange={() => handleTradeToggle(trade, 'services')}
-												disabled={isDisabled}
-												className="mr-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:cursor-not-allowed"
+												className="mr-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
 											/>
-											<span className={`text-sm ${isDisabled ? 'text-gray-400' : 'text-gray-700'}`}>{trade}</span>
+											<span className="text-sm text-gray-700">{trade}</span>
 										</label>
 									);
 								})}

@@ -15,6 +15,7 @@ import {
 	Star,
 	X,
 	MessageCircle,
+	Lock,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Interest, Review, Conversation, JobLead } from '../types';
@@ -23,6 +24,7 @@ import {ChatModal as MessagingModal} from './MessagingModal';
 import ConversationsList from './ConversationsList';
 import { jobService } from '../services/jobService';
 import { conversationService } from '../services/conversationService';
+import SubscriptionModal from './SubscriptionModal';
 
 const JobLeads = () => {
 	const { state, dispatch } = useApp();
@@ -53,6 +55,12 @@ const JobLeads = () => {
 	const [showPurchaseModal, setShowPurchaseModal] = useState(false);
 	const [selectedLeadForPurchase, setSelectedLeadForPurchase] = useState<string | null>(null);
 	const [isPurchasing, setIsPurchasing] = useState(false);
+	const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+
+	// Check if tradesperson has directory listing subscription
+	const hasSubscription = state.currentUser?.type === 'homeowner' || 
+		(state.currentUser?.hasDirectoryListing && 
+		(!state.currentUser?.directoryListingExpiry || new Date(state.currentUser.directoryListingExpiry) > new Date()));
 
 	// Fetch job leads from API
 	useEffect(() => {
@@ -549,6 +557,45 @@ const JobLeads = () => {
 					</select>
 				</div>
 
+				{/* Subscription Required Notice for Tradespeople */}
+				{!isHomeowner && !hasSubscription && (
+					<div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl p-6 mb-6 text-white">
+						<div className="flex items-start space-x-4">
+							<div className="bg-white/20 rounded-full p-3">
+								<Lock className="w-8 h-8" />
+							</div>
+							<div className="flex-1">
+								<h3 className="text-xl font-bold mb-2">Subscription Required to View Job Leads</h3>
+								<p className="text-blue-100 mb-4">
+									Subscribe for just €1/month to access all available job leads in your area. 
+									Find new customers, grow your business, and get matched with homeowners looking for your services.
+								</p>
+								<div className="flex flex-wrap gap-3 mb-4">
+									<div className="flex items-center text-sm">
+										<CheckCircle className="w-4 h-4 mr-2" />
+										Unlimited job lead access
+									</div>
+									<div className="flex items-center text-sm">
+										<CheckCircle className="w-4 h-4 mr-2" />
+										Profile visible to homeowners
+									</div>
+									<div className="flex items-center text-sm">
+										<CheckCircle className="w-4 h-4 mr-2" />
+										Cancel anytime
+									</div>
+								</div>
+								<button
+									onClick={() => setShowSubscriptionModal(true)}
+									className="bg-white text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-blue-50 transition-colors flex items-center"
+								>
+									<CreditCard className="w-5 h-5 mr-2" />
+									Subscribe Now - €1/month
+								</button>
+							</div>
+						</div>
+					</div>
+				)}
+
 				{/* Loading State */}
 				{loading ? (
 					<div className="flex justify-center items-center py-20">
@@ -563,6 +610,37 @@ const JobLeads = () => {
 						>
 							Retry
 						</button>
+					</div>
+				) : !isHomeowner && !hasSubscription ? (
+					// Show blurred/locked job leads preview for non-subscribers
+					<div className="relative">
+						<div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-10 flex items-center justify-center">
+							<div className="text-center p-8">
+								<Lock className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+								<h3 className="text-xl font-semibold text-gray-900 mb-2">Subscribe to View Job Leads</h3>
+								<p className="text-gray-600 mb-4">Get access to all available job leads for just €1/month</p>
+								<button
+									onClick={() => setShowSubscriptionModal(true)}
+									className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+								>
+									Subscribe Now
+								</button>
+							</div>
+						</div>
+						<div className="grid grid-cols-1 lg:grid-cols-2 gap-6 opacity-50 pointer-events-none">
+							{/* Show placeholder cards */}
+							{[1, 2, 3, 4].map((i) => (
+								<div key={i} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+									<div className="h-6 bg-gray-200 rounded w-3/4 mb-4"></div>
+									<div className="h-4 bg-gray-100 rounded w-full mb-2"></div>
+									<div className="h-4 bg-gray-100 rounded w-2/3 mb-4"></div>
+									<div className="space-y-2">
+										<div className="h-3 bg-gray-100 rounded w-1/2"></div>
+										<div className="h-3 bg-gray-100 rounded w-1/3"></div>
+									</div>
+								</div>
+							))}
+						</div>
 					</div>
 				) : viewMode === 'map' ? (
 					<div className="h-[600px] bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -1301,6 +1379,29 @@ const JobLeads = () => {
 					}
 					jobId={selectedConversation?.jobId}
 					otherUserId={selectedConversation?.otherUserId}
+				/>
+
+				{/* Subscription Modal */}
+				<SubscriptionModal
+					isOpen={showSubscriptionModal}
+					onClose={() => setShowSubscriptionModal(false)}
+					type="directory_listing"
+					onSuccess={() => {
+						// Update user state with hasDirectoryListing
+						if (state.currentUser) {
+							dispatch({
+								type: 'SET_USER',
+								payload: {
+									...state.currentUser,
+									hasDirectoryListing: true,
+									directoryListingExpiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+								}
+							});
+						}
+						setShowSubscriptionModal(false);
+						// Refresh job leads
+						window.location.reload();
+					}}
 				/>
 			</div>
 		</div>

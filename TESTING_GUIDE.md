@@ -143,13 +143,17 @@ VITE v5.x.x ready in xxx ms
 
 ## 📋 Test Credentials Quick Reference
 
-| Role                           | Email                          | Password  |
-| ------------------------------ | ------------------------------ | --------- |
-| **Admin**                      | admin@superfly.com             | Admin@123 |
-| **Homeowner (with directory)** | john.smith@email.com           | Test@123  |
-| **Homeowner (no directory)**   | sarah.johnson@email.com        | Test@123  |
-| **Tradesperson (Premium)**     | james.wilson@tradesperson.com  | Test@123  |
-| **Tradesperson (Basic)**       | thomas.martin@tradesperson.com | Test@123  |
+| Role                        | Email                                 | Password  | Notes                                   |
+| --------------------------- | ------------------------------------- | --------- | --------------------------------------- |
+| **Admin**                   | admin@superfly.com                    | Admin@123 | Full access                             |
+| **Homeowner**               | john.smith@email.com                  | Test@123  | Can post jobs                           |
+| **Homeowner**               | sarah.johnson@email.com               | Test@123  | Can post jobs                           |
+| **Tradesperson (With Sub)** | james.wilson@tradesperson.com         | Test@123  | Premium + Directory - CAN view jobs     |
+| **Tradesperson (With Sub)** | robert.taylor@tradesperson.com        | Test@123  | Premium + Directory - CAN view jobs     |
+| **Tradesperson (With Sub)** | william.anderson@tradesperson.com     | Test@123  | Unlimited + Directory - CAN view jobs   |
+| **Tradesperson (NO Sub)**   | no.subscription@tradesperson.com      | Test@123  | NO directory listing - CANNOT view jobs |
+| **Tradesperson (Expired)**  | expired.subscription@tradesperson.com | Test@123  | Expired listing - CANNOT view jobs      |
+| **Tradesperson (Basic)**    | thomas.martin@tradesperson.com        | Test@123  | Basic membership, no directory          |
 
 ---
 
@@ -191,21 +195,44 @@ Use these test card numbers for payment testing:
 5. Click "Sign In"
 6. ✅ **Expected:** Redirected to tradesperson dashboard
 
-### 1.2 New User Registration
+### 1.2 New User Registration (Homeowner)
 
 1. Log out if logged in
 2. Click "Sign Up"
-3. Select "Homeowner" or "Tradesperson"
+3. Select "Homeowner"
 4. Fill in:
-   - Name: `Test User`
-   - Email: `testuser@example.com`
+   - Name: `Test Homeowner`
+   - Email: `testhomeowner@example.com`
    - Password: `Test@123`
+   - Phone: `+447123456789`
    - Location: `London`
+   - Postcode: `SW1A 1AA`
 5. Complete CAPTCHA (in dev mode, shows "Development mode - CAPTCHA disabled")
 6. Click "Create Account"
 7. ✅ **Expected:** Account created message appears
 
-### 1.3 Password Recovery
+### 1.3 New Tradesperson Registration (with Trades Selection)
+
+1. Log out if logged in
+2. Click "Sign Up"
+3. Select "Tradesperson"
+4. Fill in:
+   - Name: `Test Tradesperson`
+   - Email: `testtradesperson@example.com`
+   - Password: `Test@123`
+   - Phone: `+447123456789`
+   - Location: `Manchester`
+   - Postcode: `M1 1AA`
+5. **Select Trades:**
+   - ✅ **Expected:** Trade selection list appears
+   - Select multiple trades (e.g., Plumber, Electrician, Builder, Roofer)
+   - ✅ **Expected:** NO limit - can select as many as you want
+   - Selected trades appear as blue chips above the list
+   - Click × on a chip to remove a trade
+6. Click "Create Account"
+7. ✅ **Expected:** Account created with selected trades
+
+### 1.4 Password Recovery
 
 1. Click "Login"
 2. Click "Forgot Password?"
@@ -216,7 +243,7 @@ Use these test card numbers for payment testing:
 7. Enter new password and confirm
 8. ✅ **Expected:** Password reset successfully
 
-### 1.4 Password Visibility Toggle
+### 1.5 Password Visibility Toggle
 
 1. On any login/signup form
 2. Click the eye icon next to password field
@@ -273,16 +300,88 @@ Use these test card numbers for payment testing:
 
 ---
 
-## 👷 3. Tradesperson Features Testing
+## 💳 3. €1/Month Subscription Testing (View Job Leads)
 
-### 3.1 View Available Jobs
+### 3.1 Test WITHOUT Subscription (Blocked Access)
+
+1. Login as: `no.subscription@tradesperson.com` / `Test@123`
+2. Click "Job Leads" or "Find Jobs"
+3. ✅ **Expected:**
+   - Blue banner appears: "Subscription Required to View Job Leads"
+   - Job leads are hidden behind a blurred overlay
+   - "Subscribe Now - €1/month" button visible
+4. Click "Subscribe Now" button
+5. ✅ **Expected:** Subscription modal opens
+
+### 3.2 Complete Subscription Payment
+
+1. From the subscription modal, click "Subscribe Now"
+2. Enter test card: `4242 4242 4242 4242`
+3. Enter any future expiry date (e.g., 12/25)
+4. Enter any CVC (e.g., 123)
+5. Click "Subscribe"
+6. ✅ **Expected:**
+   - "Subscription Activated!" message
+   - Page refreshes
+   - Job leads are now visible
+
+### 3.3 Test WITH Subscription (Full Access)
 
 1. Login as: `james.wilson@tradesperson.com` / `Test@123`
+2. Click "Job Leads"
+3. ✅ **Expected:**
+   - NO subscription prompt
+   - All job leads visible immediately
+   - Can view, purchase leads, express interest
+
+### 3.4 Test EXPIRED Subscription
+
+1. Login as: `expired.subscription@tradesperson.com` / `Test@123`
+2. Click "Job Leads"
+3. ✅ **Expected:**
+   - Subscription prompt appears (listing expired)
+   - Job leads hidden behind blur
+
+---
+
+## 👷 4. Tradesperson Features Testing
+
+### 4.1 Trades-Based Job Filtering
+
+1. Login as: `james.wilson@tradesperson.com` / `Test@123`
+   - This user has trades: Plumber, Gas Engineer, Heating Engineer
+2. Click "Job Leads"
+3. ✅ **Expected:** Only jobs matching your trades are shown
+
+   - Plumbing jobs ✓
+   - Gas Engineer jobs ✓
+   - Heating jobs ✓
+   - Kitchen Fitter jobs ✗ (different trade)
+
+4. Login as: `no.subscription@tradesperson.com` (after subscribing)
+   - This user has trades: Plumber, Electrician, Builder, Roofer, Gardener
+5. ✅ **Expected:** More job categories visible due to more trades
+
+### 4.2 Change Your Trades (Profile Settings)
+
+1. Login as any tradesperson with subscription
+2. Go to Profile → "Lead Settings" or "Services" tab
+3. ✅ **Expected:**
+   - Current trades shown as blue chips
+   - Can add/remove trades (no limit)
+4. Add or remove some trades
+5. Click "Save Lead Settings"
+6. Go to Job Leads
+7. ✅ **Expected:** Jobs filtered based on new trade selection
+
+### 4.3 View Available Jobs (Requires Subscription)
+
+1. Login as: `james.wilson@tradesperson.com` / `Test@123` (has subscription)
 2. Click "Find Jobs" or "Available Leads"
 3. ✅ **Expected:** List of active job leads displayed
 4. Apply filters by category and location
 
-### 3.2 View Job on Map
+### 4.4 View Job on Map
 
 1. Login as tradesperson
 2. Click "Map View" in navigation
@@ -290,7 +389,7 @@ Use these test card numbers for payment testing:
 4. Click on a job marker to see details
 5. Click "My Location" to center map on your location
 
-### 3.3 Express Interest in a Job
+### 4.5 Express Interest in a Job
 
 1. Click on a job
 2. Click "Express Interest"
@@ -298,14 +397,14 @@ Use these test card numbers for payment testing:
 4. Click "Submit Interest"
 5. ✅ **Expected:** Interest submitted successfully
 
-### 3.4 Purchase a Job Lead
+### 4.6 Purchase a Job Lead
 
 1. View a job you haven't purchased
 2. Click "Purchase Lead" (shows price, e.g., £9.99)
 3. Confirm purchase
 4. ✅ **Expected:** Lead purchased, contact details revealed
 
-### 3.5 Balance Top-Up
+### 4.7 Balance Top-Up
 
 1. Go to Profile → "Balance" tab
 2. Click "Top Up Balance"
@@ -314,7 +413,7 @@ Use these test card numbers for payment testing:
 5. Complete payment
 6. ✅ **Expected:** Balance increases
 
-### 3.6 Purchase Boost Plan
+### 4.8 Purchase Boost Plan
 
 1. Go to Profile → "Boost" or "Membership" tab
 2. Select a boost plan (1 Week, 1 Month, 3 Month, or 5 Year)
@@ -325,9 +424,9 @@ Use these test card numbers for payment testing:
 
 ---
 
-## 💬 4. Messaging Testing
+## 💬 5. Messaging Testing
 
-### 4.1 Real-time Messaging Test
+### 5.1 Real-time Messaging Test
 
 **Setup:** Open two browser windows
 
@@ -340,9 +439,9 @@ Use these test card numbers for payment testing:
 
 ---
 
-## 👑 5. Admin Dashboard Testing
+## 👑 6. Admin Dashboard Testing
 
-### 5.1 Admin Login
+### 6.1 Admin Login
 
 1. Go to `http://localhost:5173/admin`
 2. Enter:
@@ -350,13 +449,13 @@ Use these test card numbers for payment testing:
    - Password: `Admin@123`
 3. ✅ **Expected:** Admin dashboard loads
 
-### 5.2 View Transactions
+### 6.2 View Transactions
 
 1. Click "Transactions" tab
 2. ✅ **Expected:** All transactions from both homeowners and tradespeople
 3. Filter by type: Balance Top-ups, Lead Purchases, Boost Plans
 
-### 5.3 Change Admin Password
+### 6.3 Change Admin Password
 
 1. Go to "Settings" tab
 2. Find "Change Password" section
@@ -366,7 +465,7 @@ Use these test card numbers for payment testing:
 6. Click "Change Password"
 7. ✅ **Expected:** Password changed successfully
 
-### 5.4 Update Boost Plan Prices
+### 6.4 Update Boost Plan Prices
 
 1. Go to "Settings" tab
 2. Find "Boost Plan Pricing" section
@@ -374,7 +473,7 @@ Use these test card numbers for payment testing:
 4. Click "Update Prices"
 5. ✅ **Expected:** Prices updated successfully
 
-### 5.5 User Management
+### 6.5 User Management
 
 1. Go to "Homeowners" or "Tradespeople" tab
 2. Click eye icon on any user
@@ -382,11 +481,32 @@ Use these test card numbers for payment testing:
 4. Can change account status (Active/Parked/Suspended)
 5. Can change verification status
 
+### 6.6 Edit User Trades (Admin)
+
+1. Go to "Tradespeople" tab
+2. Click eye icon on any tradesperson
+3. Click "Edit" button
+4. ✅ **Expected:** Edit form appears
+5. Scroll to "Trades" section
+6. ✅ **Expected:**
+   - Current trades shown as blue chips
+   - Can add/remove trades (no limit)
+   - Checkbox list of all available trades
+7. Add or remove some trades
+8. Click "Save Changes"
+9. ✅ **Expected:** Trades updated successfully
+
+10. Go to "Homeowners" or "Tradespeople" tab
+11. Click eye icon on any user
+12. ✅ **Expected:** User details modal opens
+13. Can change account status (Active/Parked/Suspended)
+14. Can change verification status
+
 ---
 
-## 🗺️ 6. Google Maps Integration Testing
+## 🗺️ 7. Google Maps Integration Testing
 
-### 6.1 Map View - Jobs
+### 7.1 Map View - Jobs
 
 1. Login as tradesperson
 2. Click "Map View"
@@ -394,13 +514,13 @@ Use these test card numbers for payment testing:
    - Map displays with job markers
    - Jobs clustered in UK cities
 
-### 6.2 Map Controls
+### 7.2 Map Controls
 
 1. Use zoom controls (+/-)
 2. Click "My Location" button
 3. ✅ **Expected:** Map centers on your current location
 
-### 6.3 Map Filters
+### 7.3 Map Filters
 
 1. Filter by category
 2. Filter by distance (miles radius)
@@ -427,7 +547,9 @@ Use these test card numbers for payment testing:
 - [ ] Homeowner login
 - [ ] Tradesperson login
 - [ ] Admin login
-- [ ] New user registration
+- [ ] New homeowner registration
+- [ ] New tradesperson registration (with trades selection)
+- [ ] Select multiple trades during signup (unlimited)
 - [ ] Password recovery (dev mode with reset link)
 - [ ] Password visibility toggle
 
@@ -441,9 +563,20 @@ Use these test card numbers for payment testing:
 - [ ] Directory subscription payment
 - [ ] Message tradespeople
 
+### €1/Month Subscription (Job Leads Access)
+
+- [ ] Login without subscription - see subscription prompt
+- [ ] Job leads hidden behind blur
+- [ ] Click "Subscribe Now" opens modal
+- [ ] Complete €1/month subscription payment
+- [ ] After subscribing - job leads visible
+- [ ] Test expired subscription - sees prompt again
+
 ### Tradesperson Features
 
-- [ ] View available jobs
+- [ ] View available jobs (requires subscription)
+- [ ] Jobs filtered by selected trades
+- [ ] Change trades in Profile > Lead Settings
 - [ ] Filter jobs by category/location
 - [ ] Express interest in job
 - [ ] Purchase job lead
@@ -477,6 +610,7 @@ Use these test card numbers for payment testing:
 - [ ] Filter transactions by type
 - [ ] View all homeowners
 - [ ] View all tradespeople
+- [ ] Edit user trades (unlimited selection)
 - [ ] Change admin password
 - [ ] Update boost plan prices
 - [ ] Update user status/verification

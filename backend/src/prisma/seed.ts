@@ -540,6 +540,72 @@ async function main() {
         },
       }
     }),
+    
+    // ============= NEW USER WITHOUT SUBSCRIPTION (for testing subscription gate) =============
+    prisma.user.create({
+      data: {
+        name: 'No Subscription User',
+        email: 'no.subscription@tradesperson.com',
+        phone: '+447700800013',
+        passwordHash,
+        type: UserType.tradesperson,
+        location: 'London, UK',
+        workPostcode: 'W1K 3DE',
+        jobRadius: 25,
+        latitude: 51.5074,
+        longitude: -0.1278,
+        trades: ['Plumber', 'Electrician', 'Builder', 'Roofer', 'Gardener'], // Multiple trades to test unlimited
+        rating: 4.5,
+        reviews: 20,
+        verified: true,
+        credits: 100.00,
+        membershipType: MembershipType.none,
+        verificationStatus: VerificationStatus.verified,
+        isEmailVerified: true,
+        accountStatus: AccountStatus.active,
+        hasDirectoryListing: false, // NO SUBSCRIPTION - will see subscription prompt
+        directoryListingExpiry: null,
+        workingArea: { 
+          centerLocation: 'W1K 3DE',
+          radius: 25,
+          unit: 'miles',
+          coordinates: { lat: 51.5074, lng: -0.1278 }
+        },
+      }
+    }),
+    
+    // Tradesperson with EXPIRED subscription (for testing expiry)
+    prisma.user.create({
+      data: {
+        name: 'Expired Subscription User',
+        email: 'expired.subscription@tradesperson.com',
+        phone: '+447700800014',
+        passwordHash,
+        type: UserType.tradesperson,
+        location: 'Manchester, UK',
+        workPostcode: 'M1 1AA',
+        jobRadius: 20,
+        latitude: 53.4808,
+        longitude: -2.2426,
+        trades: ['Painter & Decorator', 'Plasterer'],
+        rating: 4.3,
+        reviews: 15,
+        verified: true,
+        credits: 50.00,
+        membershipType: MembershipType.none,
+        verificationStatus: VerificationStatus.verified,
+        isEmailVerified: true,
+        accountStatus: AccountStatus.active,
+        hasDirectoryListing: true, // Has listing but EXPIRED
+        directoryListingExpiry: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // Expired 7 days ago
+        workingArea: { 
+          centerLocation: 'M1 1AA',
+          radius: 20,
+          unit: 'miles',
+          coordinates: { lat: 53.4808, lng: -2.2426 }
+        },
+      }
+    }),
   ]);
   console.log(`✅ Created ${tradespeople.length} tradespeople\n`);
 
@@ -1526,34 +1592,51 @@ async function main() {
 
   console.log('🧪 TESTING FEATURES:');
   console.log('────────────────────────────────────────────────────────────');
-  console.log('   1. POSTCODE FEATURE:');
+  console.log('   1. €1/MONTH SUBSCRIPTION (View Job Leads):');
+  console.log('      ✓ Login WITHOUT subscription: no.subscription@tradesperson.com');
+  console.log('      ✓ Go to "Job Leads" - should see subscription prompt');
+  console.log('      ✓ Job leads hidden behind blurred overlay');
+  console.log('      ✓ Click "Subscribe Now" to open subscription modal');
+  console.log('      ✓ Use test card: 4242 4242 4242 4242');
+  console.log('      ✓ After subscribing, job leads become visible');
+  console.log('      ✓ Test expired subscription: expired.subscription@tradesperson.com');
+  console.log('');
+  console.log('   2. TRADES SELECTION (Unlimited):');
+  console.log('      ✓ Register new tradesperson');
+  console.log('      ✓ Select multiple trades (no limit)');
+  console.log('      ✓ Jobs filtered based on selected trades');
+  console.log('      ✓ Admin can edit trades in admin panel');
+  console.log('      ✓ Profile > Lead Settings to change trades');
+  console.log('');
+  console.log('   3. POSTCODE & RADIUS FILTERING:');
   console.log('      ✓ All users have postcodes (workPostcode field)');
   console.log('      ✓ All job leads have postcodes');
   console.log('      ✓ Tradespeople have jobRadius set');
-  console.log('      ✓ Test signup with postcode field');
+  console.log('      ✓ Jobs filtered by trades THEN by radius');
   console.log('');
-  console.log('   2. ADMIN EDIT FUNCTIONALITY:');
+  console.log('   4. ADMIN EDIT FUNCTIONALITY:');
   console.log('      ✓ Login as admin: admin@superfly.com');
-  console.log('      ✓ View homeowners and tradespeople');
-  console.log('      ✓ Click eye icon to view user details');
-  console.log('      ✓ Click Edit button to edit user data');
+  console.log('      ✓ Edit user trades (unlimited selection)');
   console.log('      ✓ Edit: name, email, phone, location, postcode');
-  console.log('      ✓ Edit trades and job radius (for tradespeople)');
   console.log('      ✓ Test with parked user: parked.user@email.com');
   console.log('      ✓ Test with rejected user: rejected.user@tradesperson.com');
   console.log('');
-  console.log('   3. AUTH PROTECTION:');
+  console.log('   5. AUTH PROTECTION:');
   console.log('      ✓ Logout and try accessing protected routes');
-  console.log('      ✓ Try clicking "Browse Experts" without login');
-  console.log('      ✓ Try clicking "Submit Project" without login');
-  console.log('      ✓ Try viewing profiles without login');
   console.log('      ✓ Auth modal should appear instead of redirect');
+  console.log('────────────────────────────────────────────────────────────\n');
+  
+  console.log('🔒 SUBSCRIPTION TEST ACCOUNTS:');
+  console.log('────────────────────────────────────────────────────────────');
+  console.log('   WITH Subscription (can view jobs):');
+  console.log('     • james.wilson@tradesperson.com (Premium + Directory)');
+  console.log('     • robert.taylor@tradesperson.com (Premium + Directory)');
+  console.log('     • william.anderson@tradesperson.com (Unlimited + Directory)');
   console.log('');
-  console.log('   4. JOB ALERT RADIUS FILTERING:');
-  console.log('      ✓ Login as tradesperson');
-  console.log('      ✓ View job leads - should see jobs within radius');
-  console.log('      ✓ Jobs should show distance from tradesperson');
-  console.log('      ✓ Test with different postcodes and radii');
+  console.log('   WITHOUT Subscription (sees subscription prompt):');
+  console.log('     • no.subscription@tradesperson.com (5 trades, no listing)');
+  console.log('     • expired.subscription@tradesperson.com (listing expired)');
+  console.log('     • thomas.martin@tradesperson.com (Basic, no directory)');
   console.log('────────────────────────────────────────────────────────────\n');
 
   console.log('🗺️  TEST LOCATIONS WITH POSTCODES:');

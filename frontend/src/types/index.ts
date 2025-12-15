@@ -29,6 +29,9 @@ export interface User {
   portfolio?: PortfolioItem[];
   jobRadius?: number; // Default job alert radius in miles (default: 15)
   workPostcode?: string; // Tradesperson's work postcode (default: W1K 3DE)
+  // Directory listing subscription (€1/month to view job leads)
+  hasDirectoryListing?: boolean;
+  directoryListingExpiry?: string;
 }
 
 export interface JobLead {

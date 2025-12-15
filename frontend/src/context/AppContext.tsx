@@ -22,6 +22,7 @@ type Action =
   | { type: 'SET_VIEW'; payload: string }
   | { type: 'SET_VIEW_WITH_FILTER'; payload: { view: string; filter?: string } }
   | { type: 'SET_USER'; payload: User | null }
+  | { type: 'UPDATE_USER'; payload: Partial<User> }
   | { type: 'SHOW_AUTH_MODAL'; payload: { mode: 'login' | 'signup'; userType: 'homeowner' | 'tradesperson' } }
   | { type: 'HIDE_AUTH_MODAL' }
   | { type: 'ADD_REVIEW'; payload: Review }
@@ -63,6 +64,13 @@ function appReducer(state: AppState, action: Action): AppState {
       };
     case 'SET_USER':
       return { ...state, currentUser: action.payload };
+    case 'UPDATE_USER':
+      return { 
+        ...state, 
+        currentUser: state.currentUser 
+          ? { ...state.currentUser, ...action.payload } 
+          : null 
+      };
     case 'SET_USERS':
       return { ...state, users: action.payload };
     case 'SHOW_AUTH_MODAL':

@@ -174,6 +174,8 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 				verificationStatus: true,
 				accountStatus: true,
 				workingArea: true,
+				hasDirectoryListing: true,
+				directoryListingExpiry: true,
 				createdAt: true,
 				isEmailVerified: true,
 			},
@@ -741,6 +743,8 @@ export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
 				verificationStatus: true,
 				accountStatus: true,
 				workingArea: true,
+				hasDirectoryListing: true,
+				directoryListingExpiry: true,
 				createdAt: true,
 			},
 		});

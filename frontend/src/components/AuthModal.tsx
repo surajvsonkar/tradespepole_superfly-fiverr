@@ -126,20 +126,13 @@ const AuthModal = () => {
 
 	if (!state.showAuthModal) return null;
 
-	const MAX_TRADES = 3;
-
 	const handleTradeToggle = (trade: string) => {
-		setFormData((prev) => {
-			if (prev.trades.includes(trade)) {
-				// Allow removing
-				return { ...prev, trades: prev.trades.filter((t) => t !== trade) };
-			} else if (prev.trades.length < MAX_TRADES) {
-				// Only allow adding if under max
-				return { ...prev, trades: [...prev.trades, trade] };
-			}
-			// If trying to add but already at max, don't change
-			return prev;
-		});
+		setFormData((prev) => ({
+			...prev,
+			trades: prev.trades.includes(trade)
+				? prev.trades.filter((t) => t !== trade)
+				: [...prev.trades, trade],
+		}));
 	};
 
 	const resetForm = () => {
@@ -288,6 +281,8 @@ const AuthModal = () => {
 				verificationStatus: response.user.verificationStatus,
 				accountStatus: response.user.accountStatus,
 				workingArea: response.user.workingArea,
+				hasDirectoryListing: response.user.hasDirectoryListing || false,
+				directoryListingExpiry: response.user.directoryListingExpiry,
 			};
 
 			dispatch({ type: 'SET_USER', payload: user });
@@ -664,14 +659,8 @@ const AuthModal = () => {
 								{state.userType === 'tradesperson' && (
 									<div>
 										<label className="block text-sm font-medium text-gray-700 mb-2">
-											Select Your Trades (Max {MAX_TRADES})
+											Select Your Trades
 										</label>
-										<p className="text-xs text-gray-500 mb-2">
-											Selected: {formData.trades.length}/{MAX_TRADES}
-											{formData.trades.length === MAX_TRADES && (
-												<span className="text-orange-600 ml-2">Maximum reached</span>
-											)}
-										</p>
 										{formData.trades.length > 0 && (
 											<div className="flex flex-wrap gap-2 mb-2">
 												{formData.trades.map((trade) => (
@@ -692,27 +681,17 @@ const AuthModal = () => {
 											</div>
 										)}
 										<div className="max-h-32 sm:max-h-40 overflow-y-auto border border-gray-300 rounded-lg p-3 space-y-2">
-											{availableTrades.map((trade) => {
-												const isSelected = formData.trades.includes(trade);
-												const isDisabled = !isSelected && formData.trades.length >= MAX_TRADES;
-												return (
-													<label
-														key={trade}
-														className={`flex items-center ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-													>
-														<input
-															type="checkbox"
-															checked={isSelected}
-															onChange={() => handleTradeToggle(trade)}
-															disabled={isDisabled}
-															className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:cursor-not-allowed"
-														/>
-														<span className={`text-sm ${isDisabled ? 'text-gray-400' : 'text-gray-700'}`}>
-															{trade}
-														</span>
-													</label>
-												);
-											})}
+											{availableTrades.map((trade) => (
+												<label key={trade} className="flex items-center cursor-pointer">
+													<input
+														type="checkbox"
+														checked={formData.trades.includes(trade)}
+														onChange={() => handleTradeToggle(trade)}
+														className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+													/>
+													<span className="text-sm text-gray-700">{trade}</span>
+												</label>
+											))}
 										</div>
 									</div>
 								)}

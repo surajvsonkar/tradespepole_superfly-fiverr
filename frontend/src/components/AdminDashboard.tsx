@@ -1188,14 +1188,8 @@ const AdminDashboard = () => {
 											<>
 												<div>
 													<label className="block text-sm font-medium text-gray-700 mb-2">
-														Trades (Max 3)
+														Trades
 													</label>
-													<p className="text-xs text-gray-500 mb-2">
-														Selected: {editingUser.trades?.length || 0}/3
-														{editingUser.trades?.length >= 3 && (
-															<span className="text-orange-600 ml-2">Maximum reached</span>
-														)}
-													</p>
 													{editingUser.trades?.length > 0 && (
 														<div className="flex flex-wrap gap-2 mb-2">
 															{editingUser.trades.map((trade: string) => (
@@ -1231,28 +1225,23 @@ const AdminDashboard = () => {
 															'Damp Proofer', 'Conversion Specialist', 'Garage Conversion Specialist',
 															'New Home Builder', 'Repointing Specialist', 'Fascias & Soffits Installer',
 															'Tarmac Driveway Company', 'Building Restoration & Refurbishment Company'
-														].map((trade) => {
-															const isSelected = editingUser.trades?.includes(trade);
-															const isDisabled = !isSelected && (editingUser.trades?.length || 0) >= 3;
-															return (
-																<label key={trade} className={`flex items-center ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
-																	<input
-																		type="checkbox"
-																		checked={isSelected}
-																		disabled={isDisabled}
-																		onChange={(e) => {
-																			if (e.target.checked && editingUser.trades?.length < 3) {
-																				setEditingUser({ ...editingUser, trades: [...(editingUser.trades || []), trade] });
-																			} else if (!e.target.checked) {
-																				setEditingUser({ ...editingUser, trades: editingUser.trades.filter((t: string) => t !== trade) });
-																			}
-																		}}
-																		className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:cursor-not-allowed"
-																	/>
-																	<span className={`text-sm ${isDisabled ? 'text-gray-400' : 'text-gray-700'}`}>{trade}</span>
-																</label>
-															);
-														})}
+														].map((trade) => (
+															<label key={trade} className="flex items-center cursor-pointer">
+																<input
+																	type="checkbox"
+																	checked={editingUser.trades?.includes(trade)}
+																	onChange={(e) => {
+																		if (e.target.checked) {
+																			setEditingUser({ ...editingUser, trades: [...(editingUser.trades || []), trade] });
+																		} else {
+																			setEditingUser({ ...editingUser, trades: editingUser.trades.filter((t: string) => t !== trade) });
+																		}
+																	}}
+																	className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+																/>
+																<span className="text-sm text-gray-700">{trade}</span>
+															</label>
+														))}
 													</div>
 												</div>
 											</>
