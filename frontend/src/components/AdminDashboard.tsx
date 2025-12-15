@@ -19,6 +19,9 @@ import {
 	Lock,
 	Save,
 	RefreshCw,
+	Phone,
+	Edit,
+	MapPin,
 } from 'lucide-react';
 import { adminService } from '../services/adminService';
 
@@ -66,6 +69,8 @@ const AdminDashboard = () => {
 	const [searchTerm, setSearchTerm] = useState('');
 	const [selectedUser, setSelectedUser] = useState<any>(null);
 	const [showUserModal, setShowUserModal] = useState(false);
+	const [editingUser, setEditingUser] = useState<any>(null);
+	const [savingUser, setSavingUser] = useState(false);
 	const [defaultLeadPrice, setDefaultLeadPrice] = useState('9.99');
 	const [transactionFilter, setTransactionFilter] = useState('all');
 	
@@ -267,6 +272,42 @@ const AdminDashboard = () => {
 		}
 	};
 
+	const handleEditUser = () => {
+		setEditingUser({
+			name: selectedUser.name || '',
+			email: selectedUser.email || '',
+			phone: selectedUser.phone || '',
+			location: selectedUser.location || '',
+			postcode: selectedUser.workPostcode || selectedUser.postcode || 'W1K 3DE',
+			trades: selectedUser.trades || [],
+			jobRadius: selectedUser.jobRadius || 15,
+		});
+	};
+
+	const handleSaveUser = async () => {
+		if (!selectedUser || !editingUser) return;
+
+		setSavingUser(true);
+		try {
+			await adminService.updateUser(selectedUser.id, editingUser);
+			alert('User updated successfully');
+			
+			// Reload data
+			if (activeTab === 'homeowners') {
+				loadHomeowners();
+			} else if (activeTab === 'tradespeople') {
+				loadTradespeople();
+			}
+			setEditingUser(null);
+			setShowUserModal(false);
+		} catch (error: any) {
+			console.error('Failed to update user:', error);
+			alert(error.response?.data?.error || 'Failed to update user');
+		} finally {
+			setSavingUser(false);
+		}
+	};
+
 	const handleUpdatePricing = async () => {
 		try {
 			await adminService.updatePricing({ defaultLeadPrice: parseFloat(defaultLeadPrice) });
@@ -402,6 +443,7 @@ const AdminDashboard = () => {
 							<tr>
 								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
 								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
 								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
 								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Jobs Posted</th>
 								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
@@ -416,6 +458,9 @@ const AdminDashboard = () => {
 									</td>
 									<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
 										{homeowner.email}
+									</td>
+									<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+										{homeowner.phone || 'N/A'}
 									</td>
 									<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
 										{homeowner.location || 'N/A'}
@@ -477,6 +522,7 @@ const AdminDashboard = () => {
 							<tr>
 								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
 								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
 								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trades</th>
 								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
 								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Membership</th>
@@ -492,6 +538,9 @@ const AdminDashboard = () => {
 									</td>
 									<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
 										{tradesperson.email}
+									</td>
+									<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+										{tradesperson.phone || 'N/A'}
 									</td>
 									<td className="px-6 py-4 text-sm text-gray-500">
 										{tradesperson.trades?.join(', ') || 'N/A'}
@@ -1032,32 +1081,191 @@ const AdminDashboard = () => {
 				{/* User Details Modal */}
 				{showUserModal && selectedUser && (
 					<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-						<div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+						<div className="bg-white rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
 							<div className="p-6 border-b border-gray-200">
 								<div className="flex items-center justify-between">
-									<h3 className="text-xl font-semibold text-gray-900">User Details</h3>
-									<button
-										onClick={() => setShowUserModal(false)}
-										className="text-gray-500 hover:text-gray-700"
-									>
-										<XCircle className="w-6 h-6" />
-									</button>
+									<h3 className="text-xl font-semibold text-gray-900">
+										{editingUser ? 'Edit User' : 'User Details'}
+									</h3>
+									<div className="flex items-center gap-2">
+										{!editingUser && (
+											<button
+												onClick={handleEditUser}
+												className="text-blue-600 hover:text-blue-700 flex items-center gap-1"
+											>
+												<Edit className="w-5 h-5" />
+												Edit
+											</button>
+										)}
+										<button
+											onClick={() => {
+												setShowUserModal(false);
+												setEditingUser(null);
+											}}
+											className="text-gray-500 hover:text-gray-700"
+										>
+											<XCircle className="w-6 h-6" />
+										</button>
+									</div>
 								</div>
 							</div>
 
 							<div className="p-6 space-y-4">
-								<div>
-									<label className="text-sm font-medium text-gray-600">Name</label>
-									<p className="text-gray-900">{selectedUser.name}</p>
-								</div>
-								<div>
-									<label className="text-sm font-medium text-gray-600">Email</label>
-									<p className="text-gray-900">{selectedUser.email}</p>
-								</div>
-								<div>
-									<label className="text-sm font-medium text-gray-600">Location</label>
-									<p className="text-gray-900">{selectedUser.location || 'N/A'}</p>
-								</div>
+								{editingUser ? (
+									<>
+										<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+											<div>
+												<label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+												<input
+													type="text"
+													value={editingUser.name}
+													onChange={(e) => setEditingUser({ ...editingUser, name: e.target.value })}
+													className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+												/>
+											</div>
+											<div>
+												<label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+												<input
+													type="email"
+													value={editingUser.email}
+													onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })}
+													className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+												/>
+											</div>
+											<div>
+												<label className="flex items-center gap-1 text-sm font-medium text-gray-700 mb-1">
+													<Phone className="w-4 h-4" />
+													Phone
+												</label>
+												<input
+													type="tel"
+													value={editingUser.phone}
+													onChange={(e) => setEditingUser({ ...editingUser, phone: e.target.value })}
+													className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+												/>
+											</div>
+											<div>
+												<label className="flex items-center gap-1 text-sm font-medium text-gray-700 mb-1">
+													<MapPin className="w-4 h-4" />
+													Location
+												</label>
+												<input
+													type="text"
+													value={editingUser.location}
+													onChange={(e) => setEditingUser({ ...editingUser, location: e.target.value })}
+													className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+												/>
+											</div>
+											<div>
+												<label className="block text-sm font-medium text-gray-700 mb-1">
+													Postcode
+												</label>
+												<input
+													type="text"
+													value={editingUser.postcode}
+													onChange={(e) => setEditingUser({ ...editingUser, postcode: e.target.value.toUpperCase() })}
+													className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+												/>
+											</div>
+											{selectedUser.type === 'tradesperson' && (
+												<div>
+													<label className="block text-sm font-medium text-gray-700 mb-1">
+														Job Radius (miles)
+													</label>
+													<input
+														type="number"
+														min="1"
+														max="200"
+														value={editingUser.jobRadius}
+														onChange={(e) => setEditingUser({ ...editingUser, jobRadius: parseInt(e.target.value) || 15 })}
+														className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+													/>
+												</div>
+											)}
+										</div>
+
+										{selectedUser.type === 'tradesperson' && (
+											<>
+												<div>
+													<label className="block text-sm font-medium text-gray-700 mb-2">Trades</label>
+													<div className="max-h-40 overflow-y-auto border border-gray-300 rounded-lg p-3 space-y-2">
+														{[
+															'Builder', 'Electrician', 'Handyman', 'Painter & Decorator', 'Plasterer',
+															'Plumber', 'Roofer', 'Carpenter & Joiner', 'Landscaper', 'Bathroom Fitter',
+															'Bricklayer', 'Gas Engineer', 'Carpet Fitter', 'Kitchen Fitter', 'Cabinet Maker',
+															'Tiler', 'Door Fitter', 'Glazier', 'Stove Fitter', 'Window Fitter',
+															'Tree Surgeon', 'Gardener', 'Locksmith', 'Architectural Designer', 'Groundworker',
+															'Stonemason', 'Heating Engineer', 'Insulation Company', 'Fencer',
+															'Waste & Rubbish Clearance Company', 'Demolition Company', 'Decking Installer',
+															'Extension Builder', 'Security System Installer', 'Conservatory Installer',
+															'Driveways Installer', 'Flooring Fitter', 'Guttering Installer',
+															'Vinyl Flooring Fitter', 'Fireplace Installer', 'Architectural Technician',
+															'Chimney Repair Specialist', 'Garden Maintenance Company', 'Loft Conversion Company',
+															'Damp Proofer', 'Conversion Specialist', 'Garage Conversion Specialist',
+															'New Home Builder', 'Repointing Specialist', 'Fascias & Soffits Installer',
+															'Tarmac Driveway Company', 'Building Restoration & Refurbishment Company'
+														].map((trade) => (
+															<label key={trade} className="flex items-center">
+																<input
+																	type="checkbox"
+																	checked={editingUser.trades.includes(trade)}
+																	onChange={(e) => {
+																		if (e.target.checked) {
+																			setEditingUser({ ...editingUser, trades: [...editingUser.trades, trade] });
+																		} else {
+																			setEditingUser({ ...editingUser, trades: editingUser.trades.filter((t: string) => t !== trade) });
+																		}
+																	}}
+																	className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+																/>
+																<span className="text-sm text-gray-700">{trade}</span>
+															</label>
+														))}
+													</div>
+												</div>
+											</>
+										)}
+									</>
+								) : (
+									<>
+										<div>
+											<label className="text-sm font-medium text-gray-600">Name</label>
+											<p className="text-gray-900">{selectedUser.name}</p>
+										</div>
+										<div>
+											<label className="text-sm font-medium text-gray-600">Email</label>
+											<p className="text-gray-900">{selectedUser.email}</p>
+										</div>
+										<div>
+											<label className="text-sm font-medium text-gray-600 flex items-center gap-1">
+												<Phone className="w-4 h-4" />
+												Phone
+											</label>
+											<p className="text-gray-900">{selectedUser.phone || 'N/A'}</p>
+										</div>
+										<div>
+											<label className="text-sm font-medium text-gray-600">Location</label>
+											<p className="text-gray-900">{selectedUser.location || 'N/A'}</p>
+										</div>
+										<div>
+											<label className="text-sm font-medium text-gray-600">Postcode</label>
+											<p className="text-gray-900">{selectedUser.workPostcode || selectedUser.postcode || 'N/A'}</p>
+										</div>
+										{selectedUser.type === 'tradesperson' && (
+											<>
+												<div>
+													<label className="text-sm font-medium text-gray-600">Trades</label>
+													<p className="text-gray-900">{selectedUser.trades?.join(', ') || 'N/A'}</p>
+												</div>
+												<div>
+													<label className="text-sm font-medium text-gray-600">Job Radius</label>
+													<p className="text-gray-900">{selectedUser.jobRadius || 15} miles</p>
+												</div>
+											</>
+										)}
+									</>
+								)}
+
 								<div>
 									<label className="text-sm font-medium text-gray-600">Account Status</label>
 									<div className="flex items-center space-x-2 mt-2">
@@ -1138,12 +1346,46 @@ const AdminDashboard = () => {
 									<Trash2 className="w-4 h-4 mr-2" />
 									Delete User
 								</button>
-								<button
-									onClick={() => setShowUserModal(false)}
-									className="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700 transition-colors"
-								>
-									Close
-								</button>
+								<div className="flex gap-2">
+									{editingUser && (
+										<>
+											<button
+												onClick={() => setEditingUser(null)}
+												className="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700 transition-colors"
+											>
+												Cancel
+											</button>
+											<button
+												onClick={handleSaveUser}
+												disabled={savingUser}
+												className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center disabled:opacity-50"
+											>
+												{savingUser ? (
+													<>
+														<RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+														Saving...
+													</>
+												) : (
+													<>
+														<Save className="w-4 h-4 mr-2" />
+														Save Changes
+													</>
+												)}
+											</button>
+										</>
+									)}
+									{!editingUser && (
+										<button
+											onClick={() => {
+												setShowUserModal(false);
+												setEditingUser(null);
+											}}
+											className="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700 transition-colors"
+										>
+											Close
+										</button>
+									)}
+								</div>
 							</div>
 						</div>
 					</div>

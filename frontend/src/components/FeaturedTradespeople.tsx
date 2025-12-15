@@ -5,7 +5,7 @@ import { userService } from '../services/userService';
 import { User } from '../types';
 
 const FeaturedTradespeople = () => {
-  const { dispatch } = useApp();
+  const { state, dispatch } = useApp();
   const [tradespeople, setTradespeople] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -120,7 +120,13 @@ const FeaturedTradespeople = () => {
                 </div>
                 
                 <button 
-                  onClick={() => dispatch({ type: 'SET_VIEW', payload: 'browse-experts' })}
+                  onClick={() => {
+                    if (!state.currentUser) {
+                      dispatch({ type: 'SHOW_AUTH_MODAL', payload: { mode: 'login', userType: 'homeowner' } });
+                      return;
+                    }
+                    dispatch({ type: 'SET_VIEW', payload: 'browse-experts' });
+                  }}
                   className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors"
                 >
                   See Portfolio

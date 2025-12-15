@@ -10,6 +10,7 @@ import {
 	getTransactions,
 	updateUserStatus,
 	deleteUser,
+	updateUser,
 	updatePricing,
 	getDashboardStats,
 	changePassword,
@@ -37,6 +38,7 @@ router.get('/analytics', getAnalytics);
 router.get('/homeowners', getAllHomeowners);
 router.get('/tradespeople', getAllTradespeople);
 router.patch('/users/:userId/status', updateUserStatus);
+router.patch('/users/:userId', updateUser);
 router.delete('/users/:userId', deleteUser);
 
 // Transactions

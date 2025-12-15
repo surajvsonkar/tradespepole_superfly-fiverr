@@ -93,6 +93,28 @@ export const adminService = {
 		return response.data;
 	},
 
+	// Update user data (all fields)
+	async updateUser(userId: string, data: {
+		name?: string;
+		email?: string;
+		phone?: string;
+		location?: string;
+		postcode?: string;
+		workPostcode?: string;
+		trades?: string[];
+		workingArea?: any;
+		jobRadius?: number;
+	}) {
+		const response = await axios.patch(
+			`${API_URL}/admin/users/${userId}`,
+			data,
+			{
+				headers: getAuthHeader(),
+			}
+		);
+		return response.data;
+	},
+
 	// Delete user
 	async deleteUser(userId: string) {
 		const response = await axios.delete(`${API_URL}/admin/users/${userId}`, {

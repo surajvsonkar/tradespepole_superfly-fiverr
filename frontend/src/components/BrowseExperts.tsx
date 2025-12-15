@@ -73,6 +73,11 @@ const BrowseExperts = () => {
   };
 
   const handleViewProfile = (expert: any) => {
+    // Check if user is signed in
+    if (!state.currentUser) {
+      dispatch({ type: 'SHOW_AUTH_MODAL', payload: { mode: 'login', userType: 'homeowner' } });
+      return;
+    }
     setSelectedExpert(expert);
     setShowProfileModal(true);
   };

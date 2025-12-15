@@ -1,9 +1,10 @@
 import React from 'react';
-import { Phone, Mail, MapPin, Facebook, Twitter, Instagram } from 'lucide-react';
+import { Mail, Facebook, Twitter, Instagram } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { Link } from 'react-router-dom';
 
 const Footer = () => {
-  const { dispatch } = useApp();
+  const { state, dispatch } = useApp();
 
   return (
     <footer className="bg-gray-900 text-white">
@@ -31,7 +32,13 @@ const Footer = () => {
             <ul className="space-y-2 text-gray-400">
               <li>
                 <button 
-                  onClick={() => dispatch({ type: 'SET_VIEW', payload: 'submit-project' })}
+                  onClick={() => {
+                    if (!state.currentUser) {
+                      dispatch({ type: 'SHOW_AUTH_MODAL', payload: { mode: 'signup', userType: 'homeowner' } });
+                      return;
+                    }
+                    dispatch({ type: 'SET_VIEW', payload: 'submit-project' });
+                  }}
                   className="hover:text-white text-left"
                 >
                   Submit Project
@@ -39,7 +46,13 @@ const Footer = () => {
               </li>
               <li>
                 <button 
-                  onClick={() => dispatch({ type: 'SET_VIEW', payload: 'browse-experts' })}
+                  onClick={() => {
+                    if (!state.currentUser) {
+                      dispatch({ type: 'SHOW_AUTH_MODAL', payload: { mode: 'login', userType: 'homeowner' } });
+                      return;
+                    }
+                    dispatch({ type: 'SET_VIEW', payload: 'browse-experts' });
+                  }}
                   className="hover:text-white text-left"
                 >
                   Browse Professionals
@@ -55,7 +68,13 @@ const Footer = () => {
               </li>
               <li>
                 <button 
-                  onClick={() => dispatch({ type: 'SET_VIEW', payload: 'submit-project' })}
+                  onClick={() => {
+                    if (!state.currentUser) {
+                      dispatch({ type: 'SHOW_AUTH_MODAL', payload: { mode: 'signup', userType: 'homeowner' } });
+                      return;
+                    }
+                    dispatch({ type: 'SET_VIEW', payload: 'submit-project' });
+                  }}
                   className="hover:text-white text-left"
                 >
                   Get Estimates
@@ -136,24 +155,24 @@ const Footer = () => {
               © 2024 24/7 Tradespeople. All rights reserved.
             </p>
             <div className="flex space-x-6 mt-4 md:mt-0">
-              <button
-                onClick={() => dispatch({ type: 'SET_VIEW', payload: 'privacy-policy' })}
+              <Link
+                to="/privacy-policy"
                 className="text-gray-400 hover:text-white text-sm"
               >
                 Privacy Policy
-              </button>
-              <button
-                onClick={() => dispatch({ type: 'SET_VIEW', payload: 'terms-of-use' })}
+              </Link>
+              <Link
+                to="/terms-of-use"
                 className="text-gray-400 hover:text-white text-sm"
               >
                 Terms of Use
-              </button>
-              <button
-                onClick={() => dispatch({ type: 'SET_VIEW', payload: 'cookie-policy' })}
+              </Link>
+              <Link
+                to="/cookie-policy"
                 className="text-gray-400 hover:text-white text-sm"
               >
                 Cookie Policy
-              </button>
+              </Link>
             </div>
           </div>
         </div>

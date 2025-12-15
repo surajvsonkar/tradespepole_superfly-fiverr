@@ -11,6 +11,7 @@ const SubmitProject = () => {
     description: '',
     category: '',
     location: '',
+    postcode: 'W1K 3DE', // Default postcode
     budget: '',
     urgency: 'Medium' as 'Low' | 'Medium' | 'High',
     contactName: '',
@@ -66,6 +67,7 @@ const SubmitProject = () => {
         description: formData.description,
         category: formData.category,
         location: formData.location,
+        postcode: formData.postcode,
         budget: formData.budget,
         urgency: formData.urgency,
         contactDetails: {
@@ -79,7 +81,7 @@ const SubmitProject = () => {
 
       setSuccess(true);
       setFormData({
-        title: '', description: '', category: '', location: '', budget: '',
+        title: '', description: '', category: '', location: '', postcode: 'W1K 3DE', budget: '',
         urgency: 'Medium', contactName: '', contactEmail: '', contactPhone: '',
         latitude: null, longitude: null
       });
@@ -283,45 +285,67 @@ const SubmitProject = () => {
               </div>
             </div>
             
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Location
-              </label>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  value={formData.location}
-                  onChange={(e) => setFormData({ ...formData, location: e.target.value, latitude: null, longitude: null })}
-                  className="w-full pl-10 pr-32 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Your location"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={handleUseCurrentLocation}
-                  disabled={locationLoading}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-600 text-sm font-medium rounded-md hover:bg-blue-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {locationLoading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Getting...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Crosshair className="w-4 h-4" />
-                      <span>Use Current</span>
-                    </>
-                  )}
-                </button>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Location
+                </label>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
+                  <input
+                    type="text"
+                    value={formData.location}
+                    onChange={(e) => setFormData({ ...formData, location: e.target.value, latitude: null, longitude: null })}
+                    className="w-full pl-10 pr-32 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Your location"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={handleUseCurrentLocation}
+                    disabled={locationLoading}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-600 text-sm font-medium rounded-md hover:bg-blue-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {locationLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Getting...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Crosshair className="w-4 h-4" />
+                        <span>Use Current</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+                {formData.latitude && formData.longitude && (
+                  <p className="mt-1 text-xs text-green-600 flex items-center gap-1">
+                    <MapPin className="w-3 h-3" />
+                    Coordinates saved: {formData.latitude.toFixed(4)}, {formData.longitude.toFixed(4)}
+                  </p>
+                )}
               </div>
-              {formData.latitude && formData.longitude && (
-                <p className="mt-1 text-xs text-green-600 flex items-center gap-1">
-                  <MapPin className="w-3 h-3" />
-                  Coordinates saved: {formData.latitude.toFixed(4)}, {formData.longitude.toFixed(4)}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Postcode <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
+                  <input
+                    type="text"
+                    value={formData.postcode}
+                    onChange={(e) => setFormData({ ...formData, postcode: e.target.value.toUpperCase() })}
+                    className="w-full pl-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="e.g., W1K 3DE"
+                    required
+                  />
+                </div>
+                <p className="mt-1 text-xs text-gray-500">
+                  Enter your postcode - tradespeople will be alerted based on this location
                 </p>
-              )}
+              </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

@@ -3,7 +3,7 @@ import { Search, MapPin, ArrowRight, Filter, Star } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 const Hero = () => {
-  const { dispatch } = useApp();
+  const { state, dispatch } = useApp();
   const [searchQuery, setSearchQuery] = useState('');
   const [location, setLocation] = useState('');
   const [showFilters, setShowFilters] = useState(false);
@@ -15,10 +15,18 @@ const Hero = () => {
   });
 
   const handleGetStarted = () => {
+    if (!state.currentUser) {
+      dispatch({ type: 'SHOW_AUTH_MODAL', payload: { mode: 'signup', userType: 'homeowner' } });
+      return;
+    }
     dispatch({ type: 'SET_VIEW', payload: 'submit-project' });
   };
 
   const handleSearch = () => {
+    if (!state.currentUser) {
+      dispatch({ type: 'SHOW_AUTH_MODAL', payload: { mode: 'login', userType: 'homeowner' } });
+      return;
+    }
     if (searchQuery || location) {
       dispatch({ type: 'SET_VIEW', payload: 'browse-experts' });
     } else {
@@ -141,10 +149,16 @@ const Hero = () => {
               {popularServices.map((service, index) => (
                 <button 
                   key={index}
-                  onClick={() => dispatch({ 
-                    type: 'SET_VIEW_WITH_FILTER', 
-                    payload: { view: 'browse-experts', filter: service.filter }
-                  })}
+                  onClick={() => {
+                    if (!state.currentUser) {
+                      dispatch({ type: 'SHOW_AUTH_MODAL', payload: { mode: 'login', userType: 'homeowner' } });
+                      return;
+                    }
+                    dispatch({ 
+                      type: 'SET_VIEW_WITH_FILTER', 
+                      payload: { view: 'browse-experts', filter: service.filter }
+                    });
+                  }}
                   className="text-sm text-blue-600 hover:underline flex items-center"
                 >
                   {service.name}

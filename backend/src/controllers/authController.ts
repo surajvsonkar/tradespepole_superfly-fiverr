@@ -96,11 +96,17 @@ const sendEmail = async (to: string, subject: string, text: string): Promise<boo
 // Register a new user
 export const register = async (req: Request, res: Response): Promise<void> => {
 	try {
-		const { name, email, password, type, location, trades, workingArea, captchaToken } = req.body;
+		const { name, email, password, phone, type, location, postcode, trades, workingArea, captchaToken } = req.body;
 
 		// Validate required fields
 		if (!name || !email || !password || !type) {
 			res.status(400).json({ error: 'Name, email, password, and type are required' });
+			return;
+		}
+
+		// Validate phone number format (basic validation)
+		if (phone && !/^\+?[\d\s-]{10,}$/.test(phone)) {
+			res.status(400).json({ error: 'Please enter a valid phone number' });
 			return;
 		}
 
@@ -136,9 +142,11 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 			data: {
 				name,
 				email,
+				phone: phone || null,
 				passwordHash,
 				type,
 				location,
+				workPostcode: postcode || 'W1K 3DE', // Store postcode for tradespeople, use as workPostcode
 				trades: trades || [],
 				workingArea: workingArea || null,
 				accountStatus: 'active',

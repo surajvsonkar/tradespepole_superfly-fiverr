@@ -38,6 +38,7 @@ import BalanceTopUp from './BalanceTopUp';
 import { userService } from '../services/userService';
 import { reviewService } from '../services/reviewService';
 import { paymentService } from '../services/paymentService';
+import { conversationService } from '../services/conversationService';
 
 const TradespersonProfile = () => {
 	const { state, dispatch } = useApp();
@@ -1133,61 +1134,25 @@ const TradespersonProfile = () => {
 										{/* Message Button */}
 										<div className="mt-4">
 											<button
-												onClick={() => {
+												onClick={async () => {
 													console.log(
 														'Creating conversation for lead:',
 														lead.id
 													);
-													const homeowner = state.users.find(
-														(u) => u.id === lead.postedBy
-													);
-													if (!homeowner) {
-														console.error(
-															'Homeowner not found for lead:',
-															lead.postedBy
-														);
-														return;
-													}
-
-													// Check if conversation already exists
-													const existingConv = state.conversations.find(
-														(c) =>
-															c.jobId === lead.id &&
-															c.homeownerId === lead.postedBy &&
-															c.tradespersonId === state.currentUser!.id
-													);
-
-													if (existingConv) {
-														console.log(
-															'Found existing conversation:',
-															existingConv.id
-														);
-														setSelectedConversation(existingConv);
-														setShowMessaging(true);
-													} else {
-														console.log('Creating new conversation');
-														dispatch({
-															type: 'CREATE_CONVERSATION',
-															payload: {
-																jobId: lead.id,
-																homeownerId: lead.postedBy,
-																tradespersonId: state.currentUser!.id,
-															},
-														});
-
-														// Create temp conversation for immediate messaging
-														const tempConv: Conversation = {
-															id: `temp_${lead.id}_${lead.postedBy}`,
+													try {
+														// Create conversation via API (or get existing)
+														const response = await conversationService.createConversation({
 															jobId: lead.id,
-															jobTitle: lead.title,
 															homeownerId: lead.postedBy,
 															tradespersonId: state.currentUser!.id,
-															messages: [],
-															createdAt: new Date().toISOString(),
-															unreadCount: 0,
-														};
-														setSelectedConversation(tempConv);
+														});
+
+														console.log('Conversation created/retrieved:', response.conversation.id);
+														setSelectedConversation(response.conversation);
 														setShowMessaging(true);
+													} catch (error) {
+														console.error('Failed to create conversation:', error);
+														alert('Failed to start conversation. Please try again.');
 													}
 												}}
 												className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center"

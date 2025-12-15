@@ -5,6 +5,7 @@ export interface CreateJobLeadData {
   description: string;
   category: string;
   location: string;
+  postcode?: string; // Postcode for job location (default: W1K 3DE)
   budget: string;
   urgency: 'Low' | 'Medium' | 'High';
   contactDetails: {

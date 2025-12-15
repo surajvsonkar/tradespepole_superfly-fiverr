@@ -46,10 +46,12 @@ async function main() {
         passwordHash,
         type: UserType.homeowner,
         location: 'London, UK',
+        workPostcode: 'SW1A 1AA', // Postcode for homeowner
         latitude: 51.5074,
         longitude: -0.1278,
         isEmailVerified: true,
         accountStatus: AccountStatus.active,
+        verificationStatus: VerificationStatus.verified,
       }
     }),
     prisma.user.create({
@@ -60,10 +62,12 @@ async function main() {
         passwordHash,
         type: UserType.homeowner,
         location: 'Manchester, UK',
+        workPostcode: 'M1 1AA', // Postcode for homeowner
         latitude: 53.4808,
         longitude: -2.2426,
         isEmailVerified: true,
         accountStatus: AccountStatus.active,
+        verificationStatus: VerificationStatus.verified,
       }
     }),
     prisma.user.create({
@@ -74,10 +78,12 @@ async function main() {
         passwordHash,
         type: UserType.homeowner,
         location: 'Birmingham, UK',
+        workPostcode: 'B1 1AA', // Postcode for homeowner
         latitude: 52.4862,
         longitude: -1.8904,
         isEmailVerified: true,
         accountStatus: AccountStatus.active,
+        verificationStatus: VerificationStatus.verified,
       }
     }),
     prisma.user.create({
@@ -88,10 +94,12 @@ async function main() {
         passwordHash,
         type: UserType.homeowner,
         location: 'Leeds, UK',
+        workPostcode: 'LS1 1AA', // Postcode for homeowner
         latitude: 53.8008,
         longitude: -1.5491,
         isEmailVerified: false,
         accountStatus: AccountStatus.active,
+        verificationStatus: VerificationStatus.pending,
       }
     }),
     prisma.user.create({
@@ -102,10 +110,30 @@ async function main() {
         passwordHash,
         type: UserType.homeowner,
         location: 'Bristol, UK',
+        workPostcode: 'BS1 1AA', // Postcode for homeowner
         latitude: 51.4545,
         longitude: -2.5879,
         isEmailVerified: true,
         accountStatus: AccountStatus.active,
+        verificationStatus: VerificationStatus.verified,
+      }
+    }),
+    // Parked homeowner account (for admin testing)
+    prisma.user.create({
+      data: {
+        name: 'Parked User',
+        email: 'parked.user@email.com',
+        phone: '+447700900006',
+        passwordHash,
+        type: UserType.homeowner,
+        location: 'London, UK',
+        workPostcode: 'W1K 3DE',
+        latitude: 51.5074,
+        longitude: -0.1278,
+        isEmailVerified: true,
+        accountStatus: AccountStatus.parked,
+        verificationStatus: VerificationStatus.verified,
+        parkedDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
       }
     }),
   ]);
@@ -115,7 +143,7 @@ async function main() {
   console.log('👷 Creating tradespeople...');
 
   const tradespeople = await Promise.all([
-    // Verified Premium Tradespeople
+    // Verified Premium Tradespeople with postcodes and job radius
     prisma.user.create({
       data: {
         name: 'James Wilson - Elite Plumbing',
@@ -125,6 +153,8 @@ async function main() {
         type: UserType.tradesperson,
         avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
         location: 'London, UK',
+        workPostcode: 'W1K 3DE', // Work postcode
+        jobRadius: 25, // Job radius in miles
         latitude: 51.5074,
         longitude: -0.1278,
         trades: ['Plumber', 'Gas Engineer', 'Heating Engineer'],
@@ -137,7 +167,12 @@ async function main() {
         verificationStatus: VerificationStatus.verified,
         isEmailVerified: true,
         accountStatus: AccountStatus.active,
-        workingArea: { radius: 25, unit: 'miles' },
+        workingArea: { 
+          centerLocation: 'W1K 3DE',
+          radius: 25,
+          unit: 'miles',
+          coordinates: { lat: 51.5074, lng: -0.1278 }
+        },
         hasDirectoryListing: true,
         directoryListingExpiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         verificationData: {
@@ -157,6 +192,8 @@ async function main() {
         type: UserType.tradesperson,
         avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150',
         location: 'Manchester, UK',
+        workPostcode: 'M1 1AA', // Work postcode
+        jobRadius: 30, // Job radius in miles
         latitude: 53.4808,
         longitude: -2.2426,
         trades: ['Electrician', 'Security System Installer'],
@@ -169,7 +206,12 @@ async function main() {
         verificationStatus: VerificationStatus.verified,
         isEmailVerified: true,
         accountStatus: AccountStatus.active,
-        workingArea: { radius: 30, unit: 'miles' },
+        workingArea: { 
+          centerLocation: 'M1 1AA',
+          radius: 30,
+          unit: 'miles',
+          coordinates: { lat: 53.4808, lng: -2.2426 }
+        },
         hasDirectoryListing: true,
         directoryListingExpiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         verificationData: {
@@ -189,6 +231,8 @@ async function main() {
         type: UserType.tradesperson,
         avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150',
         location: 'Birmingham, UK',
+        workPostcode: 'B1 1AA', // Work postcode
+        jobRadius: 40, // Job radius in miles
         latitude: 52.4862,
         longitude: -1.8904,
         trades: ['Builder', 'Extension Builder', 'Bricklayer'],
@@ -203,7 +247,12 @@ async function main() {
         accountStatus: AccountStatus.active,
         hasDirectoryListing: true,
         directoryListingExpiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-        workingArea: { radius: 40, unit: 'miles' },
+        workingArea: { 
+          centerLocation: 'B1 1AA',
+          radius: 40,
+          unit: 'miles',
+          coordinates: { lat: 52.4862, lng: -1.8904 }
+        },
         verificationData: {
           idVerified: true,
           insuranceVerified: true,
@@ -223,6 +272,8 @@ async function main() {
         type: UserType.tradesperson,
         avatar: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=150',
         location: 'Leeds, UK',
+        workPostcode: 'LS1 1AA', // Work postcode
+        jobRadius: 15, // Default job radius
         latitude: 53.8008,
         longitude: -1.5491,
         trades: ['Painter & Decorator', 'Plasterer'],
@@ -235,7 +286,12 @@ async function main() {
         verificationStatus: VerificationStatus.verified,
         isEmailVerified: true,
         accountStatus: AccountStatus.active,
-        workingArea: { radius: 15, unit: 'miles' },
+        workingArea: { 
+          centerLocation: 'LS1 1AA',
+          radius: 15,
+          unit: 'miles',
+          coordinates: { lat: 53.8008, lng: -1.5491 }
+        },
       }
     }),
     prisma.user.create({
@@ -247,6 +303,8 @@ async function main() {
         type: UserType.tradesperson,
         avatar: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=150',
         location: 'Bristol, UK',
+        workPostcode: 'BS1 1AA', // Work postcode
+        jobRadius: 35, // Job radius in miles
         latitude: 51.4545,
         longitude: -2.5879,
         trades: ['Kitchen Fitter', 'Cabinet Maker', 'Carpenter & Joiner'],
@@ -259,7 +317,12 @@ async function main() {
         verificationStatus: VerificationStatus.verified,
         isEmailVerified: true,
         accountStatus: AccountStatus.active,
-        workingArea: { radius: 35, unit: 'miles' },
+        workingArea: { 
+          centerLocation: 'BS1 1AA',
+          radius: 35,
+          unit: 'miles',
+          coordinates: { lat: 51.4545, lng: -2.5879 }
+        },
       }
     }),
     
@@ -272,6 +335,8 @@ async function main() {
         passwordHash,
         type: UserType.tradesperson,
         location: 'Liverpool, UK',
+        workPostcode: 'L1 1AA', // Work postcode
+        jobRadius: 20, // Job radius in miles
         latitude: 53.4084,
         longitude: -2.9916,
         trades: ['Roofer', 'Guttering Installer', 'Fascias & Soffits Installer'],
@@ -284,7 +349,12 @@ async function main() {
         verificationStatus: VerificationStatus.pending,
         isEmailVerified: true,
         accountStatus: AccountStatus.active,
-        workingArea: { radius: 20, unit: 'miles' },
+        workingArea: { 
+          centerLocation: 'L1 1AA',
+          radius: 20,
+          unit: 'miles',
+          coordinates: { lat: 53.4084, lng: -2.9916 }
+        },
       }
     }),
     prisma.user.create({
@@ -295,6 +365,8 @@ async function main() {
         passwordHash,
         type: UserType.tradesperson,
         location: 'Sheffield, UK',
+        workPostcode: 'S1 1AA', // Work postcode
+        jobRadius: 25, // Job radius in miles
         latitude: 53.3811,
         longitude: -1.4701,
         trades: ['Gardener', 'Landscaper', 'Fencer', 'Decking Installer'],
@@ -307,7 +379,12 @@ async function main() {
         verificationStatus: VerificationStatus.verified,
         isEmailVerified: true,
         accountStatus: AccountStatus.active,
-        workingArea: { radius: 25, unit: 'miles' },
+        workingArea: { 
+          centerLocation: 'S1 1AA',
+          radius: 25,
+          unit: 'miles',
+          coordinates: { lat: 53.3811, lng: -1.4701 }
+        },
       }
     }),
     prisma.user.create({
@@ -319,6 +396,8 @@ async function main() {
         type: UserType.tradesperson,
         avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150',
         location: 'Newcastle, UK',
+        workPostcode: 'NE1 1AA', // Work postcode
+        jobRadius: 30, // Job radius in miles
         latitude: 54.9783,
         longitude: -1.6178,
         trades: ['Tiler', 'Bathroom Fitter', 'Flooring Fitter'],
@@ -331,7 +410,12 @@ async function main() {
         verificationStatus: VerificationStatus.verified,
         isEmailVerified: true,
         accountStatus: AccountStatus.active,
-        workingArea: { radius: 30, unit: 'miles' },
+        workingArea: { 
+          centerLocation: 'NE1 1AA',
+          radius: 30,
+          unit: 'miles',
+          coordinates: { lat: 54.9783, lng: -1.6178 }
+        },
       }
     }),
     prisma.user.create({
@@ -342,6 +426,8 @@ async function main() {
         passwordHash,
         type: UserType.tradesperson,
         location: 'Edinburgh, UK',
+        workPostcode: 'EH1 1AA', // Work postcode
+        jobRadius: 40, // Job radius in miles
         latitude: 55.9533,
         longitude: -3.1883,
         trades: ['Window Fitter', 'Door Fitter', 'Glazier', 'Conservatory Installer'],
@@ -354,7 +440,12 @@ async function main() {
         verificationStatus: VerificationStatus.verified,
         isEmailVerified: true,
         accountStatus: AccountStatus.active,
-        workingArea: { radius: 40, unit: 'miles' },
+        workingArea: { 
+          centerLocation: 'EH1 1AA',
+          radius: 40,
+          unit: 'miles',
+          coordinates: { lat: 55.9533, lng: -3.1883 }
+        },
       }
     }),
     prisma.user.create({
@@ -365,6 +456,8 @@ async function main() {
         passwordHash,
         type: UserType.tradesperson,
         location: 'Glasgow, UK',
+        workPostcode: 'G1 1AA', // Work postcode
+        jobRadius: 50, // Job radius in miles
         latitude: 55.8642,
         longitude: -4.2518,
         trades: ['Locksmith', 'Security System Installer'],
@@ -377,11 +470,16 @@ async function main() {
         verificationStatus: VerificationStatus.verified,
         isEmailVerified: true,
         accountStatus: AccountStatus.active,
-        workingArea: { radius: 50, unit: 'miles' },
+        workingArea: { 
+          centerLocation: 'G1 1AA',
+          radius: 50,
+          unit: 'miles',
+          coordinates: { lat: 55.8642, lng: -4.2518 }
+        },
       }
     }),
     
-    // Parked Account (inactive)
+    // Parked Account (inactive) - for admin testing
     prisma.user.create({
       data: {
         name: 'George Hall - Hall Handyman Services',
@@ -390,6 +488,8 @@ async function main() {
         passwordHash,
         type: UserType.tradesperson,
         location: 'Cardiff, UK',
+        workPostcode: 'CF1 1AA', // Work postcode
+        jobRadius: 10, // Job radius in miles
         latitude: 51.4816,
         longitude: -3.1791,
         trades: ['Handyman'],
@@ -402,7 +502,42 @@ async function main() {
         isEmailVerified: true,
         accountStatus: AccountStatus.parked,
         parkedDate: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000),
-        workingArea: { radius: 10, unit: 'miles' },
+        workingArea: { 
+          centerLocation: 'CF1 1AA',
+          radius: 10,
+          unit: 'miles',
+          coordinates: { lat: 51.4816, lng: -3.1791 }
+        },
+      }
+    }),
+    // Rejected verification - for admin testing
+    prisma.user.create({
+      data: {
+        name: 'Rejected User - Test Account',
+        email: 'rejected.user@tradesperson.com',
+        phone: '+447700800012',
+        passwordHash,
+        type: UserType.tradesperson,
+        location: 'London, UK',
+        workPostcode: 'W1K 3DE',
+        jobRadius: 15,
+        latitude: 51.5074,
+        longitude: -0.1278,
+        trades: ['Builder'],
+        rating: 0,
+        reviews: 0,
+        verified: false,
+        credits: 0.00,
+        membershipType: MembershipType.none,
+        verificationStatus: VerificationStatus.rejected,
+        isEmailVerified: true,
+        accountStatus: AccountStatus.active,
+        workingArea: { 
+          centerLocation: 'W1K 3DE',
+          radius: 15,
+          unit: 'miles',
+          coordinates: { lat: 51.5074, lng: -0.1278 }
+        },
       }
     }),
   ]);
@@ -412,13 +547,14 @@ async function main() {
   console.log('📋 Creating job leads...');
 
   const jobLeads = await Promise.all([
-    // Active Jobs - Various Categories
+    // Active Jobs - Various Categories with postcodes
     prisma.jobLead.create({
       data: {
         title: 'Kitchen Renovation - Complete Remodel',
         description: 'Looking for a professional to completely renovate our kitchen. This includes removing old cabinets, installing new ones, fitting a new sink, and tiling the backsplash. The kitchen is approximately 15 square meters.',
         category: 'Kitchen Fitter',
         location: 'London, UK',
+        postcode: 'SW1A 1AA', // Job postcode
         latitude: 51.5200,
         longitude: -0.1150,
         budget: '£10,000 - £25,000',
@@ -440,6 +576,7 @@ async function main() {
         description: 'Our boiler has stopped working and we have no hot water or heating. Need an urgent repair or replacement. Boiler is a Worcester Bosch, about 8 years old.',
         category: 'Plumber',
         location: 'Manchester, UK',
+        postcode: 'M1 1AA', // Job postcode
         latitude: 53.4750,
         longitude: -2.2500,
         budget: '£500 - £1,000',
@@ -461,6 +598,7 @@ async function main() {
         description: 'Victorian terraced house needs complete rewiring. 3 bedrooms, 2 reception rooms, kitchen, and bathroom. Consumer unit also needs upgrading to meet current regulations.',
         category: 'Electrician',
         location: 'Birmingham, UK',
+        postcode: 'B1 1AA', // Job postcode
         latitude: 52.4900,
         longitude: -1.8800,
         budget: '£5,000 - £10,000',
@@ -482,6 +620,7 @@ async function main() {
         description: 'Large garden needs complete landscaping. Looking for new lawn, patio area, raised flower beds, and possibly a small water feature. Garden is approximately 200 square meters.',
         category: 'Landscaper',
         location: 'Leeds, UK',
+        postcode: 'LS1 1AA', // Job postcode
         latitude: 53.7950,
         longitude: -1.5500,
         budget: '£5,000 - £10,000',
@@ -503,6 +642,7 @@ async function main() {
         description: 'Converting a small bedroom into an en-suite bathroom. Need full plumbing, tiling, shower installation, toilet, and sink. Approximately 4 square meters.',
         category: 'Bathroom Fitter',
         location: 'Bristol, UK',
+        postcode: 'BS1 1AA', // Job postcode
         latitude: 51.4600,
         longitude: -2.5900,
         budget: '£5,000 - £10,000',
@@ -524,6 +664,7 @@ async function main() {
         description: 'Planning permission approved for 4m x 6m single storey rear extension. Need builders to complete the full build including foundations, walls, roof, and basic interior finishing.',
         category: 'Extension Builder',
         location: 'London, UK',
+        postcode: 'SW1A 1AA', // Job postcode
         latitude: 51.5300,
         longitude: -0.0900,
         budget: 'Over £25,000',
@@ -545,6 +686,7 @@ async function main() {
         description: '4 bedroom detached house needs full interior painting. All rooms including hallways and staircase. Walls and ceilings. We will provide the paint.',
         category: 'Painter & Decorator',
         location: 'Sheffield, UK',
+        postcode: 'S1 1AA', // Job postcode
         latitude: 53.3900,
         longitude: -1.4700,
         budget: '£1,000 - £5,000',
@@ -566,6 +708,7 @@ async function main() {
         description: 'Several tiles blown off during recent storm. Some potential water damage to the felt underneath. Need urgent assessment and repair before more rain.',
         category: 'Roofer',
         location: 'Liverpool, UK',
+        postcode: 'L1 1AA', // Job postcode
         latitude: 53.4100,
         longitude: -2.9800,
         budget: '£500 - £1,000',
@@ -587,6 +730,7 @@ async function main() {
         description: 'Replace existing cracked concrete driveway with block paving. Driveway is approximately 40 square meters. Would like a decorative border.',
         category: 'Driveways Installer',
         location: 'Edinburgh, UK',
+        postcode: 'EH1 1AA', // Job postcode
         latitude: 55.9500,
         longitude: -3.1900,
         budget: '£5,000 - £10,000',
@@ -608,6 +752,7 @@ async function main() {
         description: 'Looking to install a comprehensive home security system including CCTV cameras (4-6), alarm system, and smart doorbell. Prefer a system that can be monitored via smartphone.',
         category: 'Security System Installer',
         location: 'Glasgow, UK',
+        postcode: 'G1 1AA', // Job postcode
         latitude: 55.8600,
         longitude: -4.2500,
         budget: '£1,000 - £5,000',
@@ -631,6 +776,7 @@ async function main() {
         description: 'Annual boiler service required. Boiler is a Vaillant ecoTEC plus, installed 3 years ago. Need gas safety certificate for rental property.',
         category: 'Gas Engineer',
         location: 'London, UK',
+        postcode: 'SW1A 1AA', // Job postcode
         latitude: 51.5100,
         longitude: -0.1300,
         budget: 'Under £500',
@@ -664,6 +810,7 @@ async function main() {
         description: 'Want to convert our loft into 2 bedrooms with a shared bathroom. Looking for a full design and build service. Roof height is good, approximately 2.4m at the highest point.',
         category: 'Loft Conversion Company',
         location: 'Manchester, UK',
+        postcode: 'M1 1AA', // Job postcode
         latitude: 53.4700,
         longitude: -2.2400,
         budget: 'Over £25,000',
@@ -690,6 +837,29 @@ async function main() {
           }
         ],
         hiredTradesperson: tradespeople[2].id,
+      }
+    }),
+    // Job with default postcode (W1K 3DE)
+    prisma.jobLead.create({
+      data: {
+        title: 'Window Replacement - Double Glazing',
+        description: 'Need to replace all windows in a 3-bedroom house with energy-efficient double glazing. Approximately 12 windows total.',
+        category: 'Window Fitter',
+        location: 'London, UK',
+        postcode: 'W1K 3DE', // Default postcode
+        latitude: 51.5074,
+        longitude: -0.1278,
+        budget: '£5,000 - £10,000',
+        urgency: UrgencyLevel.Medium,
+        postedBy: homeowners[0].id,
+        contactDetails: {
+          name: 'John Smith',
+          email: 'john.smith@email.com',
+          phone: '+447700900001',
+        },
+        maxPurchases: 5,
+        price: 15.99,
+        isActive: true,
       }
     }),
   ]);
@@ -963,7 +1133,7 @@ async function main() {
         conversationId: conversation2.id,
         senderId: homeowners[1].id,
         senderName: 'Sarah Johnson',
-        content: 'That would be amazing! We\'re at M14 5RG. How soon could you get here?',
+        content: 'That would be amazing! We\'re at M1 1AA. How soon could you get here?',
         read: true,
         timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000 + 15 * 60 * 1000),
       },
@@ -1345,31 +1515,63 @@ async function main() {
   console.log('');
   console.log('   HOMEOWNERS (Password for all: Test@123):');
   homeowners.forEach((h, i) => {
-    console.log(`     ${i + 1}. ${h.email} - ${h.location}`);
+    console.log(`     ${i + 1}. ${h.email} - ${h.location} - Postcode: ${h.workPostcode}`);
   });
   console.log('');
   console.log('   TRADESPEOPLE (Password for all: Test@123):');
   tradespeople.forEach((t, i) => {
-    console.log(`     ${i + 1}. ${t.email} - ${t.trades.join(', ')}`);
+    console.log(`     ${i + 1}. ${t.email} - ${t.trades.join(', ')} - Postcode: ${t.workPostcode} - Radius: ${t.jobRadius} miles`);
   });
   console.log('────────────────────────────────────────────────────────────\n');
 
-  console.log('🗺️  TEST LOCATIONS WITH COORDINATES:');
+  console.log('🧪 TESTING FEATURES:');
   console.log('────────────────────────────────────────────────────────────');
-  console.log('   London:     51.5074, -0.1278');
-  console.log('   Manchester: 53.4808, -2.2426');
-  console.log('   Birmingham: 52.4862, -1.8904');
-  console.log('   Leeds:      53.8008, -1.5491');
-  console.log('   Bristol:    51.4545, -2.5879');
-  console.log('   Liverpool:  53.4084, -2.9916');
-  console.log('   Sheffield:  53.3811, -1.4701');
-  console.log('   Newcastle:  54.9783, -1.6178');
-  console.log('   Edinburgh:  55.9533, -3.1883');
-  console.log('   Glasgow:    55.8642, -4.2518');
+  console.log('   1. POSTCODE FEATURE:');
+  console.log('      ✓ All users have postcodes (workPostcode field)');
+  console.log('      ✓ All job leads have postcodes');
+  console.log('      ✓ Tradespeople have jobRadius set');
+  console.log('      ✓ Test signup with postcode field');
+  console.log('');
+  console.log('   2. ADMIN EDIT FUNCTIONALITY:');
+  console.log('      ✓ Login as admin: admin@superfly.com');
+  console.log('      ✓ View homeowners and tradespeople');
+  console.log('      ✓ Click eye icon to view user details');
+  console.log('      ✓ Click Edit button to edit user data');
+  console.log('      ✓ Edit: name, email, phone, location, postcode');
+  console.log('      ✓ Edit trades and job radius (for tradespeople)');
+  console.log('      ✓ Test with parked user: parked.user@email.com');
+  console.log('      ✓ Test with rejected user: rejected.user@tradesperson.com');
+  console.log('');
+  console.log('   3. AUTH PROTECTION:');
+  console.log('      ✓ Logout and try accessing protected routes');
+  console.log('      ✓ Try clicking "Browse Experts" without login');
+  console.log('      ✓ Try clicking "Submit Project" without login');
+  console.log('      ✓ Try viewing profiles without login');
+  console.log('      ✓ Auth modal should appear instead of redirect');
+  console.log('');
+  console.log('   4. JOB ALERT RADIUS FILTERING:');
+  console.log('      ✓ Login as tradesperson');
+  console.log('      ✓ View job leads - should see jobs within radius');
+  console.log('      ✓ Jobs should show distance from tradesperson');
+  console.log('      ✓ Test with different postcodes and radii');
+  console.log('────────────────────────────────────────────────────────────\n');
+
+  console.log('🗺️  TEST LOCATIONS WITH POSTCODES:');
+  console.log('────────────────────────────────────────────────────────────');
+  console.log('   London:     SW1A 1AA / W1K 3DE (default)');
+  console.log('   Manchester: M1 1AA');
+  console.log('   Birmingham: B1 1AA');
+  console.log('   Leeds:      LS1 1AA');
+  console.log('   Bristol:    BS1 1AA');
+  console.log('   Liverpool:  L1 1AA');
+  console.log('   Sheffield:  S1 1AA');
+  console.log('   Newcastle:  NE1 1AA');
+  console.log('   Edinburgh:  EH1 1AA');
+  console.log('   Glasgow:    G1 1AA');
   console.log('────────────────────────────────────────────────────────────\n');
 
   console.log('✅ Database is now populated with comprehensive test data!');
-  console.log('   Use the credentials above to test different user roles.\n');
+  console.log('   Use the credentials above to test all features.\n');
 }
 
 main()

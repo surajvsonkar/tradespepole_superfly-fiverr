@@ -27,6 +27,8 @@ export interface User {
   businessName?: string;
   companyDescription?: string;
   portfolio?: PortfolioItem[];
+  jobRadius?: number; // Default job alert radius in miles (default: 15)
+  workPostcode?: string; // Tradesperson's work postcode (default: W1K 3DE)
 }
 
 export interface JobLead {
@@ -35,6 +37,9 @@ export interface JobLead {
   description: string;
   category: string;
   location: string;
+  postcode?: string; // Job postcode for distance filtering (default: W1K 3DE)
+  latitude?: number;
+  longitude?: number;
   budget: string;
   urgency: 'Low' | 'Medium' | 'High';
   postedBy: string;
@@ -46,6 +51,13 @@ export interface JobLead {
   };
   purchasedBy: string[];
   purchasedByDetails?: User[]; // Full user details for purchasers
+  poster?: { // The homeowner who posted the job
+    id: string;
+    name: string;
+    email?: string;
+    type?: string;
+    location?: string;
+  };
   maxPurchases: number;
   price: number;
   interests: Interest[];
@@ -53,6 +65,7 @@ export interface JobLead {
   hiredTradesperson?: string;
   dismissedBy?: string[];
   cancelledAt?: string;
+  distanceFromTradesperson?: number; // Distance in miles from tradesperson
 }
 
 export interface Interest {

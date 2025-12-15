@@ -24,6 +24,7 @@ import AdminDashboard from './components/AdminDashboard';
 import AdminLogin from './components/AdminLogin';
 import VerifyEmail from './components/VerifyEmail';
 import ResetPassword from './components/ResetPassword';
+import CookieConsentBanner from './components/CookieConsentBanner';
 import { ChatProvider } from './context/ChatContext';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 
@@ -55,10 +56,14 @@ const HomePage = () => (
 
 // Protected route wrapper
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { state } = useApp();
+  const { state, dispatch } = useApp();
   
   if (!state.currentUser) {
-    return <Navigate to="/" replace />;
+    // Show auth modal instead of redirecting (only if not already showing)
+    if (!state.showAuthModal) {
+      dispatch({ type: 'SHOW_AUTH_MODAL', payload: { mode: 'login', userType: 'homeowner' } });
+    }
+    return null; // Don't render the protected content
   }
   
   return <>{children}</>;
@@ -77,10 +82,14 @@ const ProtectedAdminRoute = ({ children }: { children: React.ReactNode }) => {
 
 // Profile route that redirects based on user type
 const ProfileRoute = () => {
-  const { state } = useApp();
+  const { state, dispatch } = useApp();
   
   if (!state.currentUser) {
-    return <Navigate to="/" replace />;
+    // Show auth modal instead of redirecting (only if not already showing)
+    if (!state.showAuthModal) {
+      dispatch({ type: 'SHOW_AUTH_MODAL', payload: { mode: 'login', userType: 'homeowner' } });
+    }
+    return null; // Don't render the profile
   }
   
   return state.currentUser.type === 'homeowner' ? <HomeownerProfile /> : <TradespersonProfile />;
@@ -140,6 +149,7 @@ const App = () => {
           <Router>
             <AppContent />
             <AuthModal />
+            <CookieConsentBanner />
           </Router>
         </ChatProvider>
       </AppProvider>

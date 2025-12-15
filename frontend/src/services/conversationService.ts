@@ -8,6 +8,23 @@ export interface ConversationWithUser extends Conversation {
 }
 
 export const conversationService = {
+	// Create a new conversation (or get existing one)
+	createConversation: async (data: {
+		jobId: string;
+		homeownerId: string;
+		tradespersonId: string;
+	}): Promise<{ conversation: ConversationWithUser; isNew: boolean }> => {
+		try {
+			console.log('📨 Creating conversation...', data);
+			const response = await apiClient.post('/conversations', data);
+			console.log('✅ Conversation created:', response);
+			return response;
+		} catch (error) {
+			console.error('❌ Error creating conversation:', error);
+			throw error;
+		}
+	},
+
 	// Fetch all conversations for the current user
 	getAllConversations: async (): Promise<ConversationWithUser[]> => {
 		try {

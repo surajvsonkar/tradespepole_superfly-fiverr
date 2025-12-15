@@ -20,6 +20,7 @@ import {
 	Users,
 	Eye,
 	CheckCircle,
+	Loader,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Review, Conversation, JobLead, User as AppUser } from '../types';
@@ -28,6 +29,7 @@ import ContactsList from './ContactsList';
 import { jobService } from '../services/jobService';
 import { userService } from '../services/userService';
 import { reviewService } from '../services/reviewService';
+import { conversationService } from '../services/conversationService';
 
 const HomeownerProfile = () => {
 	const { state, dispatch } = useApp();
@@ -60,12 +62,54 @@ const HomeownerProfile = () => {
 		location: state.currentUser?.location || '',
 	});
 
+	const [fetchingLocation, setFetchingLocation] = useState(false);
+
 	const [reviewData, setReviewData] = useState({
 		jobId: '',
 		tradespersonId: '',
 		rating: 5,
 		comment: '',
 	});
+
+	// Fetch current location
+	const handleUseCurrentLocation = () => {
+		if (!navigator.geolocation) {
+			alert('Geolocation is not supported by your browser');
+			return;
+		}
+
+		setFetchingLocation(true);
+		navigator.geolocation.getCurrentPosition(
+			async (position) => {
+				try {
+					const { latitude, longitude } = position.coords;
+					// Reverse geocode to get address
+					const response = await fetch(
+						`https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}`
+					);
+					const data = await response.json();
+					
+					if (data.results && data.results[0]) {
+						const address = data.results[0].formatted_address;
+						setEditData(prev => ({ ...prev, location: address }));
+					} else {
+						setEditData(prev => ({ ...prev, location: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}` }));
+					}
+				} catch (error) {
+					console.error('Error getting address:', error);
+					setEditData(prev => ({ ...prev, location: `${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)}` }));
+				} finally {
+					setFetchingLocation(false);
+				}
+			},
+			(error) => {
+				console.error('Geolocation error:', error);
+				alert('Unable to get your location. Please enter manually.');
+				setFetchingLocation(false);
+			},
+			{ enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+		);
+	};
 
 	useEffect(() => {
 		const fetchMyData = async () => {
@@ -419,15 +463,35 @@ const HomeownerProfile = () => {
 								<div className="flex items-center">
 									<MapPin className="w-5 h-5 text-gray-400 mr-3" />
 									{isEditing ? (
-										<input
-											type="text"
-											value={editData.location}
-											onChange={(e) =>
-												setEditData({ ...editData, location: e.target.value })
-											}
-											className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-											placeholder="Your location"
-										/>
+										<div className="flex-1 relative">
+											<input
+												type="text"
+												value={editData.location}
+												onChange={(e) =>
+													setEditData({ ...editData, location: e.target.value })
+												}
+												className="w-full px-3 py-2 pr-28 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+												placeholder="Your location"
+											/>
+											<button
+												type="button"
+												onClick={handleUseCurrentLocation}
+												disabled={fetchingLocation}
+												className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 bg-blue-100 text-blue-600 text-xs font-medium rounded-md hover:bg-blue-200 transition-colors disabled:opacity-50 flex items-center gap-1"
+											>
+												{fetchingLocation ? (
+													<>
+														<Loader className="w-3 h-3 animate-spin" />
+														<span>Getting...</span>
+													</>
+												) : (
+													<>
+														<MapPin className="w-3 h-3" />
+														<span>Use Current</span>
+													</>
+												)}
+											</button>
+										</div>
 									) : (
 										<span className="text-gray-900">
 											{state.currentUser.location || 'Not specified'}
@@ -610,21 +674,19 @@ const HomeownerProfile = () => {
 																				</div>
 																				<div className="flex space-x-2 flex-shrink-0">
 																					<button
-																						onClick={() => {
-																							setShowMessaging(true);
-																							setSelectedConversation({
-																								id: `temp_${project.id}_${tradespersonId}`,
-																								jobId: project.id,
-																								jobTitle: project.title,
-																								homeownerId:
-																									state.currentUser!.id,
-																								tradespersonId: tradespersonId,
-																								otherUserId: tradespersonId,
-																								messages: [],
-																								createdAt:
-																									new Date().toISOString(),
-																								unreadCount: 0,
-																							});
+																						onClick={async () => {
+																							try {
+																								const response = await conversationService.createConversation({
+																									jobId: project.id,
+																									homeownerId: state.currentUser!.id,
+																									tradespersonId: tradespersonId,
+																								});
+																								setSelectedConversation(response.conversation);
+																								setShowMessaging(true);
+																							} catch (error) {
+																								console.error('Failed to create conversation:', error);
+																								alert('Failed to start conversation. Please try again.');
+																							}
 																						}}
 																						className="bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center text-sm font-medium"
 																					>

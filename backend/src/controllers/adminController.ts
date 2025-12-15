@@ -209,7 +209,10 @@ export const getAllHomeowners = async (req: AuthRequest, res: Response): Promise
 				id: true,
 				name: true,
 				email: true,
+				phone: true,
 				location: true,
+				workPostcode: true,
+				type: true,
 				accountStatus: true,
 				verificationStatus: true,
 				createdAt: true,
@@ -247,7 +250,7 @@ export const getAllHomeowners = async (req: AuthRequest, res: Response): Promise
 // Get all tradespeople
 export const getAllTradespeople = async (req: AuthRequest, res: Response): Promise<void> => {
 	try {
-		if (!isAdmin(req)) {
+		if (!await isAdmin(req)) {
 			res.status(403).json({ error: 'Forbidden: Admin access required' });
 			return;
 		}
@@ -272,9 +275,13 @@ export const getAllTradespeople = async (req: AuthRequest, res: Response): Promi
 				id: true,
 				name: true,
 				email: true,
+				phone: true,
 				location: true,
+				workPostcode: true,
+				type: true,
 				trades: true,
 				workingArea: true,
+				jobRadius: true,
 				rating: true,
 				reviews: true,
 				verified: true,
@@ -595,7 +602,7 @@ export const updateBoostPlanPrices = async (req: AuthRequest, res: Response): Pr
 // Update user account status
 export const updateUserStatus = async (req: AuthRequest, res: Response): Promise<void> => {
 	try {
-		if (!isAdmin(req)) {
+		if (!await isAdmin(req)) {
 			res.status(403).json({ error: 'Forbidden: Admin access required' });
 			return;
 		}
@@ -650,7 +657,7 @@ export const updateUserStatus = async (req: AuthRequest, res: Response): Promise
 // Delete user permanently
 export const deleteUser = async (req: AuthRequest, res: Response): Promise<void> => {
 	try {
-		if (!isAdmin(req)) {
+		if (!await isAdmin(req)) {
 			res.status(403).json({ error: 'Forbidden: Admin access required' });
 			return;
 		}
@@ -670,10 +677,71 @@ export const deleteUser = async (req: AuthRequest, res: Response): Promise<void>
 	}
 };
 
+// Update user data (all fields)
+export const updateUser = async (req: AuthRequest, res: Response): Promise<void> => {
+	try {
+		if (!await isAdmin(req)) {
+			res.status(403).json({ error: 'Forbidden: Admin access required' });
+			return;
+		}
+
+		const { userId } = req.params;
+		const {
+			name,
+			email,
+			phone,
+			location,
+			postcode,
+			trades,
+			workingArea,
+			jobRadius,
+			workPostcode
+		} = req.body;
+
+		const updateData: any = {};
+
+		if (name !== undefined) updateData.name = name;
+		if (email !== undefined) updateData.email = email;
+		if (phone !== undefined) updateData.phone = phone;
+		if (location !== undefined) updateData.location = location;
+		if (postcode !== undefined) updateData.workPostcode = postcode; // For homeowners, store in workPostcode
+		if (workPostcode !== undefined) updateData.workPostcode = workPostcode;
+		if (trades !== undefined) updateData.trades = trades;
+		if (workingArea !== undefined) updateData.workingArea = workingArea;
+		if (jobRadius !== undefined) updateData.jobRadius = parseInt(jobRadius);
+
+		const updatedUser = await prisma.user.update({
+			where: { id: userId },
+			data: updateData,
+			select: {
+				id: true,
+				name: true,
+				email: true,
+				phone: true,
+				location: true,
+				workPostcode: true,
+				trades: true,
+				workingArea: true,
+				jobRadius: true,
+				accountStatus: true,
+				verificationStatus: true
+			}
+		});
+
+		res.status(200).json({
+			message: 'User updated successfully',
+			user: updatedUser
+		});
+	} catch (error) {
+		console.error('Update user error:', error);
+		res.status(500).json({ error: 'Failed to update user' });
+	}
+};
+
 // Update pricing
 export const updatePricing = async (req: AuthRequest, res: Response): Promise<void> => {
 	try {
-		if (!isAdmin(req)) {
+		if (!await isAdmin(req)) {
 			res.status(403).json({ error: 'Forbidden: Admin access required' });
 			return;
 		}
@@ -702,7 +770,7 @@ export const updatePricing = async (req: AuthRequest, res: Response): Promise<vo
 // Get dashboard stats
 export const getDashboardStats = async (req: AuthRequest, res: Response): Promise<void> => {
 	try {
-		if (!isAdmin(req)) {
+		if (!await isAdmin(req)) {
 			res.status(403).json({ error: 'Forbidden: Admin access required' });
 			return;
 		}

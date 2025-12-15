@@ -1,5 +1,6 @@
 import express from 'express';
 import {
+	createConversation,
 	getAllConversations,
 	getConversation,
 	getConversationByJobAndUser,
@@ -12,6 +13,9 @@ const router = express.Router();
 
 // Protect all routes with authentication
 router.use(authenticateToken);
+
+// Create a new conversation
+router.post('/', createConversation);
 
 // Get all conversations for the current user
 router.get('/', getAllConversations);

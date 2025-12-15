@@ -70,8 +70,8 @@ model User {
   stripeCustomerId String? @unique @map("stripe_customer_id")
 
   // Directory Listing (for tradespeople - pay to be listed in directory)
-  hasDirectoryListing          Boolean   @default(false) @map("has_directory_listing")
-  directoryListingExpiry       DateTime? @map("directory_listing_expiry") @db.Timestamptz
+  hasDirectoryListing    Boolean   @default(false) @map("has_directory_listing")
+  directoryListingExpiry DateTime? @map("directory_listing_expiry") @db.Timestamptz
 
   // Verification & Security
   isEmailVerified          Boolean   @default(false) @map("is_email_verified")
@@ -93,6 +93,8 @@ model User {
   parkedDate           DateTime?           @map("parked_date") @db.Timestamptz
   reactivatedDate      DateTime?           @map("reactivated_date") @db.Timestamptz
   workingArea          Json?               @map("working_area")
+  jobRadius            Int?                @default(15) @map("job_radius") // Default job alert radius in miles for tradespeople
+  workPostcode         String?             @default("W1K 3DE") @map("work_postcode") // Default postcode for tradespeople
   createdAt            DateTime            @default(now()) @map("created_at") @db.Timestamptz
   updatedAt            DateTime            @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -121,6 +123,7 @@ model JobLead {
   description       String
   category          String
   location          String
+  postcode          String?      @default("W1K 3DE") // Job postcode for distance filtering
   latitude          Decimal?     @db.Decimal(10, 8)
   longitude         Decimal?     @db.Decimal(11, 8)
   budget            String
@@ -146,6 +149,7 @@ model JobLead {
   @@index([postedBy])
   @@index([category])
   @@index([location])
+  @@index([postcode])
   @@index([urgency])
   @@index([postedDate])
   @@index([latitude, longitude])

@@ -3,7 +3,7 @@ import { Wrench, Zap, Hammer, Paintbrush, Droplets, Home, TreePine, Car } from '
 import { useApp } from '../context/AppContext';
 
 const ServiceCategories = () => {
-  const { dispatch } = useApp();
+  const { state, dispatch } = useApp();
 
   const categories = [
     {
@@ -80,7 +80,13 @@ const ServiceCategories = () => {
           {categories.map((category, index) => (
             <div
               key={index}
-              onClick={() => dispatch({ type: 'SET_VIEW', payload: 'browse-experts' })}
+              onClick={() => {
+                if (!state.currentUser) {
+                  dispatch({ type: 'SHOW_AUTH_MODAL', payload: { mode: 'login', userType: 'homeowner' } });
+                  return;
+                }
+                dispatch({ type: 'SET_VIEW', payload: 'browse-experts' });
+              }}
               className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-300 cursor-pointer group"
             >
               <div className={`w-12 h-12 ${category.color} rounded-lg flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}>

@@ -22,6 +22,7 @@ import MapView from './MapView';
 import {ChatModal as MessagingModal} from './MessagingModal';
 import ConversationsList from './ConversationsList';
 import { jobService } from '../services/jobService';
+import { conversationService } from '../services/conversationService';
 
 const JobLeads = () => {
 	const { state, dispatch } = useApp();
@@ -647,6 +648,12 @@ const JobLeads = () => {
 										<div className="flex items-center text-sm text-gray-500">
 											<MapPin className="w-4 h-4 mr-2" />
 											{lead.location}
+											{lead.postcode && <span className="ml-1 text-gray-400">({lead.postcode})</span>}
+											{lead.distanceFromTradesperson !== undefined && (
+												<span className="ml-2 text-blue-600 font-medium">
+													{lead.distanceFromTradesperson} miles away
+												</span>
+											)}
 										</div>
 										<div className="flex items-center text-sm text-gray-500">
 											<DollarSign className="w-4 h-4 mr-2" />
@@ -727,10 +734,44 @@ const JobLeads = () => {
 												Tradespeople who purchased this lead
 											</h4>
 											{lead.purchasedBy.map((tradespersonId) => {
-												const tradesperson = state.users.find(
+												// First try to get from purchasedByDetails, then fall back to state.users
+												const tradesperson = lead.purchasedByDetails?.find(
+													(u) => u.id === tradespersonId
+												) || state.users.find(
 													(u) => u.id === tradespersonId
 												);
-												if (!tradesperson) return null;
+												if (!tradesperson) {
+													// Show a placeholder for users we don't have details for
+													return (
+														<div
+															key={tradespersonId}
+															className="flex items-center justify-between bg-white rounded-lg p-3 mb-2 last:mb-0"
+														>
+															<div>
+																<p className="font-medium text-gray-900">
+																	Tradesperson
+																</p>
+																<p className="text-sm text-gray-600">
+																	Contact details available
+																</p>
+															</div>
+															{lead.isActive && !lead.hiredTradesperson && (
+																<button
+																	onClick={() =>
+																		handleHireTradesperson(
+																			lead.id,
+																			tradespersonId
+																		)
+																	}
+																	className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center text-sm"
+																>
+																	<UserCheck className="w-4 h-4 mr-1" />
+																	Hire
+																</button>
+															)}
+														</div>
+													);
+												}
 
 												return (
 													<div
@@ -835,48 +876,20 @@ const JobLeads = () => {
 																	state.currentUser?.id &&
 																interest.status === 'accepted' && (
 																	<button
-																		onClick={() => {
-																			const homeowner = state.users.find(
-																				(u) => u.id === lead.postedBy
-																			);
-																			if (!homeowner) return;
-
-																			// Create conversation and open messaging
-																			const existingConv =
-																				state.conversations.find(
-																					(c) =>
-																						c.jobId === lead.id &&
-																						c.homeownerId === lead.postedBy &&
-																						c.tradespersonId ===
-																							state.currentUser!.id
-																				);
-
-																			if (existingConv) {
-																				setSelectedConversation(existingConv);
-																				setShowMessaging(true);
-																			} else {
-																				dispatch({
-																					type: 'CREATE_CONVERSATION',
-																					payload: {
-																						jobId: lead.id,
-																						homeownerId: lead.postedBy,
-																						tradespersonId:
-																							state.currentUser!.id,
-																					},
-																				});
-
-																				// Open messaging modal with temp conversation
-																				setSelectedConversation({
-																					id: `temp_${lead.id}_${lead.postedBy}`,
+																		onClick={async () => {
+																			try {
+																				// Create conversation via API (or get existing)
+																				const response = await conversationService.createConversation({
 																					jobId: lead.id,
-																					jobTitle: lead.title,
 																					homeownerId: lead.postedBy,
 																					tradespersonId: state.currentUser!.id,
-																					messages: [],
-																					createdAt: new Date().toISOString(),
-																					unreadCount: 0,
 																				});
+
+																				setSelectedConversation(response.conversation);
 																				setShowMessaging(true);
+																			} catch (error) {
+																				console.error('Failed to create conversation:', error);
+																				alert('Failed to start conversation. Please try again.');
 																			}
 																		}}
 																		className="bg-blue-600 text-white px-3 py-1 rounded text-xs hover:bg-blue-700 flex items-center"
@@ -1006,45 +1019,20 @@ const JobLeads = () => {
 										{/* Message Homeowner Button for purchased leads */}
 										{!isHomeowner && hasPurchased && (
 											<button
-												onClick={() => {
-													const homeowner = state.users.find(
-														(u) => u.id === lead.postedBy
-													);
-													if (!homeowner) return;
-
-													// Create conversation and open messaging
-													const existingConv = state.conversations.find(
-														(c) =>
-															c.jobId === lead.id &&
-															c.homeownerId === lead.postedBy &&
-															c.tradespersonId === state.currentUser!.id
-													);
-
-													if (existingConv) {
-														setSelectedConversation(existingConv);
-														setShowMessaging(true);
-													} else {
-														dispatch({
-															type: 'CREATE_CONVERSATION',
-															payload: {
-																jobId: lead.id,
-																homeownerId: lead.postedBy,
-																tradespersonId: state.currentUser!.id,
-															},
-														});
-
-														// Open messaging modal with temp conversation
-														setSelectedConversation({
-															id: `temp_${lead.id}_${lead.postedBy}`,
+												onClick={async () => {
+													try {
+														// Create conversation via API (or get existing)
+														const response = await conversationService.createConversation({
 															jobId: lead.id,
-															jobTitle: lead.title,
 															homeownerId: lead.postedBy,
 															tradespersonId: state.currentUser!.id,
-															messages: [],
-															createdAt: new Date().toISOString(),
-															unreadCount: 0,
 														});
+
+														setSelectedConversation(response.conversation);
 														setShowMessaging(true);
+													} catch (error) {
+														console.error('Failed to create conversation:', error);
+														alert('Failed to start conversation. Please try again.');
 													}
 												}}
 												className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center"

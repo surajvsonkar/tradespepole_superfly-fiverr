@@ -218,8 +218,29 @@ const MyProjects = () => {
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
                       <h4 className="font-semibold text-blue-800 mb-2">Professionals Who Purchased This Lead</h4>
                       {project.purchasedBy.map((tradespersonId) => {
-                        const tradesperson = state.users.find(u => u.id === tradespersonId);
-                        if (!tradesperson) return null;
+                        // First try to get from purchasedByDetails, then fall back to state.users
+                        const tradesperson = project.purchasedByDetails?.find(u => u.id === tradespersonId) 
+                          || state.users.find(u => u.id === tradespersonId);
+                        if (!tradesperson) {
+                          // Show a placeholder for users we don't have details for
+                          return (
+                            <div key={tradespersonId} className="flex items-center justify-between bg-white rounded-lg p-3 mb-2 last:mb-0">
+                              <div>
+                                <p className="font-medium text-gray-900">Tradesperson</p>
+                                <p className="text-sm text-gray-600">Contact details available</p>
+                              </div>
+                              {project.isActive && !project.hiredTradesperson && (
+                                <button
+                                  onClick={() => handleHireTradesperson(project.id, tradespersonId)}
+                                  className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center text-sm"
+                                >
+                                  <UserCheck className="w-4 h-4 mr-1" />
+                                  Hire
+                                </button>
+                              )}
+                            </div>
+                          );
+                        }
                         
                         return (
                           <div key={tradespersonId} className="flex items-center justify-between bg-white rounded-lg p-3 mb-2 last:mb-0">

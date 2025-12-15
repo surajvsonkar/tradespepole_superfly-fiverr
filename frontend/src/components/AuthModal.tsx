@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, User, Wrench, Eye, EyeOff } from 'lucide-react';
+import { X, User, Wrench, Eye, EyeOff, Phone, MapPin, Loader } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { User as UserType } from '../types';
 import { authService } from '../services/authService';
@@ -39,13 +39,16 @@ const AuthModal = () => {
 		name: '',
 		email: '',
 		password: '',
+		phone: '',
 		trades: [] as string[],
 		location: '',
+		postcode: 'W1K 3DE', // Default postcode
 	});
 
 	const [captchaToken, setCaptchaToken] = useState<string | null>(null);
 	const [showPassword, setShowPassword] = useState(false);
 	const [devResetUrl, setDevResetUrl] = useState<string | null>(null);
+	const [fetchingLocation, setFetchingLocation] = useState(false);
 
 	// Initialize Facebook SDK
 	useEffect(() => {
@@ -137,13 +140,55 @@ const AuthModal = () => {
 			name: '',
 			email: '',
 			password: '',
+			phone: '',
 			trades: [],
 			location: '',
+			postcode: 'W1K 3DE',
 		});
 		setView('default');
 		setCaptchaToken(null);
 		setDevResetUrl(null);
 		if (recaptchaRef.current) recaptchaRef.current.reset();
+	};
+
+	// Fetch current location
+	const handleUseCurrentLocation = () => {
+		if (!navigator.geolocation) {
+			setStatus({ type: 'error', text: 'Geolocation is not supported by your browser' });
+			return;
+		}
+
+		setFetchingLocation(true);
+		navigator.geolocation.getCurrentPosition(
+			async (position) => {
+				try {
+					const { latitude, longitude } = position.coords;
+					// Reverse geocode to get address
+					const response = await fetch(
+						`https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}`
+					);
+					const data = await response.json();
+					
+					if (data.results && data.results[0]) {
+						const address = data.results[0].formatted_address;
+						setFormData(prev => ({ ...prev, location: address }));
+					} else {
+						setFormData(prev => ({ ...prev, location: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}` }));
+					}
+				} catch (error) {
+					console.error('Error getting address:', error);
+					setFormData(prev => ({ ...prev, location: `${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)}` }));
+				} finally {
+					setFetchingLocation(false);
+				}
+			},
+			(error) => {
+				console.error('Geolocation error:', error);
+				setStatus({ type: 'error', text: 'Unable to get your location. Please enter manually.' });
+				setFetchingLocation(false);
+			},
+			{ enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+		);
 	};
 
 	const closeModalDelayed = (ms = 1500) => {
@@ -274,8 +319,10 @@ const AuthModal = () => {
 					name: formData.name,
 					email: formData.email,
 					password: formData.password,
+					phone: formData.phone || undefined,
 					type: state.userType,
 					location: formData.location,
+					postcode: formData.postcode || 'W1K 3DE',
 					captchaToken: captchaToken || undefined,
 					...(state.userType === 'tradesperson' && { trades: formData.trades }),
 				};
@@ -547,14 +594,65 @@ const AuthModal = () => {
 
 						{state.authMode === 'signup' && (
 							<>
-								<input
-									type="text"
-									placeholder="Location"
-									value={formData.location}
-									onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-									className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
-									required
-								/>
+								{/* Phone Number Field */}
+								<div className="relative">
+									<Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+									<input
+										type="tel"
+										placeholder="Phone Number (e.g., +353851234567)"
+										value={formData.phone}
+										onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+										className="w-full px-4 py-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
+										required
+									/>
+								</div>
+
+								{/* Location Field with Use Current Button */}
+								<div className="relative">
+									<MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+									<input
+										type="text"
+										placeholder="Location"
+										value={formData.location}
+										onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+										className="w-full px-4 py-3 pl-10 pr-28 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
+										required
+									/>
+									<button
+										type="button"
+										onClick={handleUseCurrentLocation}
+										disabled={fetchingLocation}
+										className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-blue-100 text-blue-600 text-xs font-medium rounded-md hover:bg-blue-200 transition-colors disabled:opacity-50 flex items-center gap-1"
+									>
+										{fetchingLocation ? (
+											<>
+												<Loader className="w-3 h-3 animate-spin" />
+												<span>Getting...</span>
+											</>
+										) : (
+											<>
+												<MapPin className="w-3 h-3" />
+												<span>Use Current</span>
+											</>
+										)}
+									</button>
+								</div>
+
+								{/* Postcode Field */}
+								<div className="relative">
+									<MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+									<input
+										type="text"
+										placeholder="Postcode (e.g., W1K 3DE)"
+										value={formData.postcode}
+										onChange={(e) => setFormData({ ...formData, postcode: e.target.value.toUpperCase() })}
+										className="w-full px-4 py-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
+										required
+									/>
+									<p className="mt-1 text-xs text-gray-500">
+										Enter your postcode - helps match you with nearby jobs/professionals
+									</p>
+								</div>
 
 								{state.userType === 'tradesperson' && (
 									<div>

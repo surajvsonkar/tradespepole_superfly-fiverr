@@ -52,8 +52,8 @@ const MapUpdater = ({ center, zoom }: { center: LatLngExpression; zoom: number }
 const WorkingAreaSelector = ({ isOpen, onClose, onSave, currentWorkingArea }: WorkingAreaSelectorProps) => {
   const [workingArea, setWorkingArea] = useState<WorkingAreaData>(
     currentWorkingArea || {
-      centerLocation: '',
-      radius: 25
+      centerLocation: 'W1K 3DE', // Default postcode
+      radius: 15 // Default 15 miles job radius
     }
   );
   const [isLocating, setIsLocating] = useState(false);

@@ -4,6 +4,7 @@ export interface RegisterData {
   name: string;
   email: string;
   password: string;
+  phone?: string;
   type: 'homeowner' | 'tradesperson';
   location?: string;
   trades?: string[];

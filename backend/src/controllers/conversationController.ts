@@ -1,6 +1,134 @@
 import { Request, Response } from 'express';
 import prisma from '../configs/database';
 
+// Create a new conversation (or return existing one)
+export const createConversation = async (req: Request, res: Response) => {
+	try {
+		const userId = (req as any).userId;
+		const { jobId, homeownerId, tradespersonId } = req.body;
+
+		console.log(`📨 Creating conversation for job ${jobId} between ${homeownerId} and ${tradespersonId}`);
+
+		if (!jobId || !homeownerId || !tradespersonId) {
+			return res.status(400).json({ error: 'jobId, homeownerId, and tradespersonId are required' });
+		}
+
+		// Verify user is part of this conversation
+		if (userId !== homeownerId && userId !== tradespersonId) {
+			return res.status(403).json({ error: 'Unauthorized to create this conversation' });
+		}
+
+		// Check if conversation already exists
+		const existingConversation = await prisma.conversation.findFirst({
+			where: {
+				jobId,
+				homeownerId,
+				tradespersonId
+			},
+			include: {
+				messages: {
+					orderBy: { timestamp: 'desc' },
+					take: 1
+				},
+				homeowner: true,
+				tradesperson: true
+			}
+		});
+
+		if (existingConversation) {
+			console.log(`✅ Found existing conversation: ${existingConversation.id}`);
+			const isHomeowner = existingConversation.homeownerId === userId;
+			const otherUser = isHomeowner ? existingConversation.tradesperson : existingConversation.homeowner;
+
+			return res.status(200).json({
+				conversation: {
+					id: existingConversation.id,
+					jobId: existingConversation.jobId,
+					jobTitle: existingConversation.jobTitle,
+					homeownerId: existingConversation.homeownerId,
+					tradespersonId: existingConversation.tradespersonId,
+					createdAt: existingConversation.createdAt,
+					updatedAt: existingConversation.updatedAt,
+					messages: existingConversation.messages,
+					otherUser: {
+						id: otherUser.id,
+						name: otherUser.name,
+						avatar: otherUser.avatar,
+						type: otherUser.type,
+						trades: otherUser.trades
+					},
+					unreadCount: 0
+				},
+				isNew: false
+			});
+		}
+
+		// Get job details for the title
+		const job = await prisma.jobLead.findUnique({
+			where: { id: jobId },
+			select: { title: true }
+		});
+
+		if (!job) {
+			return res.status(404).json({ error: 'Job not found' });
+		}
+
+		// Verify both users exist
+		const [homeowner, tradesperson] = await Promise.all([
+			prisma.user.findUnique({ where: { id: homeownerId } }),
+			prisma.user.findUnique({ where: { id: tradespersonId } })
+		]);
+
+		if (!homeowner || !tradesperson) {
+			return res.status(404).json({ error: 'User not found' });
+		}
+
+		// Create new conversation
+		const newConversation = await prisma.conversation.create({
+			data: {
+				jobId,
+				jobTitle: job.title,
+				homeownerId,
+				tradespersonId
+			},
+			include: {
+				homeowner: true,
+				tradesperson: true
+			}
+		});
+
+		console.log(`✅ Created new conversation: ${newConversation.id}`);
+
+		const isHomeowner = newConversation.homeownerId === userId;
+		const otherUser = isHomeowner ? newConversation.tradesperson : newConversation.homeowner;
+
+		res.status(201).json({
+			conversation: {
+				id: newConversation.id,
+				jobId: newConversation.jobId,
+				jobTitle: newConversation.jobTitle,
+				homeownerId: newConversation.homeownerId,
+				tradespersonId: newConversation.tradespersonId,
+				createdAt: newConversation.createdAt,
+				updatedAt: newConversation.updatedAt,
+				messages: [],
+				otherUser: {
+					id: otherUser.id,
+					name: otherUser.name,
+					avatar: otherUser.avatar,
+					type: otherUser.type,
+					trades: otherUser.trades
+				},
+				unreadCount: 0
+			},
+			isNew: true
+		});
+	} catch (error) {
+		console.error('❌ Error creating conversation:', error);
+		res.status(500).json({ error: 'Failed to create conversation' });
+	}
+};
+
 // Get all conversations for the current user
 export const getAllConversations = async (req: Request, res: Response) => {
 	try {
