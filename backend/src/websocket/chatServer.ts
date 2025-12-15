@@ -1,6 +1,6 @@
 // src/websocket/chatServer.ts
 
-import { WebSocketServer, WebSocket } from 'ws';
+import WebSocket from 'ws';
 import { Server } from 'http';
 import { IncomingMessage } from 'http';
 import { v4 as uuidv4 } from 'uuid';
@@ -49,7 +49,7 @@ interface JWTPayload {
 // ============================================================================
 
 class ChatServer {
-	private wss: WebSocketServer;
+	private wss: WebSocket.Server;
 	private clients: Map<string, Client> = new Map();
 	private userSockets: Map<string, string[]> = new Map();
 	private conversations: Map<string, Set<string>> = new Map();
@@ -64,7 +64,7 @@ class ChatServer {
 			throw new Error('JWT_SECRET is not defined in environment variables');
 		}
 
-		this.wss = new WebSocketServer({
+		this.wss = new WebSocket.WebSocketServer({
 			server,
 			path: '/ws/chat',
 			verifyClient: this.verifyClient.bind(this),
@@ -168,7 +168,7 @@ class ChatServer {
 		});
 
 		// Error handler
-		ws.on('error', (error) => {
+		ws.on('error', (error: Error) => {
 			console.error(`❌ WebSocket error for ${socketId}:`, error);
 			this.handleDisconnect(socketId);
 		});

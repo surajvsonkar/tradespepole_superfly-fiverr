@@ -132,7 +132,6 @@ const AppContent = () => {
         <Route path="/membership" element={<ProtectedRoute><Membership /></ProtectedRoute>} />
         <Route path="/quote-requests" element={<ProtectedRoute><QuoteRequest /></ProtectedRoute>} />
         <Route path="/boost" element={<ProtectedRoute><BoostPage /></ProtectedRoute>} />
-        <Route path="/admin" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
         
         {/* Catch all - redirect to home */}
         <Route path="*" element={<Navigate to="/" replace />} />
