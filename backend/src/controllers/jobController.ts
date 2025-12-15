@@ -374,12 +374,13 @@ export const getJobLeads = async (req: AuthRequest, res: Response): Promise<void
       skip: parseInt(offset as string)
     });
 
-    // If user is a tradesperson, filter jobs by their postcode radius
+    // If user is a tradesperson, filter jobs by their trades and postcode radius
     if (userId) {
       const tradesperson = await prisma.user.findUnique({
         where: { id: userId },
         select: {
           type: true,
+          trades: true,
           workPostcode: true,
           jobRadius: true,
           latitude: true,
@@ -389,7 +390,27 @@ export const getJobLeads = async (req: AuthRequest, res: Response): Promise<void
       });
 
       if (tradesperson && tradesperson.type === 'tradesperson') {
-        // Get tradesperson's coordinates
+        // Filter jobs by trades (if tradesperson has selected trades)
+        if (tradesperson.trades && tradesperson.trades.length > 0) {
+          const tradesList = tradesperson.trades.map(t => t.toLowerCase());
+          
+          jobLeads = jobLeads.filter(job => {
+            const jobCategory = job.category.toLowerCase();
+            // Check if job category matches any of the tradesperson's trades
+            return tradesList.some(trade => {
+              // Match if trade name is contained in category or vice versa
+              return jobCategory.includes(trade) || 
+                     trade.includes(jobCategory) ||
+                     // Also check for partial matches (e.g., "Plumber" matches "Plumbing")
+                     jobCategory.replace(/ing$|er$|or$/, '').includes(trade.replace(/ing$|er$|or$/, '')) ||
+                     trade.replace(/ing$|er$|or$/, '').includes(jobCategory.replace(/ing$|er$|or$/, ''));
+            });
+          });
+          
+          console.log(`🔧 Filtered jobs by trades (${tradesperson.trades.join(', ')}): ${jobLeads.length} jobs found`);
+        }
+
+        // Get tradesperson's coordinates for radius filtering
         let tradeLat: number | null = null;
         let tradeLng: number | null = null;
         let radiusMiles = tradesperson.jobRadius || DEFAULT_JOB_RADIUS_MILES;
