@@ -1,0 +1,198 @@
+src/app.ts(1,57): error TS2307: Cannot find module 'express' or its corresponding type declarations.
+src/app.ts(2,18): error TS2307: Cannot find module 'cors' or its corresponding type declarations.
+src/app.ts(3,20): error TS2307: Cannot find module 'dotenv' or its corresponding type declarations.
+src/app.ts(4,30): error TS2307: Cannot find module 'http' or its corresponding type declarations.
+src/app.ts(22,14): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/app.ts(29,11): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/app.ts(41,39): error TS7006: Parameter 'next' implicitly has an 'any' type.
+src/app.ts(87,30): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/configs/database.ts(1,30): error TS2307: Cannot find module '@prisma/client' or its corresponding type declarations.
+src/controllers/adminController.ts(1,26): error TS2307: Cannot find module 'express' or its corresponding type declarations.
+src/controllers/adminController.ts(4,24): error TS2307: Cannot find module '@prisma/client' or its corresponding type declarations.
+src/controllers/adminController.ts(5,20): error TS2307: Cannot find module 'bcrypt' or its corresponding type declarations.
+src/controllers/adminController.ts(6,17): error TS2307: Cannot find module 'jsonwebtoken' or its corresponding type declarations.
+src/controllers/adminController.ts(7,24): error TS2307: Cannot find module 'nodemailer' or its corresponding type declarations.
+src/controllers/adminController.ts(9,20): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/controllers/adminController.ts(26,35): error TS2339: Property 'body' does not exist on type 'AuthRequest'.
+src/controllers/adminController.ts(83,25): error TS2339: Property 'body' does not exist on type 'AuthRequest'.
+src/controllers/adminController.ts(118,11): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/controllers/adminController.ts(119,11): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/controllers/adminController.ts(124,10): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/controllers/adminController.ts(140,43): error TS2339: Property 'body' does not exist on type 'AuthRequest'.
+src/controllers/adminController.ts(192,54): error TS2339: Property 'query' does not exist on type 'AuthRequest'.
+src/controllers/adminController.ts(258,54): error TS2339: Property 'query' does not exist on type 'AuthRequest'.
+src/controllers/adminController.ts(346,19): error TS7006: Parameter 'job' implicitly has an 'any' type.
+src/controllers/adminController.ts(403,61): error TS2339: Property 'query' does not exist on type 'AuthRequest'.
+src/controllers/adminController.ts(420,62): error TS7006: Parameter 'payment' implicitly has an 'any' type.
+src/controllers/adminController.ts(491,48): error TS2339: Property 'body' does not exist on type 'AuthRequest'.
+src/controllers/adminController.ts(571,26): error TS2339: Property 'body' does not exist on type 'AuthRequest'.
+src/controllers/adminController.ts(579,43): error TS2550: Property 'entries' does not exist on type 'ObjectConstructor'. Do you need to change your target library? Try changing the 'lib' compiler option to 'es2017' or later.
+src/controllers/adminController.ts(614,26): error TS2339: Property 'params' does not exist on type 'AuthRequest'.
+src/controllers/adminController.ts(615,53): error TS2339: Property 'body' does not exist on type 'AuthRequest'.
+src/controllers/adminController.ts(669,26): error TS2339: Property 'params' does not exist on type 'AuthRequest'.
+src/controllers/adminController.ts(692,26): error TS2339: Property 'params' does not exist on type 'AuthRequest'.
+src/controllers/adminController.ts(703,11): error TS2339: Property 'body' does not exist on type 'AuthRequest'.
+src/controllers/adminController.ts(772,20): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/controllers/adminController.ts(793,70): error TS2339: Property 'body' does not exist on type 'AuthRequest'.
+src/controllers/adminController.ts(911,62): error TS2339: Property 'query' does not exist on type 'AuthRequest'.
+src/controllers/adminController.ts(973,26): error TS2339: Property 'params' does not exist on type 'AuthRequest'.
+src/controllers/adminController.ts(974,80): error TS2339: Property 'body' does not exist on type 'AuthRequest'.
+src/controllers/adminController.ts(1058,31): error TS2339: Property 'body' does not exist on type 'AuthRequest'.
+src/controllers/authController.ts(1,35): error TS2307: Cannot find module 'express' or its corresponding type declarations.
+src/controllers/authController.ts(2,20): error TS2307: Cannot find module 'bcrypt' or its corresponding type declarations.
+src/controllers/authController.ts(3,34): error TS2307: Cannot find module 'jsonwebtoken' or its corresponding type declarations.
+src/controllers/authController.ts(6,20): error TS2307: Cannot find module 'crypto' or its corresponding type declarations.
+src/controllers/authController.ts(7,24): error TS2307: Cannot find module 'nodemailer' or its corresponding type declarations.
+src/controllers/authController.ts(8,30): error TS2307: Cannot find module 'google-auth-library' or its corresponding type declarations.
+src/controllers/authController.ts(9,19): error TS2307: Cannot find module 'axios' or its corresponding type declarations.
+src/controllers/authController.ts(11,20): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/controllers/authController.ts(12,24): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/controllers/authController.ts(13,32): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/controllers/authController.ts(14,26): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/controllers/authController.ts(15,25): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/controllers/authController.ts(16,29): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/controllers/authController.ts(17,28): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/controllers/authController.ts(18,32): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/controllers/authController.ts(19,30): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/controllers/authController.ts(67,7): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/controllers/authController.ts(67,34): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/controllers/authController.ts(82,11): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/controllers/authController.ts(83,11): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/controllers/authController.ts(87,38): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/controllers/authController.ts(185,30): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/controllers/authController.ts(307,23): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/controllers/authController.ts(315,26): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/controllers/authController.ts(315,53): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/controllers/authController.ts(703,30): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/controllers/conversationController.ts(1,35): error TS2307: Cannot find module 'express' or its corresponding type declarations.
+src/controllers/conversationController.ts(162,54): error TS7006: Parameter 'conv' implicitly has an 'any' type.
+src/controllers/conversationController.ts(413,54): error TS7006: Parameter 'conv' implicitly has an 'any' type.
+src/controllers/jobController.ts(1,26): error TS2307: Cannot find module 'express' or its corresponding type declarations.
+src/controllers/jobController.ts(4,20): error TS2307: Cannot find module 'twilio' or its corresponding type declarations.
+src/controllers/jobController.ts(5,24): error TS2307: Cannot find module 'nodemailer' or its corresponding type declarations.
+src/controllers/jobController.ts(10,2): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/controllers/jobController.ts(11,2): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/controllers/jobController.ts(13,22): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/controllers/jobController.ts(17,24): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/controllers/jobController.ts(36,7): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/controllers/jobController.ts(36,34): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/controllers/jobController.ts(48,11): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/controllers/jobController.ts(49,11): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/controllers/jobController.ts(54,10): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/controllers/jobController.ts(205,14): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/controllers/jobController.ts(252,13): error TS2339: Property 'body' does not exist on type 'AuthRequest'.
+src/controllers/jobController.ts(336,13): error TS2339: Property 'query' does not exist on type 'AuthRequest'.
+src/controllers/jobController.ts(395,54): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/controllers/jobController.ts(397,38): error TS7006: Parameter 'job' implicitly has an 'any' type.
+src/controllers/jobController.ts(400,36): error TS7006: Parameter 'trade' implicitly has an 'any' type.
+src/controllers/jobController.ts(442,38): error TS7006: Parameter 'job' implicitly has an 'any' type.
+src/controllers/jobController.ts(457,26): error TS7006: Parameter 'a' implicitly has an 'any' type.
+src/controllers/jobController.ts(457,29): error TS7006: Parameter 'b' implicitly has an 'any' type.
+src/controllers/jobController.ts(490,24): error TS2339: Property 'params' does not exist on type 'AuthRequest'.
+src/controllers/jobController.ts(540,27): error TS7006: Parameter 'jobLead' implicitly has an 'any' type.
+src/controllers/jobController.ts(568,43): error TS7006: Parameter 'u' implicitly has an 'any' type.
+src/controllers/jobController.ts(595,22): error TS2339: Property 'params' does not exist on type 'AuthRequest'.
+src/controllers/jobController.ts(603,51): error TS7006: Parameter 'tx' implicitly has an 'any' type.
+src/controllers/jobController.ts(715,24): error TS2339: Property 'params' does not exist on type 'AuthRequest'.
+src/controllers/jobController.ts(716,36): error TS2339: Property 'body' does not exist on type 'AuthRequest'.
+src/controllers/jobController.ts(779,39): error TS2339: Property 'params' does not exist on type 'AuthRequest'.
+src/controllers/jobController.ts(780,28): error TS2339: Property 'body' does not exist on type 'AuthRequest'.
+src/controllers/jobController.ts(840,24): error TS2339: Property 'params' does not exist on type 'AuthRequest'.
+src/controllers/jobController.ts(873,13): error TS2339: Property 'body' does not exist on type 'AuthRequest'.
+src/controllers/jobController.ts(904,24): error TS2339: Property 'params' does not exist on type 'AuthRequest'.
+src/controllers/paymentController.ts(1,35): error TS2307: Cannot find module 'express' or its corresponding type declarations.
+src/controllers/paymentController.ts(2,20): error TS2307: Cannot find module 'stripe' or its corresponding type declarations.
+src/controllers/paymentController.ts(5,20): error TS2307: Cannot find module 'twilio' or its corresponding type declarations.
+src/controllers/paymentController.ts(8,27): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/controllers/paymentController.ts(12,2): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/controllers/paymentController.ts(13,2): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/controllers/paymentController.ts(15,22): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/controllers/paymentController.ts(29,21): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/controllers/paymentController.ts(69,24): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/controllers/paymentController.ts(131,42): error TS2339: Property 'body' does not exist on type 'AuthRequest'.
+src/controllers/paymentController.ts(188,33): error TS2339: Property 'body' does not exist on type 'AuthRequest'.
+src/controllers/paymentController.ts(317,34): error TS2339: Property 'params' does not exist on type 'AuthRequest'.
+src/controllers/paymentController.ts(362,52): error TS2339: Property 'query' does not exist on type 'AuthRequest'.
+src/controllers/paymentController.ts(425,45): error TS2339: Property 'body' does not exist on type 'AuthRequest'.
+src/controllers/paymentController.ts(490,46): error TS2339: Property 'body' does not exist on type 'AuthRequest'.
+src/controllers/paymentController.ts(660,26): error TS2339: Property 'body' does not exist on type 'AuthRequest'.
+src/controllers/paymentController.ts(747,35): error TS2339: Property 'body' does not exist on type 'AuthRequest'.
+src/controllers/paymentController.ts(846,25): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/controllers/paymentController.ts(1254,44): error TS7006: Parameter 'pm' implicitly has an 'any' type.
+src/controllers/paymentController.ts(1330,24): error TS2550: Property 'entries' does not exist on type 'ObjectConstructor'. Do you need to change your target library? Try changing the 'lib' compiler option to 'es2017' or later.
+src/controllers/paymentController.ts(1330,51): error TS7031: Binding element 'id' implicitly has an 'any' type.
+src/controllers/paymentController.ts(1330,55): error TS7031: Binding element 'plan' implicitly has an 'any' type.
+src/controllers/paymentController.ts(1355,26): error TS2339: Property 'body' does not exist on type 'AuthRequest'.
+src/controllers/paymentController.ts(1472,35): error TS2339: Property 'body' does not exist on type 'AuthRequest'.
+src/controllers/quoteController.ts(1,26): error TS2307: Cannot find module 'express' or its corresponding type declarations.
+src/controllers/quoteController.ts(40,11): error TS2339: Property 'body' does not exist on type 'AuthRequest'.
+src/controllers/quoteController.ts(102,11): error TS2339: Property 'query' does not exist on type 'AuthRequest'.
+src/controllers/quoteController.ts(161,22): error TS2339: Property 'params' does not exist on type 'AuthRequest'.
+src/controllers/quoteController.ts(225,22): error TS2339: Property 'params' does not exist on type 'AuthRequest'.
+src/controllers/quoteController.ts(232,11): error TS2339: Property 'body' does not exist on type 'AuthRequest'.
+src/controllers/quoteController.ts(329,39): error TS2339: Property 'params' does not exist on type 'AuthRequest'.
+src/controllers/quoteController.ts(330,26): error TS2339: Property 'body' does not exist on type 'AuthRequest'.
+src/controllers/quoteController.ts(394,22): error TS2339: Property 'params' does not exist on type 'AuthRequest'.
+src/controllers/reviewController.ts(1,26): error TS2307: Cannot find module 'express' or its corresponding type declarations.
+src/controllers/reviewController.ts(20,13): error TS2339: Property 'body' does not exist on type 'AuthRequest'.
+src/controllers/reviewController.ts(67,44): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+src/controllers/reviewController.ts(67,49): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/controllers/reviewController.ts(91,24): error TS2339: Property 'params' does not exist on type 'AuthRequest'.
+src/controllers/reviewController.ts(92,48): error TS2339: Property 'query' does not exist on type 'AuthRequest'.
+src/controllers/reviewController.ts(135,24): error TS2339: Property 'params' does not exist on type 'AuthRequest'.
+src/controllers/reviewController.ts(172,33): error TS2339: Property 'query' does not exist on type 'AuthRequest'.
+src/controllers/settingsController.ts(1,26): error TS2307: Cannot find module 'express' or its corresponding type declarations.
+src/controllers/settingsController.ts(17,23): error TS2339: Property 'params' does not exist on type 'AuthRequest'.
+src/controllers/settingsController.ts(47,20): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/controllers/settingsController.ts(66,23): error TS2339: Property 'params' does not exist on type 'AuthRequest'.
+src/controllers/settingsController.ts(67,25): error TS2339: Property 'body' does not exist on type 'AuthRequest'.
+src/controllers/settingsController.ts(98,28): error TS2339: Property 'body' does not exist on type 'AuthRequest'.
+src/controllers/settingsController.ts(106,26): error TS2550: Property 'entries' does not exist on type 'ObjectConstructor'. Do you need to change your target library? Try changing the 'lib' compiler option to 'es2017' or later.
+src/controllers/settingsController.ts(106,50): error TS7031: Binding element 'key' implicitly has an 'any' type.
+src/controllers/settingsController.ts(106,55): error TS7031: Binding element 'value' implicitly has an 'any' type.
+src/controllers/settingsController.ts(138,20): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/controllers/userController.ts(1,26): error TS2307: Cannot find module 'express' or its corresponding type declarations.
+src/controllers/userController.ts(8,24): error TS2339: Property 'params' does not exist on type 'AuthRequest'.
+src/controllers/userController.ts(65,13): error TS2339: Property 'body' does not exist on type 'AuthRequest'.
+src/controllers/userController.ts(119,13): error TS2339: Property 'query' does not exist on type 'AuthRequest'.
+src/controllers/userController.ts(208,36): error TS2339: Property 'body' does not exist on type 'AuthRequest'.
+src/controllers/userController.ts(262,39): error TS2339: Property 'body' does not exist on type 'AuthRequest'.
+src/controllers/userController.ts(325,28): error TS2339: Property 'body' does not exist on type 'AuthRequest'.
+src/middlewares/authMiddleware.ts(1,49): error TS2307: Cannot find module 'express' or its corresponding type declarations.
+src/middlewares/authMiddleware.ts(2,17): error TS2307: Cannot find module 'jsonwebtoken' or its corresponding type declarations.
+src/middlewares/authMiddleware.ts(15,26): error TS2339: Property 'headers' does not exist on type 'AuthRequest'.
+src/middlewares/authMiddleware.ts(24,39): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/prisma/seed.ts(1,153): error TS2307: Cannot find module '@prisma/client' or its corresponding type declarations.
+src/prisma/seed.ts(2,20): error TS2307: Cannot find module 'bcrypt' or its corresponding type declarations.
+src/prisma/seed.ts(1583,23): error TS7006: Parameter 'h' implicitly has an 'any' type.
+src/prisma/seed.ts(1583,26): error TS7006: Parameter 'i' implicitly has an 'any' type.
+src/prisma/seed.ts(1588,25): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/prisma/seed.ts(1588,28): error TS7006: Parameter 'i' implicitly has an 'any' type.
+src/prisma/seed.ts(1663,5): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/prisma/seed.ts(1665,4): error TS2550: Property 'finally' does not exist on type 'Promise<void>'. Do you need to change your target library? Try changing the 'lib' compiler option to 'es2018' or later.
+src/prisma/seedAdmin.ts(1,30): error TS2307: Cannot find module '@prisma/client' or its corresponding type declarations.
+src/prisma/seedAdmin.ts(2,20): error TS2307: Cannot find module 'bcrypt' or its corresponding type declarations.
+src/prisma/seedAdmin.ts(29,5): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/prisma/seedAdmin.ts(31,4): error TS2550: Property 'finally' does not exist on type 'Promise<void>'. Do you need to change your target library? Try changing the 'lib' compiler option to 'es2018' or later.
+src/routes/adminRoutes.ts(1,24): error TS2307: Cannot find module 'express' or its corresponding type declarations.
+src/routes/authRoutes.ts(1,21): error TS2307: Cannot find module 'express' or its corresponding type declarations.
+src/routes/conversationRoutes.ts(1,21): error TS2307: Cannot find module 'express' or its corresponding type declarations.
+src/routes/jobRoutes.ts(1,21): error TS2307: Cannot find module 'express' or its corresponding type declarations.
+src/routes/paymentRoutes.ts(1,21): error TS2307: Cannot find module 'express' or its corresponding type declarations.
+src/routes/quoteRoutes.ts(1,21): error TS2307: Cannot find module 'express' or its corresponding type declarations.
+src/routes/reviewRoutes.ts(1,21): error TS2307: Cannot find module 'express' or its corresponding type declarations.
+src/routes/settingsRoutes.ts(1,24): error TS2307: Cannot find module 'express' or its corresponding type declarations.
+src/routes/userRoutes.ts(1,21): error TS2307: Cannot find module 'express' or its corresponding type declarations.
+src/utils/geocoding.ts(72,43): error TS2550: Property 'entries' does not exist on type 'ObjectConstructor'. Do you need to change your target library? Try changing the 'lib' compiler option to 'es2017' or later.
+src/utils/geocoding.ts(91,43): error TS2550: Property 'entries' does not exist on type 'ObjectConstructor'. Do you need to change your target library? Try changing the 'lib' compiler option to 'es2017' or later.
+src/websocket/chatServer.ts(3,23): error TS2307: Cannot find module 'ws' or its corresponding type declarations.
+src/websocket/chatServer.ts(4,24): error TS2307: Cannot find module 'http' or its corresponding type declarations.
+src/websocket/chatServer.ts(5,33): error TS2307: Cannot find module 'http' or its corresponding type declarations.
+src/websocket/chatServer.ts(6,30): error TS2307: Cannot find module 'uuid' or its corresponding type declarations.
+src/websocket/chatServer.ts(7,17): error TS2307: Cannot find module 'jsonwebtoken' or its corresponding type declarations.
+src/websocket/chatServer.ts(60,20): error TS2580: Cannot find name 'process'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/websocket/chatServer.ts(99,39): error TS7006: Parameter 'err' implicitly has an 'any' type.
+src/websocket/chatServer.ts(99,44): error TS7006: Parameter 'decoded' implicitly has an 'any' type.
+src/websocket/chatServer.ts(161,27): error TS2580: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/websocket/chatServer.ts(181,48): error TS2580: Cannot find name 'Buffer'. Do you need to install type definitions for node? Try `npm i --save-dev @types/node`.
+src/websocket/chatServer.ts(297,43): error TS7006: Parameter 'msg' implicitly has an 'any' type.

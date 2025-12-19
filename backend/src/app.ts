@@ -10,9 +10,13 @@ import quoteRoutes from './routes/quoteRoutes';
 import conversationRoutes from './routes/conversationRoutes';
 import adminRoutes from './routes/adminRoutes';
 import paymentRoutes from './routes/paymentRoutes';
-import settingsRoutes from './routes/settingsRoutes';
 import ChatServer from './websocket/chatServer';
 
+const allowedOrigins = [
+	'http://localhost:3000',
+	'http://localhost:5173',
+	'https://www.247tradespeople.com',
+];
 
 // Load environment variables
 dotenv.config();
@@ -26,10 +30,24 @@ const chatServer = new ChatServer(server);
 // Middleware
 app.use(
 	cors({
-		origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+		origin: (origin, callback) => {
+			// Allow Postman / server-to-server
+			if (!origin) return callback(null, true);
+
+			if (allowedOrigins.includes(origin)) {
+				callback(null, true);
+			} else {
+				callback(new Error('CORS not allowed'));
+			}
+		},
+		methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+		allowedHeaders: ['Content-Type', 'Authorization'],
 		credentials: true,
 	})
 );
+
+// IMPORTANT for preflight
+app.options('*', cors());
 
 // Stripe webhook needs raw body - must be before json middleware
 app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
@@ -65,7 +83,6 @@ app.use('/api/quotes', quoteRoutes);
 app.use('/api/conversations', conversationRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/payments', paymentRoutes);
-app.use('/api/settings', settingsRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {
