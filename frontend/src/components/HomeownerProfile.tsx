@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
-	ArrowLeft,
+  ArrowLeft,
 	User,
 	Mail,
 	MapPin,
@@ -16,14 +17,13 @@ import {
 	UserCheck,
 	Star,
 	MessageCircle,
-	Heart,
 	Users,
 	Eye,
 	CheckCircle,
 	Loader,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { Review, Conversation, JobLead, User as AppUser } from '../types';
+import { Conversation, JobLead } from '../types';
 import {ChatModal as MessagingModal} from './MessagingModal';
 import ContactsList from './ContactsList';
 import { jobService } from '../services/jobService';
@@ -32,6 +32,7 @@ import { reviewService } from '../services/reviewService';
 import { conversationService } from '../services/conversationService';
 
 const HomeownerProfile = () => {
+	const navigate = useNavigate();
 	const { state, dispatch } = useApp();
 	const [isEditing, setIsEditing] = useState(false);
 	const [loading, setLoading] = useState(false);
@@ -50,11 +51,7 @@ const HomeownerProfile = () => {
 	const [conversationsLoading, setConversationsLoading] = useState(false);
 	const [selectedProjectForDetails, setSelectedProjectForDetails] =
 		useState<JobLead | null>(null);
-	const [selectedTradesperson, setSelectedTradesperson] =
-		useState<AppUser | null>(null);
-	const [selectedChatUser, setSelectedChatUser] = useState<AppUser | null>(
-		null
-	);
+	// selectedTradesperson and selectedChatUser removed - unused
 
 	const [editData, setEditData] = useState({
 		name: state.currentUser?.name || '',
@@ -378,7 +375,7 @@ const HomeownerProfile = () => {
 			<div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
 				<div className="mb-6">
 					<button
-						onClick={() => dispatch({ type: 'SET_VIEW', payload: 'home' })}
+						onClick={() => navigate('/')}
 						className="flex items-center text-blue-600 hover:text-blue-700 mb-4"
 					>
 						<ArrowLeft className="w-5 h-5 mr-2" />

@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, MapPin, Calendar, DollarSign, Users, MessageCircle, CreditCard, CheckCircle, Clock, AlertTriangle, Star } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { ArrowLeft, MapPin, Calendar, DollarSign, Users, MessageCircle, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { QuoteRequest as QuoteRequestType, QuoteResponse } from '../types';
+import { QuoteRequest as QuoteRequestType } from '../types';
 import { quoteService } from '../services/quoteService';
-import { ChatModal as MessagingModal } from './MessagingModal';
+// MessagingModal removed - unused
 
 const QuoteRequest = () => {
+  const navigate = useNavigate();
   const { state, dispatch } = useApp();
   const [selectedQuote, setSelectedQuote] = useState<string | null>(null);
   const [showResponseModal, setShowResponseModal] = useState(false);
@@ -61,7 +63,7 @@ const QuoteRequest = () => {
         discount = 0.25; // 25% discount
         finalPrice = totalWithVat * (1 - discount);
         break;
-      case 'lifetime':
+      case 'unlimited_5_year': // VIP
         discount = 1; // 100% discount (free)
         finalPrice = 0;
         break;
@@ -136,7 +138,7 @@ const QuoteRequest = () => {
       if (pricing.finalPrice > 0) {
         alert(`Quote submitted successfully! You've been charged £${pricing.finalPrice.toFixed(2)}.`);
       } else {
-        alert('Quote submitted successfully! No charge due to your 5-year unlimited membership.');
+        alert('Quote submitted successfully! No charge due to your VIP membership.');
       }
     } catch (err: any) {
       console.error('Failed to submit quote response:', err);
@@ -174,7 +176,7 @@ const QuoteRequest = () => {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-6">
           <button
-            onClick={() => dispatch({ type: 'SET_VIEW', payload: 'home' })}
+            onClick={() => navigate('/')}
             className="flex items-center text-blue-600 hover:text-blue-700 mb-4"
           >
             <ArrowLeft className="w-5 h-5 mr-2" />
@@ -210,7 +212,7 @@ const QuoteRequest = () => {
                 <p className="text-sm text-purple-600">25% discount applied</p>
               </div>
               <div className="text-center p-4 border rounded-lg bg-gold-50">
-                <h3 className="font-medium text-yellow-900">Lifetime Member</h3>
+                <h3 className="font-medium text-yellow-900">VIP Member</h3>
                 <p className="text-2xl font-bold text-green-900">FREE</p>
                 <p className="text-sm text-green-600">100% discount</p>
               </div>
@@ -218,8 +220,8 @@ const QuoteRequest = () => {
             {state.currentUser.membershipType && state.currentUser.membershipType !== 'none' && (
               <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
                 <p className="text-green-800 font-medium">
-                  Your {state.currentUser.membershipType} membership is active! 
-                  {state.currentUser.membershipType === 'lifetime' 
+                  Your {state.currentUser.membershipType === 'unlimited_5_year' ? 'VIP' : state.currentUser.membershipType} membership is active! 
+                  {(state.currentUser.membershipType === 'unlimited_5_year')
                     ? ' You can respond to quotes for FREE!' 
                     : ` You save ${calculateQuotePrice(state.currentUser.membershipType).discount}% on each quote response.`
                   }

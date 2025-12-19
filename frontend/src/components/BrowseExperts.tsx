@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Star, MapPin, CheckCircle, MessageCircle, Phone, Calendar, Award, Shield, Clock, Filter, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ArrowLeft, Star, MapPin, MessageCircle, Phone, Calendar, Award, Shield, Clock, Filter, X } from 'lucide-react';
 import QuickQuote from './QuickQuote';
 import MapView from './MapView';
 import { useApp } from '../context/AppContext';
@@ -7,6 +8,7 @@ import { userService } from '../services/userService';
 import { User } from '../types';
 
 const BrowseExperts = () => {
+  const navigate = useNavigate();
   const { state, dispatch } = useApp();
   const [sortBy, setSortBy] = useState('rating');
   const [filterBy, setFilterBy] = useState('all');
@@ -112,7 +114,7 @@ const BrowseExperts = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-6">
           <button
-            onClick={() => dispatch({ type: 'SET_VIEW', payload: 'home' })}
+            onClick={() => navigate('/')}
             className="flex items-center text-blue-600 hover:text-blue-700 mb-4"
           >
             <ArrowLeft className="w-5 h-5 mr-2" />

@@ -11,11 +11,16 @@ import {
 	updateUserStatus,
 	deleteUser,
 	updateUser,
+	getPricing,
 	updatePricing,
 	getDashboardStats,
 	changePassword,
 	getBoostPlanPrices,
-	updateBoostPlanPrices
+	updateBoostPlanPrices,
+	getDirectoryListings,
+	updateDirectoryStatus,
+	getSocialMediaLinks,
+	updateSocialMediaLinks
 } from '../controllers/adminController';
 
 const router = Router();
@@ -45,6 +50,7 @@ router.delete('/users/:userId', deleteUser);
 router.get('/transactions', getTransactions);
 
 // Pricing
+router.get('/pricing', getPricing);
 router.patch('/pricing', updatePricing);
 
 // Password management
@@ -53,5 +59,13 @@ router.post('/change-password', changePassword);
 // Boost plan prices
 router.get('/boost-prices', getBoostPlanPrices);
 router.patch('/boost-prices', updateBoostPlanPrices);
+
+// Directory management
+router.get('/directory', getDirectoryListings);
+router.patch('/directory/:userId', updateDirectoryStatus);
+
+// Social media links
+router.get('/social-links', getSocialMediaLinks);
+router.patch('/social-links', updateSocialMediaLinks);
 
 export default router;

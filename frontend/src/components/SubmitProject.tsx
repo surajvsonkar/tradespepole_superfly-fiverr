@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, MapPin, Crosshair, Loader2 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { jobService } from '../services/jobService';
 import { geocodingService } from '../services/geocodingService';
 
 const SubmitProject = () => {
+  const navigate = useNavigate();
   const { state, dispatch } = useApp();
   const [formData, setFormData] = useState({
     title: '',
@@ -173,7 +175,7 @@ const SubmitProject = () => {
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-6">
           <button
-            onClick={() => dispatch({ type: 'SET_VIEW', payload: 'home' })}
+            onClick={() => navigate('/')}
             className="flex items-center text-blue-600 hover:text-blue-700 mb-4"
           >
             <ArrowLeft className="w-5 h-5 mr-2" />

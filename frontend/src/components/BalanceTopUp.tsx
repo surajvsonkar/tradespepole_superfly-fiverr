@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, CreditCard, Check, Loader, Lock, Euro, AlertCircle, Wallet } from 'lucide-react';
+import { X, CreditCard, Check, Loader, Lock, PoundSterling, AlertCircle, Wallet } from 'lucide-react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { paymentService } from '../services/paymentService';
@@ -55,11 +55,11 @@ const TopUpForm = ({
 
 	const validateAmount = (): boolean => {
 		if (amount < MIN_AMOUNT) {
-			setError(`Minimum top-up amount is €${MIN_AMOUNT}`);
+			setError(`Minimum top-up amount is £${MIN_AMOUNT}`);
 			return false;
 		}
 		if (amount > MAX_AMOUNT) {
-			setError(`Maximum top-up amount is €${MAX_AMOUNT}`);
+			setError(`Maximum top-up amount is £${MAX_AMOUNT}`);
 			return false;
 		}
 		return true;
@@ -160,11 +160,11 @@ const TopUpForm = ({
 				</div>
 				<h3 className="text-xl font-semibold text-gray-900 mb-2">Top-Up Successful!</h3>
 				<p className="text-gray-600 mb-4">
-					€{amount.toFixed(2)} has been added to your balance.
+					£{amount.toFixed(2)} has been added to your balance.
 				</p>
 				<div className="bg-green-50 border border-green-200 rounded-lg p-4">
 					<p className="text-sm text-green-700">New Balance</p>
-					<p className="text-2xl font-bold text-green-800">€{newBalance.toFixed(2)}</p>
+					<p className="text-2xl font-bold text-green-800">£{newBalance.toFixed(2)}</p>
 				</div>
 			</div>
 		);
@@ -180,7 +180,7 @@ const TopUpForm = ({
 						<span className="text-emerald-700 font-medium">Current Balance</span>
 					</div>
 					<span className="text-xl font-bold text-emerald-800">
-						€{currentBalance.toFixed(2)}
+						£{currentBalance.toFixed(2)}
 					</span>
 				</div>
 			</div>
@@ -202,7 +202,7 @@ const TopUpForm = ({
 									: 'border-gray-200 hover:border-emerald-300 text-gray-700 hover:bg-gray-50'
 							}`}
 						>
-							€{quickAmount}
+							£{quickAmount}
 						</button>
 					))}
 				</div>
@@ -210,7 +210,7 @@ const TopUpForm = ({
 				{/* Custom Amount */}
 				<div className="relative">
 					<div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-						<Euro className="h-5 w-5 text-gray-400" />
+						<PoundSterling className="h-5 w-5 text-gray-400" />
 					</div>
 					<input
 						type="number"
@@ -219,12 +219,12 @@ const TopUpForm = ({
 						step="0.01"
 						value={customAmount}
 						onChange={handleCustomAmountChange}
-						placeholder="Enter custom amount (€10 - €1000)"
+						placeholder="Enter custom amount (£10 - £1000)"
 						className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
 					/>
 				</div>
 				<p className="mt-1 text-xs text-gray-500">
-					Min: €{MIN_AMOUNT} | Max: €{MAX_AMOUNT}
+					Min: £{MIN_AMOUNT} | Max: £{MAX_AMOUNT}
 				</p>
 			</div>
 
@@ -232,12 +232,12 @@ const TopUpForm = ({
 			<div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
 				<div className="flex justify-between items-center mb-2">
 					<span className="text-gray-600">Top-up amount</span>
-					<span className="font-semibold text-gray-900">€{amount.toFixed(2)}</span>
+					<span className="font-semibold text-gray-900">£{amount.toFixed(2)}</span>
 				</div>
 				<div className="flex justify-between items-center pt-2 border-t border-gray-200">
 					<span className="text-gray-600">New balance will be</span>
 					<span className="font-bold text-emerald-600">
-						€{(currentBalance + amount).toFixed(2)}
+						£{(currentBalance + amount).toFixed(2)}
 					</span>
 				</div>
 			</div>
@@ -295,7 +295,7 @@ const TopUpForm = ({
 				) : (
 					<>
 						<CreditCard className="w-5 h-5 mr-2" />
-						Top Up €{amount.toFixed(2)}
+						Top Up £{amount.toFixed(2)}
 					</>
 				)}
 			</button>

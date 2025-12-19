@@ -1,10 +1,47 @@
-import React from 'react';
-import { Mail, Facebook, Twitter, Instagram } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Mail, Facebook, Twitter, Instagram, Linkedin } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import axios from 'axios';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+
+interface SocialLinks {
+  facebook: string;
+  instagram: string;
+  twitter: string;
+  linkedin: string;
+}
 
 const Footer = () => {
+  const navigate = useNavigate();
   const { state, dispatch } = useApp();
+  const [socialLinks, setSocialLinks] = useState<SocialLinks>({
+    facebook: 'https://www.facebook.com/247Tradespeople',
+    instagram: 'https://www.instagram.com/247tradespeople/',
+    twitter: 'https://twitter.com/247Tradespeople',
+    linkedin: 'https://www.linkedin.com/company/247tradespeople/'
+  });
+
+  useEffect(() => {
+    const fetchSocialLinks = async () => {
+      try {
+        const response = await axios.get(`${API_URL}/settings/public`);
+        if (response.data?.settings?.social_media_links) {
+          setSocialLinks(response.data.settings.social_media_links);
+        }
+      } catch (error) {
+        console.error('Failed to fetch social links:', error);
+      }
+    };
+    fetchSocialLinks();
+  }, []);
+
+  const handleSocialClick = (url: string) => {
+    if (url) {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  };
 
   return (
     <footer className="bg-gray-900 text-white">
@@ -21,9 +58,22 @@ const Footer = () => {
               Your trusted platform for connecting with skilled home improvement professionals nationwide.
             </p>
             <div className="flex space-x-4">
-              <Facebook className="w-5 h-5 text-gray-400 hover:text-white cursor-pointer" />
-              <Twitter className="w-5 h-5 text-gray-400 hover:text-white cursor-pointer" />
-              <Instagram className="w-5 h-5 text-gray-400 hover:text-white cursor-pointer" />
+              <Facebook 
+                className={`cursor-pointer w-5 h-5 ${socialLinks.facebook ? 'text-gray-400 hover:text-white cursor-pointer' : 'text-gray-600'}`}
+                onClick={() => handleSocialClick(socialLinks.facebook)}
+              />
+              <Twitter 
+                className={`cursor-pointer w-5 h-5 ${socialLinks.twitter ? 'text-gray-400 hover:text-white cursor-pointer' : 'text-gray-600'}`}
+                onClick={() => handleSocialClick(socialLinks.twitter)}
+              />
+              <Instagram 
+                className={`cursor-pointer w-5 h-5 ${socialLinks.instagram ? 'text-gray-400 hover:text-white cursor-pointer' : 'text-gray-600'}`}
+                onClick={() => handleSocialClick(socialLinks.instagram)}
+              />
+              <Linkedin 
+                className={`cursor-pointer w-5 h-5 ${socialLinks.linkedin ? 'text-gray-400 hover:text-white cursor-pointer' : 'text-gray-600'}`}
+                onClick={() => handleSocialClick(socialLinks.linkedin)}
+              />
             </div>
           </div>
           
@@ -37,7 +87,7 @@ const Footer = () => {
                       dispatch({ type: 'SHOW_AUTH_MODAL', payload: { mode: 'signup', userType: 'homeowner' } });
                       return;
                     }
-                    dispatch({ type: 'SET_VIEW', payload: 'submit-project' });
+                    navigate('/submit-project');
                   }}
                   className="hover:text-white text-left"
                 >
@@ -51,7 +101,7 @@ const Footer = () => {
                       dispatch({ type: 'SHOW_AUTH_MODAL', payload: { mode: 'login', userType: 'homeowner' } });
                       return;
                     }
-                    dispatch({ type: 'SET_VIEW', payload: 'browse-experts' });
+                    navigate('/browse-experts');
                   }}
                   className="hover:text-white text-left"
                 >
@@ -60,7 +110,7 @@ const Footer = () => {
               </li>
               <li>
                 <button 
-                  onClick={() => dispatch({ type: 'SET_VIEW', payload: 'home' })}
+                  onClick={() => navigate('/')}
                   className="hover:text-white text-left"
                 >
                   Client Reviews
@@ -73,7 +123,7 @@ const Footer = () => {
                       dispatch({ type: 'SHOW_AUTH_MODAL', payload: { mode: 'signup', userType: 'homeowner' } });
                       return;
                     }
-                    dispatch({ type: 'SET_VIEW', payload: 'submit-project' });
+                    navigate('/submit-project');
                   }}
                   className="hover:text-white text-left"
                 >
@@ -82,7 +132,7 @@ const Footer = () => {
               </li>
               <li>
                 <button 
-                  onClick={() => dispatch({ type: 'SET_VIEW', payload: 'home' })}
+                  onClick={() => navigate('/')}
                   className="hover:text-white text-left"
                 >
                   Project Guide
@@ -104,7 +154,7 @@ const Footer = () => {
               </li>
               <li>
                 <button 
-                  onClick={() => dispatch({ type: 'SET_VIEW', payload: 'job-leads' })}
+                  onClick={() => navigate('/job-leads')}
                   className="hover:text-white text-left"
                 >
                   Find Projects
@@ -112,7 +162,7 @@ const Footer = () => {
               </li>
               <li>
                 <button 
-                  onClick={() => dispatch({ type: 'SET_VIEW', payload: 'membership' })}
+                  onClick={() => navigate('/membership')}
                   className="hover:text-white text-left"
                 >
                   Membership Plans
@@ -120,7 +170,7 @@ const Footer = () => {
               </li>
               <li>
                 <button 
-                  onClick={() => dispatch({ type: 'SET_VIEW', payload: 'home' })}
+                  onClick={() => navigate('/')}
                   className="hover:text-white text-left"
                 >
                   Pro Resources
@@ -128,7 +178,7 @@ const Footer = () => {
               </li>
               <li>
                 <button 
-                  onClick={() => dispatch({ type: 'SET_VIEW', payload: 'home' })}
+                  onClick={() => navigate('/')}
                   className="hover:text-white text-left"
                 >
                   Support Hub

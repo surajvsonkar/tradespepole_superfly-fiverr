@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
 	ArrowLeft,
 	User,
@@ -18,6 +19,7 @@ import BoostPaymentModal from './BoostPaymentModal';
 import { paymentService } from '../services/paymentService';
 
 export default function BoostPage() {
+	const navigate = useNavigate();
 	const { state, dispatch } = useApp();
 	const [showPaymentModal, setShowPaymentModal] = useState(false);
 	const [membershipStatus, setMembershipStatus] = useState<{
@@ -53,7 +55,7 @@ export default function BoostPage() {
 				<div className="max-w-3xl mx-auto p-6 text-center">
 					<div className="mb-6">
 						<button
-							onClick={() => dispatch({ type: 'SET_VIEW', payload: 'home' })}
+							onClick={() => navigate('/')}
 							className="flex items-center text-blue-600 hover:text-blue-700 mb-4"
 						>
 							<ArrowLeft className="w-5 h-5 mr-2" />
@@ -153,7 +155,7 @@ export default function BoostPage() {
 			<div className="max-w-4xl mx-auto p-6 space-y-8">
 				{/* Back Button */}
 				<button
-					onClick={() => dispatch({ type: 'SET_VIEW', payload: 'home' })}
+					onClick={() => navigate('/')}
 					className="flex items-center text-blue-600 hover:text-blue-700 transition-colors"
 				>
 					<ArrowLeft className="w-5 h-5 mr-2" />
@@ -171,7 +173,9 @@ export default function BoostPage() {
 								<div>
 									<h3 className="text-xl font-bold">
 										Active Boost:{' '}
-										{membershipStatus.membershipType?.replace(/_/g, ' ')}
+										{membershipStatus.membershipType === 'unlimited_5_year' 
+											? 'VIP Member' 
+											: membershipStatus.membershipType?.replace(/_/g, ' ')}
 									</h3>
 									<p className="text-green-100">
 										{membershipStatus.daysRemaining} days remaining
@@ -293,7 +297,7 @@ export default function BoostPage() {
 									</h2>
 								</div>
 								<h3 className="text-3xl font-bold text-yellow-900 mb-2">
-									5 YEARS. UNLIMITED LEADS.
+									5 YEARS. VIP MEMBER (UNLIMITED).
 								</h3>
 								<p className="text-4xl font-bold text-yellow-800 mb-4">
 									£995{' '}

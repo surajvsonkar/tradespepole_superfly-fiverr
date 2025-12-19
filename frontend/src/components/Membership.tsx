@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
-	ArrowLeft,
+  ArrowLeft,
 	Rocket,
 	Star,
 	BarChart3,
@@ -18,9 +19,24 @@ import {
 import { useApp } from '../context/AppContext';
 import BoostPaymentModal from './BoostPaymentModal';
 import { paymentService } from '../services/paymentService';
+import { LucideIcon } from 'lucide-react';
 
-// Plan configurations with their features
-const PLAN_CONFIG = {
+interface PlanFeature {
+	icon: LucideIcon;
+	title: string;
+	description: string;
+	active: boolean;
+	upgradeRequired?: boolean;
+	highlight?: boolean;
+}
+
+interface PlanConfig {
+	name: string;
+	displayName: string;
+	features: PlanFeature[];
+	canUpgradeTo: string[];
+}
+const PLAN_CONFIG: Record<string, PlanConfig> = {
 	basic: {
 		name: '1 Week / 1 Month Boost',
 		displayName: 'Boost Plan',
@@ -111,7 +127,7 @@ const PLAN_CONFIG = {
 	},
 	unlimited_5_year: {
 		name: '5 Years Unlimited',
-		displayName: 'VIP Unlimited',
+		displayName: 'VIP Member',
 		features: [
 			{
 				icon: TrendingUp,
@@ -156,7 +172,8 @@ const PLAN_CONFIG = {
 };
 
 const Membership = () => {
-	const { state, dispatch } = useApp();
+	const navigate = useNavigate();
+	const { state } = useApp();
 	const [showBoostModal, setShowBoostModal] = useState(false);
 	const [membershipStatus, setMembershipStatus] = useState<{
 		membershipType: string | null;
@@ -211,7 +228,7 @@ const Membership = () => {
 				{/* Header */}
 				<div className="mb-8">
 					<button
-						onClick={() => dispatch({ type: 'SET_VIEW', payload: 'home' })}
+						onClick={() => navigate('/')}
 						className="flex items-center text-blue-600 hover:text-blue-700 mb-4 transition-colors"
 					>
 						<ArrowLeft className="w-5 h-5 mr-2" />
@@ -295,7 +312,7 @@ const Membership = () => {
 							</h3>
 
 							<div className="space-y-4">
-								{currentPlan.features.map((feature, index) => (
+								{(currentPlan.features as any[]).map((feature, index) => (
 									<div
 										key={index}
 										className={`flex items-start p-4 rounded-xl transition-colors ${

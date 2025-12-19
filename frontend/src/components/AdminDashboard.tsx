@@ -22,6 +22,14 @@ import {
 	Phone,
 	Edit,
 	MapPin,
+	BookOpen,
+	Pause,
+	Play,
+	Facebook,
+	Instagram,
+	Twitter,
+	Linkedin,
+	Globe,
 } from 'lucide-react';
 import { adminService } from '../services/adminService';
 
@@ -59,7 +67,7 @@ interface Analytics {
 
 const AdminDashboard = () => {
 	const navigate = useNavigate();
-	const [activeTab, setActiveTab] = useState<'dashboard' | 'homeowners' | 'tradespeople' | 'transactions' | 'analytics' | 'settings'>('dashboard');
+	const [activeTab, setActiveTab] = useState<'dashboard' | 'homeowners' | 'tradespeople' | 'directory' | 'transactions' | 'analytics' | 'settings'>('dashboard');
 	const [loading, setLoading] = useState(false);
 	const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
 	const [analytics, setAnalytics] = useState<Analytics | null>(null);
@@ -71,8 +79,25 @@ const AdminDashboard = () => {
 	const [showUserModal, setShowUserModal] = useState(false);
 	const [editingUser, setEditingUser] = useState<any>(null);
 	const [savingUser, setSavingUser] = useState(false);
+	const [savingPricing, setSavingPricing] = useState(false);
 	const [defaultLeadPrice, setDefaultLeadPrice] = useState('9.99');
+	const [maxLeadPurchases, setMaxLeadPurchases] = useState('6');
+	const [directoryPrice, setDirectoryPrice] = useState('0.99');
 	const [transactionFilter, setTransactionFilter] = useState('all');
+	
+	// Directory listings state
+	const [directoryListings, setDirectoryListings] = useState<any[]>([]);
+	const [directoryFilter, setDirectoryFilter] = useState('all');
+	
+	// Social media links state
+	const [socialLinks, setSocialLinks] = useState({
+		facebook: '',
+		instagram: '',
+		twitter: '',
+		linkedin: ''
+	});
+	const [savingSocialLinks, setSavingSocialLinks] = useState(false);
+	const [socialLinksMessage, setSocialLinksMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 	
 	// Password change state
 	const [currentPassword, setCurrentPassword] = useState('');
@@ -88,10 +113,13 @@ const AdminDashboard = () => {
 		'1_week_boost': { name: '1 Week Boost', price: 19.99, duration: 7 },
 		'1_month_boost': { name: '1 Month Boost', price: 49.99, duration: 30 },
 		'3_month_boost': { name: '3 Month Boost', price: 99.99, duration: 90 },
-		'5_year_unlimited': { name: '5 Year Unlimited Leads', price: 499.99, duration: 1825 }
+		'5_year_unlimited': { name: '5 Year Unlimited Leads', price: 995.00, duration: 1825 }
 	});
 	const [savingPrices, setSavingPrices] = useState(false);
 	const [priceMessage, setPriceMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+	
+	// Settings active sub-tab
+	const [settingsTab, setSettingsTab] = useState<'pricing' | 'boost' | 'social' | 'security'>('pricing');
 
 	useEffect(() => {
 		loadDashboardData();
@@ -102,14 +130,18 @@ const AdminDashboard = () => {
 			loadHomeowners();
 		} else if (activeTab === 'tradespeople') {
 			loadTradespeople();
+		} else if (activeTab === 'directory') {
+			loadDirectoryListings();
 		} else if (activeTab === 'transactions') {
 			loadTransactions();
 		} else if (activeTab === 'analytics') {
 			loadAnalytics();
 		} else if (activeTab === 'settings') {
 			loadBoostPrices();
+			loadPricing();
+			loadSocialLinks();
 		}
-	}, [activeTab, searchTerm, transactionFilter]);
+	}, [activeTab, searchTerm, transactionFilter, directoryFilter]);
 
 	const loadDashboardData = async () => {
 		setLoading(true);
@@ -178,6 +210,71 @@ const AdminDashboard = () => {
 			setBoostPrices(data.prices);
 		} catch (error) {
 			console.error('Failed to load boost prices:', error);
+		}
+	};
+
+	const loadPricing = async () => {
+		try {
+			const data = await adminService.getPricing();
+			setDefaultLeadPrice(data.pricing.defaultLeadPrice?.toString() || '9.99');
+			setMaxLeadPurchases(data.pricing.maxLeadPurchases?.toString() || '6');
+			setDirectoryPrice(data.pricing.directoryPrice?.toString() || '0.99');
+		} catch (error) {
+			console.error('Failed to load pricing:', error);
+		}
+	};
+
+	const loadDirectoryListings = async () => {
+		setLoading(true);
+		try {
+			const data = await adminService.getDirectoryListings({ 
+				search: searchTerm, 
+				status: directoryFilter !== 'all' ? directoryFilter : undefined 
+			});
+			setDirectoryListings(data.listings);
+		} catch (error) {
+			console.error('Failed to load directory listings:', error);
+		} finally {
+			setLoading(false);
+		}
+	};
+
+	const loadSocialLinks = async () => {
+		try {
+			const data = await adminService.getSocialMediaLinks();
+			setSocialLinks(data.socialLinks || { facebook: '', instagram: '', twitter: '', linkedin: '' });
+		} catch (error) {
+			console.error('Failed to load social links:', error);
+		}
+	};
+
+	const handleUpdateDirectoryStatus = async (userId: string, status: string) => {
+		try {
+			await adminService.updateDirectoryStatus(userId, { 
+				directoryStatus: status,
+				hasDirectoryListing: status === 'active'
+			});
+			alert('Directory status updated successfully');
+			loadDirectoryListings();
+		} catch (error) {
+			console.error('Failed to update directory status:', error);
+			alert('Failed to update directory status');
+		}
+	};
+
+	const handleSaveSocialLinks = async () => {
+		setSavingSocialLinks(true);
+		setSocialLinksMessage(null);
+		try {
+			await adminService.updateSocialMediaLinks(socialLinks);
+			setSocialLinksMessage({ type: 'success', text: 'Social media links updated successfully!' });
+		} catch (error: any) {
+			setSocialLinksMessage({ 
+				type: 'error', 
+				text: error.response?.data?.error || 'Failed to update social media links' 
+			});
+		} finally {
+			setSavingSocialLinks(false);
 		}
 	};
 
@@ -280,6 +377,7 @@ const AdminDashboard = () => {
 			location: selectedUser.location || '',
 			postcode: selectedUser.workPostcode || selectedUser.postcode || 'W1K 3DE',
 			trades: selectedUser.trades || [],
+			workingArea: selectedUser.workingArea || null, // Ensure workingArea is included
 			jobRadius: selectedUser.jobRadius || 15,
 		});
 	};
@@ -309,12 +407,19 @@ const AdminDashboard = () => {
 	};
 
 	const handleUpdatePricing = async () => {
+		setSavingPricing(true);
 		try {
-			await adminService.updatePricing({ defaultLeadPrice: parseFloat(defaultLeadPrice) });
+			await adminService.updatePricing({ 
+				defaultLeadPrice: parseFloat(defaultLeadPrice),
+				maxLeadPurchases: parseInt(maxLeadPurchases),
+				directoryPrice: parseFloat(directoryPrice)
+			});
 			alert('Pricing updated successfully');
 		} catch (error) {
 			console.error('Failed to update pricing:', error);
 			alert('Failed to update pricing');
+		} finally {
+			setSavingPricing(false);
 		}
 	};
 
@@ -670,7 +775,7 @@ const AdminDashboard = () => {
 											{transaction.description}
 										</td>
 										<td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
-											{transaction.currency === 'EUR' ? '€' : '£'}{transaction.amount.toFixed(2)}
+											£{transaction.amount.toFixed(2)}
 										</td>
 										<td className="px-6 py-4 whitespace-nowrap">
 											<span className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -687,6 +792,406 @@ const AdminDashboard = () => {
 						</tbody>
 					</table>
 				</div>
+			</div>
+		</div>
+	);
+
+	const renderDirectory = () => (
+		<div className="space-y-6">
+			<div className="flex items-center justify-between">
+				<h2 className="text-2xl font-bold text-gray-900">Directory Listings</h2>
+				<div className="flex items-center gap-4">
+					<div className="relative">
+						<Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+						<input
+							type="text"
+							placeholder="Search listings..."
+							value={searchTerm}
+							onChange={(e) => setSearchTerm(e.target.value)}
+							className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+						/>
+					</div>
+					<select
+						value={directoryFilter}
+						onChange={(e) => setDirectoryFilter(e.target.value)}
+						className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+					>
+						<option value="all">All Status</option>
+						<option value="active">Active</option>
+						<option value="paused">Paused</option>
+						<option value="suspended">Suspended</option>
+					</select>
+				</div>
+			</div>
+
+			<div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+				<div className="overflow-x-auto">
+					<table className="w-full">
+						<thead className="bg-gray-50 border-b border-gray-200">
+							<tr>
+								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tradesperson</th>
+								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Listing Expiry</th>
+								<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+							</tr>
+						</thead>
+						<tbody className="bg-white divide-y divide-gray-200">
+							{directoryListings.map((listing) => (
+								<tr key={listing.id} className="hover:bg-gray-50">
+									<td className="px-6 py-4 whitespace-nowrap">
+										<div className="font-medium text-gray-900">{listing.name}</div>
+										<div className="text-sm text-gray-500">{listing.trades?.join(', ')}</div>
+									</td>
+									<td className="px-6 py-4 whitespace-nowrap">
+										<div className="text-sm text-gray-900">{listing.email}</div>
+										<div className="text-sm text-gray-500">{listing.phone || 'N/A'}</div>
+									</td>
+									<td className="px-6 py-4 whitespace-nowrap">
+										<span className={`px-2 py-1 rounded-full text-xs font-medium ${
+											listing.directoryStatus === 'active' 
+												? 'bg-green-100 text-green-700' 
+												: listing.directoryStatus === 'paused'
+												? 'bg-yellow-100 text-yellow-700'
+												: 'bg-red-100 text-red-700'
+										}`}>
+											{listing.directoryStatus}
+										</span>
+									</td>
+									<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+										{listing.directoryListingExpiry 
+											? new Date(listing.directoryListingExpiry).toLocaleDateString()
+											: 'N/A'}
+									</td>
+									<td className="px-6 py-4 whitespace-nowrap text-sm">
+										<div className="flex items-center space-x-3">
+											{listing.directoryStatus === 'active' ? (
+												<button
+													onClick={() => handleUpdateDirectoryStatus(listing.id, 'paused')}
+													className="text-yellow-600 hover:text-yellow-700"
+													title="Pause Listing"
+												>
+													<Pause className="w-5 h-5" />
+												</button>
+											) : (
+												<button
+													onClick={() => handleUpdateDirectoryStatus(listing.id, 'active')}
+													className="text-green-600 hover:text-green-700"
+													title="Activate Listing"
+												>
+													<Play className="w-5 h-5" />
+												</button>
+											)}
+											<button
+												onClick={() => handleUpdateDirectoryStatus(listing.id, 'suspended')}
+												className="text-red-600 hover:text-red-700"
+												title="Suspend Listing"
+											>
+												<XCircle className="w-5 h-5" />
+											</button>
+										</div>
+									</td>
+								</tr>
+							))}
+							{directoryListings.length === 0 && (
+								<tr>
+									<td colSpan={5} className="px-6 py-12 text-center text-gray-500">
+										No directory listings found
+									</td>
+								</tr>
+							)}
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</div>
+	);
+
+	const renderSettings = () => (
+		<div className="space-y-6">
+			<h2 className="text-2xl font-bold text-gray-900">Settings</h2>
+			
+			<div className="flex border-b border-gray-200">
+				<button
+					className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+						settingsTab === 'pricing' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+					}`}
+					onClick={() => setSettingsTab('pricing')}
+				>
+					General Pricing
+				</button>
+				<button
+					className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+						settingsTab === 'boost' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+					}`}
+					onClick={() => setSettingsTab('boost')}
+				>
+					Boost Plans
+				</button>
+				<button
+					className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+						settingsTab === 'social' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+					}`}
+					onClick={() => setSettingsTab('social')}
+				>
+					Social Media
+				</button>
+				<button
+					className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+						settingsTab === 'security' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'
+					}`}
+					onClick={() => setSettingsTab('security')}
+				>
+					Security
+				</button>
+			</div>
+
+			<div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+				{settingsTab === 'pricing' && (
+					<div className="max-w-md space-y-6">
+						<div>
+							<label className="block text-sm font-medium text-gray-700 mb-2">
+								Default Job Lead Price (£)
+							</label>
+							<div className="relative">
+								<DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+								<input
+									type="number"
+									step="0.01"
+									value={defaultLeadPrice}
+									onChange={(e) => setDefaultLeadPrice(e.target.value)}
+									className="pl-10 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+								/>
+							</div>
+						</div>
+
+						<div>
+							<label className="block text-sm font-medium text-gray-700 mb-2">
+								Directory Listing Price (£/month)
+							</label>
+							<div className="relative">
+								<DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+								<input
+									type="number"
+									step="0.01"
+									value={directoryPrice}
+									onChange={(e) => setDirectoryPrice(e.target.value)}
+									className="pl-10 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+								/>
+							</div>
+						</div>
+
+						<div>
+							<label className="block text-sm font-medium text-gray-700 mb-2">
+								Max Purchases per Lead
+							</label>
+							<div className="relative">
+								<Users className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+								<input
+									type="number"
+									value={maxLeadPurchases}
+									onChange={(e) => setMaxLeadPurchases(e.target.value)}
+									className="pl-10 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+								/>
+							</div>
+						</div>
+
+						<button
+							onClick={handleUpdatePricing}
+							disabled={savingPricing}
+							className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center disabled:opacity-50"
+						>
+							{savingPricing ? (
+								<>
+									<RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+									Saving...
+								</>
+							) : (
+								<>
+									<Save className="w-4 h-4 mr-2" />
+									Save Pricing
+								</>
+							)}
+						</button>
+					</div>
+				)}
+
+				{settingsTab === 'boost' && (
+					<div className="space-y-6">
+						{priceMessage && (
+							<div className={`p-4 rounded-lg ${priceMessage.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+								{priceMessage.text}
+							</div>
+						)}
+						{Object.entries(boostPrices).map(([key, plan]) => (
+							<div key={key} className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 border border-gray-100 rounded-lg bg-gray-50">
+								<div>
+									<label className="block text-xs font-medium text-gray-500 uppercase mb-1">Plan Name</label>
+									<p className="font-medium text-gray-900">{plan.name}</p>
+								</div>
+								<div>
+									<label className="block text-xs font-medium text-gray-500 uppercase mb-2">Price (£)</label>
+									<input
+										type="number"
+										step="0.01"
+										value={plan.price}
+										onChange={(e) => {
+											setBoostPrices(prev => ({
+												...prev,
+												[key]: { ...prev[key], price: parseFloat(e.target.value) }
+											}));
+										}}
+										className="w-full px-3 py-2 border border-gray-300 rounded-md"
+									/>
+								</div>
+								<div>
+									<label className="block text-xs font-medium text-gray-500 uppercase mb-1">Duration (Days)</label>
+									<p className="font-medium text-gray-900">{plan.duration}</p>
+								</div>
+							</div>
+						))}
+						<button
+							onClick={handleUpdateBoostPrices}
+							disabled={savingPrices}
+							className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center disabled:opacity-50"
+						>
+							<Save className="w-4 h-4 mr-2" />
+							{savingPrices ? 'Saving...' : 'Save Boost Prices'}
+						</button>
+					</div>
+				)}
+
+				{settingsTab === 'social' && (
+					<div className="max-w-md space-y-6">
+						{socialLinksMessage && (
+							<div className={`p-4 rounded-lg ${socialLinksMessage.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+								{socialLinksMessage.text}
+							</div>
+						)}
+						{[
+							{ key: 'facebook', label: 'Facebook', icon: Facebook },
+							{ key: 'instagram', label: 'Instagram', icon: Instagram },
+							{ key: 'twitter', label: 'Twitter', icon: Twitter },
+							{ key: 'linkedin', label: 'LinkedIn', icon: Linkedin },
+						].map(({ key, label, icon: Icon }) => (
+							<div key={key}>
+								<label className="block text-sm font-medium text-gray-700 mb-2">
+									{label} URL
+								</label>
+								<div className="relative">
+									<Icon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+									<input
+										type="url"
+										value={socialLinks[key as keyof typeof socialLinks]}
+										onChange={(e) => setSocialLinks(prev => ({ ...prev, [key]: e.target.value }))}
+										placeholder={`https://${label.toLowerCase()}.com/...`}
+										className="pl-10 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+									/>
+								</div>
+							</div>
+						))}
+
+						<button
+							onClick={handleSaveSocialLinks}
+							disabled={savingSocialLinks}
+							className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center disabled:opacity-50"
+						>
+							<Save className="w-4 h-4 mr-2" />
+							{savingSocialLinks ? 'Saving...' : 'Save Social Links'}
+						</button>
+					</div>
+				)}
+
+				{settingsTab === 'security' && (
+					<div className="max-w-md space-y-6">
+						<h3 className="text-lg font-semibold text-gray-900 mb-6">Change Password</h3>
+									
+						{passwordMessage && (
+							<div className={`p-4 rounded-lg mb-6 ${
+								passwordMessage.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+							}`}>
+								{passwordMessage.text}
+							</div>
+						)}
+
+						<div className="space-y-4">
+							<div>
+								<label className="block text-sm font-medium text-gray-700 mb-1">
+									Current Password
+								</label>
+								<div className="relative">
+									<Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+									<input
+										type={showCurrentPassword ? 'text' : 'password'}
+										value={currentPassword}
+										onChange={(e) => setCurrentPassword(e.target.value)}
+										className="pl-10 pr-10 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+									/>
+									<button
+										onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+										className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+									>
+										{showCurrentPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+									</button>
+								</div>
+							</div>
+
+							<div>
+								<label className="block text-sm font-medium text-gray-700 mb-1">
+									New Password
+								</label>
+								<div className="relative">
+									<Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+									<input
+										type={showNewPassword ? 'text' : 'password'}
+										value={newPassword}
+										onChange={(e) => setNewPassword(e.target.value)}
+										className="pl-10 pr-10 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+									/>
+									<button
+										onClick={() => setShowNewPassword(!showNewPassword)}
+										className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+									>
+										{showNewPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+									</button>
+								</div>
+							</div>
+
+							<div>
+								<label className="block text-sm font-medium text-gray-700 mb-1">
+									Confirm New Password
+								</label>
+								<div className="relative">
+									<Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+									<input
+										type="password"
+										value={confirmPassword}
+										onChange={(e) => setConfirmPassword(e.target.value)}
+										className="pl-10 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+									/>
+								</div>
+							</div>
+
+							<button
+								onClick={handleChangePassword}
+								disabled={savingPassword}
+								className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center"
+							>
+								{savingPassword ? (
+									<>
+										<RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+										Saving...
+									</>
+								) : (
+									<>
+										<Save className="w-4 h-4 mr-2" />
+										Change Password
+									</>
+								)}
+							</button>
+						</div>
+					</div>
+				)}
 			</div>
 		</div>
 	);
@@ -780,192 +1285,6 @@ const AdminDashboard = () => {
 		</div>
 	);
 
-	const renderSettings = () => (
-		<div className="space-y-6">
-			<h2 className="text-2xl font-bold text-gray-900">Settings</h2>
-
-			{/* Change Password */}
-			<div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-				<div className="flex items-center mb-4">
-					<Lock className="w-5 h-5 text-gray-600 mr-2" />
-					<h3 className="text-lg font-semibold text-gray-900">Change Password</h3>
-				</div>
-				
-				{passwordMessage && (
-					<div className={`mb-4 p-3 rounded-lg ${
-						passwordMessage.type === 'success' 
-							? 'bg-green-50 border border-green-200 text-green-700' 
-							: 'bg-red-50 border border-red-200 text-red-700'
-					}`}>
-						{passwordMessage.text}
-					</div>
-				)}
-
-				<div className="max-w-md space-y-4">
-					<div>
-						<label className="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
-						<div className="relative">
-							<input
-								type={showCurrentPassword ? 'text' : 'password'}
-								value={currentPassword}
-								onChange={(e) => setCurrentPassword(e.target.value)}
-								className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-								placeholder="Enter current password"
-							/>
-							<button
-								type="button"
-								onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-								className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-							>
-								{showCurrentPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-							</button>
-						</div>
-					</div>
-
-					<div>
-						<label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
-						<div className="relative">
-							<input
-								type={showNewPassword ? 'text' : 'password'}
-								value={newPassword}
-								onChange={(e) => setNewPassword(e.target.value)}
-								className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-								placeholder="Enter new password (min 8 characters)"
-							/>
-							<button
-								type="button"
-								onClick={() => setShowNewPassword(!showNewPassword)}
-								className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-							>
-								{showNewPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-							</button>
-						</div>
-					</div>
-
-					<div>
-						<label className="block text-sm font-medium text-gray-700 mb-1">Confirm New Password</label>
-						<input
-							type="password"
-							value={confirmPassword}
-							onChange={(e) => setConfirmPassword(e.target.value)}
-							className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-							placeholder="Confirm new password"
-						/>
-					</div>
-
-					<button
-						onClick={handleChangePassword}
-						disabled={savingPassword || !currentPassword || !newPassword || !confirmPassword}
-						className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-					>
-						{savingPassword ? (
-							<>
-								<RefreshCw className="w-4 h-4 animate-spin" />
-								Saving...
-							</>
-						) : (
-							<>
-								<Save className="w-4 h-4" />
-								Change Password
-							</>
-						)}
-					</button>
-				</div>
-			</div>
-
-			{/* Boost Plan Pricing */}
-			<div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-				<div className="flex items-center mb-4">
-					<DollarSign className="w-5 h-5 text-gray-600 mr-2" />
-					<h3 className="text-lg font-semibold text-gray-900">Boost Plan Pricing</h3>
-				</div>
-				<p className="text-gray-600 mb-4">
-					Configure the prices for tradesperson boost/membership plans
-				</p>
-
-				{priceMessage && (
-					<div className={`mb-4 p-3 rounded-lg ${
-						priceMessage.type === 'success' 
-							? 'bg-green-50 border border-green-200 text-green-700' 
-							: 'bg-red-50 border border-red-200 text-red-700'
-					}`}>
-						{priceMessage.text}
-					</div>
-				)}
-
-				<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-					{Object.entries(boostPrices).map(([planId, plan]) => (
-						<div key={planId} className="border border-gray-200 rounded-lg p-4">
-							<label className="block text-sm font-medium text-gray-700 mb-2">
-								{plan.name}
-								<span className="text-gray-400 ml-2">({plan.duration} days)</span>
-							</label>
-							<div className="flex items-center">
-								<span className="text-gray-500 mr-2">€</span>
-								<input
-									type="number"
-									step="0.01"
-									min="0"
-									value={plan.price}
-									onChange={(e) => setBoostPrices(prev => ({
-										...prev,
-										[planId]: { ...prev[planId], price: parseFloat(e.target.value) || 0 }
-									}))}
-									className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-								/>
-							</div>
-						</div>
-					))}
-				</div>
-
-				<button
-					onClick={handleUpdateBoostPrices}
-					disabled={savingPrices}
-					className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-				>
-					{savingPrices ? (
-						<>
-							<RefreshCw className="w-4 h-4 animate-spin" />
-							Saving...
-						</>
-					) : (
-						<>
-							<Save className="w-4 h-4" />
-							Update Prices
-						</>
-					)}
-				</button>
-			</div>
-
-			{/* Default Lead Pricing */}
-			<div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-				<h3 className="text-lg font-semibold text-gray-900 mb-4">Default Lead Price</h3>
-				<div className="max-w-md">
-					<label className="block text-sm font-medium text-gray-700 mb-2">
-						Default Lead Price (£)
-					</label>
-					<div className="flex items-center space-x-3">
-						<input
-							type="number"
-							step="0.01"
-							value={defaultLeadPrice}
-							onChange={(e) => setDefaultLeadPrice(e.target.value)}
-							className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-						/>
-						<button
-							onClick={handleUpdatePricing}
-							className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-						>
-							Update
-						</button>
-					</div>
-					<p className="text-sm text-gray-500 mt-2">
-						This is the default price for job lead purchases
-					</p>
-				</div>
-			</div>
-		</div>
-	);
 
 	return (
 		<div className="min-h-screen bg-gray-50 py-8">
@@ -1027,6 +1346,17 @@ const AdminDashboard = () => {
 							Tradespeople
 						</button>
 						<button
+							onClick={() => setActiveTab('directory')}
+							className={`flex items-center px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+								activeTab === 'directory'
+									? 'border-blue-600 text-blue-600'
+									: 'border-transparent text-gray-600 hover:text-gray-900'
+							}`}
+						>
+							<BookOpen className="w-5 h-5 mr-2" />
+							Directory
+						</button>
+						<button
 							onClick={() => setActiveTab('transactions')}
 							className={`flex items-center px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
 								activeTab === 'transactions'
@@ -1072,6 +1402,7 @@ const AdminDashboard = () => {
 						{activeTab === 'dashboard' && renderDashboard()}
 						{activeTab === 'homeowners' && renderHomeowners()}
 						{activeTab === 'tradespeople' && renderTradespeople()}
+						{activeTab === 'directory' && renderDirectory()}
 						{activeTab === 'transactions' && renderTransactions()}
 						{activeTab === 'analytics' && renderAnalytics()}
 						{activeTab === 'settings' && renderSettings()}

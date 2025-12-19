@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { X, User, Wrench, Eye, EyeOff, Phone, MapPin, Loader } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { User as UserType } from '../types';
@@ -24,6 +25,7 @@ const LINKEDIN_REDIRECT_URI = import.meta.env.VITE_LINKEDIN_REDIRECT_URI || `${w
 const FACEBOOK_APP_ID = import.meta.env.VITE_FACEBOOK_APP_ID || '';
 
 const AuthModal = () => {
+	const navigate = useNavigate();
 	const { state, dispatch } = useApp();
 	const recaptchaRef = useRef<ReCAPTCHA>(null);
 
@@ -287,7 +289,7 @@ const AuthModal = () => {
 
 			dispatch({ type: 'SET_USER', payload: user });
 			if (state.authMode === 'login') {
-				dispatch({ type: 'SET_VIEW', payload: 'home' });
+				navigate('/');
 			}
 			
 			// Trigger WebSocket connection

@@ -56,12 +56,12 @@ const getOrCreatePrice = async (type: string, amount: number, interval: 'month' 
 	return price.id;
 };
 
-// Price configurations
+// Price configurations (in GBP)
 const PRICE_CONFIG = {
-	directory_listing: { amount: 1.00, interval: 'month' as const }, // Tradespeople pay to be listed
+	directory_listing: { amount: 0.99, interval: 'month' as const }, // £0.99/month for directory listing
 	basic_membership: { amount: 9.99, interval: 'month' as const },
 	premium_membership: { amount: 19.99, interval: 'month' as const },
-	unlimited_5_year: { amount: 499.99, interval: null }
+	unlimited_5_year: { amount: 995.00, interval: null } // 5-year unlimited
 };
 
 // Helper to send SMS
@@ -648,7 +648,7 @@ export const purchaseJobLead = async (req: AuthRequest, res: Response): Promise<
 };
 
 // Add Credits (Top-up) - For Tradespeople
-// Currency: EUR, Minimum: €10, Maximum: €1000
+// Currency: GBP, Minimum: £10, Maximum: £1000
 export const addCredits = async (req: AuthRequest, res: Response): Promise<void> => {
 	try {
 		const userId = req.userId;
@@ -665,15 +665,15 @@ export const addCredits = async (req: AuthRequest, res: Response): Promise<void>
 			return;
 		}
 
-		// Minimum €10
+		// Minimum £10
 		if (amount < 10) {
-			res.status(400).json({ error: 'Minimum top-up amount is €10' });
+			res.status(400).json({ error: 'Minimum top-up amount is £10' });
 			return;
 		}
 
-		// Maximum €1000
+		// Maximum £1000
 		if (amount > 1000) {
-			res.status(400).json({ error: 'Maximum top-up amount is €1000' });
+			res.status(400).json({ error: 'Maximum top-up amount is £1000' });
 			return;
 		}
 
@@ -696,8 +696,8 @@ export const addCredits = async (req: AuthRequest, res: Response): Promise<void>
 		const customerId = await getOrCreateStripeCustomer(userId);
 
 		const paymentIntent = await stripe.paymentIntents.create({
-			amount: Math.round(amount * 100), // Convert to cents
-			currency: 'eur',
+			amount: Math.round(amount * 100), // Convert to pence
+			currency: 'gbp',
 			customer: customerId,
 			metadata: {
 				userId,
@@ -713,12 +713,12 @@ export const addCredits = async (req: AuthRequest, res: Response): Promise<void>
 			data: {
 				userId,
 				amount,
-				currency: 'eur',
+				currency: 'gbp',
 				type: 'credits_topup',
 				status: 'pending',
 				stripePaymentId: paymentIntent.id,
 				stripeCustomerId: customerId,
-				description: `Balance top-up: €${amount.toFixed(2)}`,
+				description: `Balance top-up: £${amount.toFixed(2)}`,
 				metadata: { creditAmount: amount }
 			}
 		});
@@ -727,7 +727,7 @@ export const addCredits = async (req: AuthRequest, res: Response): Promise<void>
 			clientSecret: paymentIntent.client_secret,
 			paymentIntentId: paymentIntent.id,
 			amount: amount,
-			currency: 'eur'
+			currency: 'gbp'
 		});
 	} catch (error) {
 		console.error('Add credits error:', error);
@@ -822,17 +822,17 @@ export const confirmTopUp = async (req: AuthRequest, res: Response): Promise<voi
 		if (user.phone) {
 			await sendSMS(
 				user.phone,
-				`Hi ${user.name}, your balance has been topped up by €${amount.toFixed(2)}. Your new balance is €${newBalance.toFixed(2)}.`
+				`Hi ${user.name}, your balance has been topped up by £${amount.toFixed(2)}. Your new balance is £${newBalance.toFixed(2)}.`
 			);
 		}
 
-		console.log(`Top-up confirmed for user ${userId}: €${amount} added. New balance: €${newBalance}`);
+		console.log(`Top-up confirmed for user ${userId}: £${amount} added. New balance: £${newBalance}`);
 
 		res.status(200).json({
 			message: 'Top-up confirmed successfully',
 			amount,
 			newBalance,
-			currency: 'eur'
+			currency: 'gbp'
 		});
 	} catch (error) {
 		console.error('Confirm top-up error:', error);
@@ -946,7 +946,7 @@ async function handlePaymentSuccess(paymentIntent: Stripe.PaymentIntent) {
 			if (user.phone) {
 				await sendSMS(
 					user.phone,
-					`Hi ${user.name}, your balance has been topped up by €${amount.toFixed(2)}. Your new balance is €${newBalance.toFixed(2)}.`
+					`Hi ${user.name}, your balance has been topped up by £${amount.toFixed(2)}. Your new balance is £${newBalance.toFixed(2)}.`
 				);
 			}
 		}
@@ -1187,7 +1187,7 @@ export const checkDirectoryListing = async (req: AuthRequest, res: Response): Pr
 		res.status(200).json({
 			isListed,
 			expiryDate: user.directoryListingExpiry,
-			subscriptionPrice: '€1/month',
+			subscriptionPrice: '£0.99/month',
 			benefits: [
 				'Your profile appears in homeowner searches',
 				'Homeowners can contact you directly',
@@ -1602,7 +1602,7 @@ export const getBalance = async (req: AuthRequest, res: Response): Promise<void>
 
 		res.status(200).json({
 			balance: Number(user.credits || 0),
-			currency: 'eur'
+			currency: 'gbp'
 		});
 	} catch (error) {
 		console.error('Get balance error:', error);

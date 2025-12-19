@@ -311,3 +311,52 @@ export const updateCredits = async (req: AuthRequest, res: Response): Promise<vo
     res.status(500).json({ error: 'Failed to update credits' });
   }
 };
+
+// Manage directory listing
+export const manageDirectoryListing = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.userId;
+
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    const { action } = req.body; // 'cancel' | 'pause' | 'resume'
+
+    if (!action || !['cancel', 'pause', 'resume'].includes(action)) {
+      res.status(400).json({ error: 'Invalid action. Must be cancel, pause, or resume' });
+      return;
+    }
+
+    const data: any = {};
+
+    if (action === 'cancel') {
+      data.hasDirectoryListing = false;
+      data.directoryStatus = 'paused'; // Defaults to paused when not listed
+    } else if (action === 'pause') {
+      data.directoryStatus = 'paused';
+    } else if (action === 'resume') {
+      data.directoryStatus = 'active';
+      data.hasDirectoryListing = true;
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data,
+      select: {
+        id: true,
+        hasDirectoryListing: true,
+        directoryStatus: true
+      }
+    });
+
+    res.status(200).json({
+      message: `Directory listing ${action}d successfully`,
+      user: updatedUser
+    });
+  } catch (error) {
+    console.error('Manage directory listing error:', error);
+    res.status(500).json({ error: 'Failed to manage directory listing' });
+  }
+};

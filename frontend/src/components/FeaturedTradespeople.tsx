@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Star, MapPin } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { userService } from '../services/userService';
@@ -62,7 +62,7 @@ const FeaturedTradespeople = () => {
           </p>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {tradespeople.map((person) => (
             <div
               key={person.id}

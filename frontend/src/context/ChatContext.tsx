@@ -103,13 +103,32 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
 		currentConversationIdRef.current = conversationId;
 
 		// Build WebSocket URL with token
+		// Use the API URL from environment or fall back to current origin
+		const apiUrl = import.meta.env.VITE_API_URL || '';
+		let wsHost: string;
+		
+		if (apiUrl) {
+			// Extract host from API URL (e.g., https://api.example.com -> api.example.com)
+			try {
+				const url = new URL(apiUrl);
+				wsHost = url.host;
+			} catch {
+				// If API_URL is relative, use current window location
+				wsHost = window.location.host;
+			}
+		} else {
+			// Development fallback
+			wsHost = window.location.hostname + ':3001';
+		}
+		
 		const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-		const host = 'localhost:3001';
-		const wsUrl = `${protocol}//${host}/ws/chat?token=${encodeURIComponent(
+		const wsUrl = `${protocol}//${wsHost}/ws/chat?token=${encodeURIComponent(
 			token
 		)}`;
 
 		console.log('🔌 Connecting to:', wsUrl.replace(token, 'TOKEN_HIDDEN'));
+		
+		try {
 		const ws = new WebSocket(wsUrl);
 
 		ws.onopen = () => {
@@ -135,7 +154,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
 
 		ws.onerror = (event) => {
 			console.error('❌ WebSocket error:', event);
-			setError('Connection error. Please check your internet connection.');
+				setError('Connection error. Attempting to reconnect...');
 		};
 
 		ws.onclose = (event) => {
@@ -146,13 +165,13 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
 			// Handle different close codes
 			if (event.code === 1006) {
 				setError('Connection lost. Reconnecting...');
-			} else if (event.code === 401) {
+				} else if (event.code === 401 || event.code === 403) {
 				setError('Authentication failed. Please login again.');
 				return; // Don't reconnect on auth failure
 			}
 
 			// Auto-reconnect after 3 seconds (except for auth failures)
-			if (event.code !== 401) {
+				if (event.code !== 401 && event.code !== 403) {
 				reconnectTimeoutRef.current = setTimeout(() => {
 					if (currentUserIdRef.current && currentConversationIdRef.current) {
 						console.log('🔄 Reconnecting...');
@@ -163,6 +182,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
 		};
 
 		wsRef.current = ws;
+		} catch (err) {
+			console.error('❌ Failed to create WebSocket:', err);
+			setError('Failed to connect. Please try again.');
+		}
 	}, []);
 
 	const disconnect = useCallback(() => {

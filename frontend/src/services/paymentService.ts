@@ -95,7 +95,7 @@ export const paymentService = {
   },
 
   // Add credits (top-up) - For tradespeople balance
-  // Min: €10, Max: €1000
+  // Min: £10, Max: £1000
   addCredits: async (amount: number): Promise<PaymentIntent & { amount: number; currency: string }> => {
     return await apiClient.post('/payments/add-credits', { amount });
   },

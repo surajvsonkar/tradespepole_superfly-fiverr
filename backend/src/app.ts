@@ -10,6 +10,7 @@ import quoteRoutes from './routes/quoteRoutes';
 import conversationRoutes from './routes/conversationRoutes';
 import adminRoutes from './routes/adminRoutes';
 import paymentRoutes from './routes/paymentRoutes';
+import settingsRoutes from './routes/settingsRoutes';
 import ChatServer from './websocket/chatServer';
 
 
@@ -64,6 +65,7 @@ app.use('/api/quotes', quoteRoutes);
 app.use('/api/conversations', conversationRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {

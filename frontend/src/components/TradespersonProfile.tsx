@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
 	ArrowLeft,
 	User,
@@ -42,6 +43,7 @@ import { paymentService } from '../services/paymentService';
 import { conversationService } from '../services/conversationService';
 
 const TradespersonProfile = () => {
+	const navigate = useNavigate();
 	const { state, dispatch } = useApp();
 	const [activeTab, setActiveTab] = useState('company-description');
 	const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -213,7 +215,7 @@ const TradespersonProfile = () => {
 				<div className="max-w-3xl mx-auto p-6 text-center">
 					<div className="mb-6">
 						<button
-							onClick={() => dispatch({ type: 'SET_VIEW', payload: 'home' })}
+							onClick={() => navigate('/')}
 							className="flex items-center text-blue-600 hover:text-blue-700 mb-4"
 						>
 							<ArrowLeft className="w-5 h-5 mr-2" />
@@ -1801,11 +1803,11 @@ const TradespersonProfile = () => {
 									<span className="font-medium">Available Balance</span>
 								</div>
 								<span className="text-xs bg-white/20 px-2 py-1 rounded-full">
-									EUR
+									GBP
 								</span>
 							</div>
 							<div className="text-4xl font-bold mb-6">
-								€{state.currentUser.credits
+								£{state.currentUser.credits
 									? Number(state.currentUser.credits).toFixed(2)
 									: '0.00'}
 							</div>
@@ -1822,8 +1824,8 @@ const TradespersonProfile = () => {
 						<div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
 							<h4 className="font-semibold text-blue-800 mb-2">About Balance Top-Up</h4>
 							<ul className="text-sm text-blue-700 space-y-1">
-								<li>• Minimum top-up: €10</li>
-								<li>• Maximum top-up: €1,000</li>
+								<li>• Minimum top-up: £10</li>
+								<li>• Maximum top-up: £1,000</li>
 								<li>• Use your balance to purchase job leads</li>
 								<li>• Secure payment via Stripe</li>
 							</ul>
@@ -1883,7 +1885,7 @@ const TradespersonProfile = () => {
 											</div>
 											<div className="text-right">
 												<p className="font-semibold text-green-600">
-													+€{Number(payment.amount).toFixed(2)}
+													+£{Number(payment.amount).toFixed(2)}
 												</p>
 												<span className={`text-xs px-2 py-1 rounded-full ${
 													payment.status === 'succeeded'
@@ -1951,7 +1953,7 @@ const TradespersonProfile = () => {
 							
 							<div className="flex items-center justify-between mb-6">
 								<div>
-									<div className="text-3xl font-bold text-blue-600">€1</div>
+									<div className="text-3xl font-bold text-blue-600">£0.99</div>
 									<div className="text-gray-600">per month</div>
 								</div>
 								{!state.currentUser?.hasDirectoryListing && (
@@ -1964,6 +1966,31 @@ const TradespersonProfile = () => {
 									>
 										<CreditCard className="w-5 h-5 mr-2" />
 										Subscribe Now
+									</button>
+								)}
+								{state.currentUser?.hasDirectoryListing && (
+									<button
+										onClick={async () => {
+											if (window.confirm('Are you sure you want to cancel your directory listing? You will no longer appear in homeowner searches.')) {
+												try {
+													await userService.manageDirectoryListing('cancel');
+													const updatedUser = {
+														...state.currentUser,
+														hasDirectoryListing: false,
+														directoryStatus: 'paused'
+													};
+													dispatch({ type: 'SET_USER', payload: updatedUser });
+													alert('Directory listing cancelled.');
+												} catch (error) {
+													console.error('Error cancelling listing:', error);
+													alert('Failed to cancel listing.');
+												}
+											}
+										}}
+										className="bg-red-100 text-red-600 px-6 py-3 rounded-lg hover:bg-red-200 transition-colors font-semibold flex items-center"
+									>
+										<X className="w-5 h-5 mr-2" />
+										Cancel Listing
 									</button>
 								)}
 							</div>
@@ -2048,7 +2075,7 @@ const TradespersonProfile = () => {
 				<div className="max-w-7xl mx-auto flex items-center justify-between">
 					<div className="flex items-center">
 						<button
-							onClick={() => dispatch({ type: 'SET_VIEW', payload: 'home' })}
+							onClick={() => navigate('/')}
 							className="flex items-center text-blue-600 hover:text-blue-700 mr-6"
 						>
 							<ArrowLeft className="w-5 h-5 mr-2" />

@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
 const getAuthHeader = () => {
 	const token = localStorage.getItem('adminToken'); // Use separate token for admin
@@ -123,8 +123,16 @@ export const adminService = {
 		return response.data;
 	},
 
+	// Get pricing
+	async getPricing() {
+		const response = await axios.get(`${API_URL}/admin/pricing`, {
+			headers: getAuthHeader(),
+		});
+		return response.data;
+	},
+
 	// Update pricing
-	async updatePricing(data: { defaultLeadPrice: number }) {
+	async updatePricing(data: { defaultLeadPrice?: number; maxLeadPurchases?: number; directoryPrice?: number }) {
 		const response = await axios.patch(`${API_URL}/admin/pricing`, data, {
 			headers: getAuthHeader(),
 		});
@@ -142,6 +150,45 @@ export const adminService = {
 	// Update boost plan prices
 	async updateBoostPlanPrices(prices: Record<string, { name: string; price: number; duration: number }>) {
 		const response = await axios.patch(`${API_URL}/admin/boost-prices`, { prices }, {
+			headers: getAuthHeader(),
+		});
+		return response.data;
+	},
+
+	// Directory management
+	async getDirectoryListings(params?: { search?: string; status?: string; limit?: number; offset?: number }) {
+		const response = await axios.get(`${API_URL}/admin/directory`, {
+			headers: getAuthHeader(),
+			params,
+		});
+		return response.data;
+	},
+
+	async updateDirectoryStatus(userId: string, data: { 
+		directoryStatus?: string; 
+		hasDirectoryListing?: boolean;
+		directoryListingExpiry?: string | null;
+	}) {
+		const response = await axios.patch(
+			`${API_URL}/admin/directory/${userId}`,
+			data,
+			{
+				headers: getAuthHeader(),
+			}
+		);
+		return response.data;
+	},
+
+	// Social media links
+	async getSocialMediaLinks() {
+		const response = await axios.get(`${API_URL}/admin/social-links`, {
+			headers: getAuthHeader(),
+		});
+		return response.data;
+	},
+
+	async updateSocialMediaLinks(socialLinks: { facebook?: string; instagram?: string; twitter?: string; linkedin?: string }) {
+		const response = await axios.patch(`${API_URL}/admin/social-links`, { socialLinks }, {
 			headers: getAuthHeader(),
 		});
 		return response.data;

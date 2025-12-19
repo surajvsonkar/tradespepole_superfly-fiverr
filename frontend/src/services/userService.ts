@@ -57,4 +57,8 @@ export const userService = {
   updateCredits: async (data: UpdateCreditsData) => {
     return await apiClient.put('/users/credits', data);
   },
+
+  manageDirectoryListing: async (action: 'cancel' | 'pause' | 'resume') => {
+    return await apiClient.post('/users/directory/manage', { action });
+  },
 };

@@ -1,9 +1,23 @@
-import React, { useState } from 'react';
-import { ArrowLeft, User, Building, Star, FileText, Shield, CreditCard, Settings, MapPin, Users, Bell, HelpCircle, LogOut, Edit } from 'lucide-react';
-import { useApp } from '../context/AppContext';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { 
+  ArrowLeft, 
+  User, 
+  Building, 
+  Star, 
+  FileText, 
+  CreditCard, 
+  Settings, 
+  MapPin, 
+  Users, 
+  Bell, 
+  HelpCircle, 
+  LogOut, 
+  Edit 
+} from 'lucide-react';
 
 const ProfileMockup = () => {
-  const { dispatch } = useApp();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('company-description');
   const [companyDescription, setCompanyDescription] = useState('20 plus years in home renovations, we supply and fit materials at below only jobs domestic and commercial.');
   const [guarantee, setGuarantee] = useState('yes');
@@ -360,7 +374,7 @@ const ProfileMockup = () => {
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center">
             <button
-              onClick={() => dispatch({ type: 'SET_VIEW', payload: 'home' })}
+              onClick={() => navigate('/')}
               className="flex items-center text-blue-600 hover:text-blue-700 mr-6"
             >
               <ArrowLeft className="w-5 h-5 mr-2" />

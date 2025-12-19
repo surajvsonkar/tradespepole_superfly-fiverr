@@ -18,9 +18,9 @@ interface SubscriptionModalProps {
 const SUBSCRIPTION_DETAILS = {
   directory_listing: {
     title: 'Directory Listing',
-    price: '€1',
+    price: '£0.99',
     period: 'month',
-    description: 'Get your profile listed in the directory',
+    description: 'Get your profile listed in the public directory',
     features: [
       'Your profile appears in homeowner searches',
       'Homeowners can contact you directly',
@@ -58,7 +58,7 @@ const SUBSCRIPTION_DETAILS = {
   },
   unlimited: {
     title: 'VIP Unlimited',
-    price: '£999',
+    price: '£995',
     period: '5 years',
     description: 'Best value for serious professionals',
     features: [

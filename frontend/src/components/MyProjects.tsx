@@ -1,9 +1,11 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, MapPin, Calendar, DollarSign, Users, UserCheck, Star, AlertTriangle, Clock, CheckCircle } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Review } from '../types';
 
 const MyProjects = () => {
+  const navigate = useNavigate();
   const { state, dispatch } = useApp();
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [reviewData, setReviewData] = useState({
@@ -99,7 +101,7 @@ const MyProjects = () => {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-6">
           <button
-            onClick={() => dispatch({ type: 'SET_VIEW', payload: 'home' })}
+            onClick={() => navigate('/')}
             className="flex items-center text-blue-600 hover:text-blue-700 mb-4"
           >
             <ArrowLeft className="w-5 h-5 mr-2" />

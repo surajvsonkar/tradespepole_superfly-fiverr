@@ -289,7 +289,7 @@ export const createJobLead = async (req: AuthRequest, res: Response): Promise<vo
         urgency: urgency || 'Medium',
         postedBy: userId,
         contactDetails,
-        maxPurchases: maxPurchases || 6,
+        maxPurchases: maxPurchases || 6, // This should ideally be fetched from settings if not specific
         price: price || 9.99,
         isActive: true,
         latitude: jobLatitude,
@@ -590,82 +590,122 @@ export const getMyJobs = async (req: AuthRequest, res: Response): Promise<void> 
 
 // Purchase a job lead (Tradesperson)
 export const purchaseJobLead = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const userId = req.userId;
-    const { id } = req.params;
+	try {
+		const userId = req.userId;
+		const { id } = req.params;
 
-    if (!userId) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
-    }
+		if (!userId) {
+			res.status(401).json({ error: 'Unauthorized' });
+			return;
+		}
 
-    // Get job lead
-    const jobLead = await prisma.jobLead.findUnique({
-      where: { id }
-    });
+		// Use a transaction for race-condition safe purchasing
+		const result = await prisma.$transaction(async (tx) => {
+			// Get job lead with locking (simplified by using findFirst inside tx)
+			const jobLead = await tx.jobLead.findFirst({
+				where: { id }
+			});
 
-    if (!jobLead) {
-      res.status(404).json({ error: 'Job lead not found' });
-      return;
-    }
+			if (!jobLead) {
+				throw new Error('Sort:Job lead not found');
+			}
 
-    // Check if already purchased
-    if (jobLead.purchasedBy.includes(userId)) {
-      res.status(400).json({ error: 'You have already purchased this job lead' });
-      return;
-    }
+			// Check if already purchased
+			if (jobLead.purchasedBy.includes(userId)) {
+				throw new Error('Sort:You have already purchased this job lead');
+			}
 
-    // Check if max purchases reached
-    if (jobLead.purchasedBy.length >= jobLead.maxPurchases) {
-      res.status(400).json({ error: 'Maximum purchases reached for this job lead' });
-      return;
-    }
+			// Check max purchases (fetch from settings or use default)
+			const settings = await tx.settings.findUnique({ where: { key: 'max_lead_purchases' } });
+			const globalMaxPurchases = settings?.value ? Number(settings.value) : 6;
+			const effectiveMaxPurchases = jobLead.maxPurchases || globalMaxPurchases;
 
-    // Get user credits
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { credits: true }
-    });
+			if (jobLead.purchasedBy.length >= effectiveMaxPurchases) {
+				throw new Error('Sort:Maximum purchases reached for this job lead');
+			}
 
-    if (!user) {
-      res.status(404).json({ error: 'User not found' });
-      return;
-    }
+			// Get user info and credits
+			const user = await tx.user.findUnique({
+				where: { id: userId },
+				select: { credits: true, membershipType: true, phone: true, name: true }
+			});
 
-    const currentCredits = parseFloat(user.credits?.toString() || '0');
-    const jobPrice = parseFloat(jobLead.price.toString());
+			if (!user) {
+				throw new Error('Sort:User not found');
+			}
 
-    if (currentCredits < jobPrice) {
-      res.status(400).json({ error: 'Insufficient credits' });
-      return;
-    }
+			// Calculate price (VIP check)
+			let price = Number(jobLead.price);
+			if (user.membershipType === 'unlimited_5_year') {
+				price = 0;
+			} else if (user.membershipType === 'basic' || user.membershipType === 'premium') {
+				// Apply discounts if any (logic from paymentController could be moved here or shared)
+				// For now assuming only unlimited is free, or price is fixed per job
+			}
 
-    // Update job lead and user credits in a transaction
-    const [updatedJobLead] = await prisma.$transaction([
-      prisma.jobLead.update({
-        where: { id },
-        data: {
-          purchasedBy: {
-            push: userId
-          }
-        }
-      }),
-      prisma.user.update({
-        where: { id: userId },
-        data: {
-          credits: currentCredits - jobPrice
-        }
-      })
-    ]);
+			// Check credits if price > 0
+			const userCredits = Number(user.credits) || 0;
+			if (price > 0 && userCredits < price) {
+				throw new Error('Sort:Insufficient credits');
+			}
 
-    res.status(200).json({
-      message: 'Job lead purchased successfully',
-      jobLead: updatedJobLead
-    });
-  } catch (error) {
-    console.error('Purchase job lead error:', error);
-    res.status(500).json({ error: 'Failed to purchase job lead' });
-  }
+			// Deduct credits if needed
+			if (price > 0) {
+				await tx.user.update({
+					where: { id: userId },
+					data: { credits: userCredits - price }
+				});
+				
+				// Create payment record
+				await tx.payment.create({
+					data: {
+						userId,
+						amount: price,
+						type: 'job_lead_purchase',
+						status: 'succeeded',
+						description: `Job lead purchase: ${jobLead.title}`,
+						metadata: { jobLeadId: id }
+					}
+				});
+			}
+
+			// Update job lead
+			const updatedJobLead = await tx.jobLead.update({
+				where: { id },
+				data: {
+					purchasedBy: {
+						push: userId
+					}
+				}
+			});
+
+			return { jobLead: updatedJobLead, price, user };
+		});
+
+		// Send SMS notification outside transaction
+		if (result.user.phone) {
+			const priceText = result.price > 0 ? `£${result.price.toFixed(2)}` : 'FREE';
+			sendSMS(
+				result.user.phone,
+				`Hi ${result.user.name}, purchase successful! Job: "${result.jobLead.title}" (${priceText}). View details in your dashboard.`
+			).catch(console.error);
+		}
+
+		res.status(200).json({
+			message: 'Job lead purchased successfully',
+			jobLead: result.jobLead,
+			price: result.price
+		});
+
+	} catch (error: any) {
+		console.error('Purchase job lead error:', error);
+		const message = error.message || 'Failed to purchase job lead';
+		if (message.startsWith('Sort:')) {
+			res.status(400).json({ error: message.replace('Sort:', '') });
+		} else {
+			res.status(500).json({ error: 'Failed to purchase job lead' });
+		}
+	}
 };
 
 // Express interest in a job lead (Tradesperson)

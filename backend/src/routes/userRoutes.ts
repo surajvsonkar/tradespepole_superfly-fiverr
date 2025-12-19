@@ -4,7 +4,8 @@ import {
   updateProfile,
   getTradespeople,
   updateMembership,
-  updateCredits
+  updateCredits,
+  manageDirectoryListing
 } from '../controllers/userController';
 import { authenticateToken } from '../middlewares/authMiddleware';
 
@@ -18,5 +19,6 @@ router.get('/:id', getUserById);
 router.put('/profile', authenticateToken, updateProfile);
 router.put('/membership', authenticateToken, updateMembership);
 router.put('/credits', authenticateToken, updateCredits);
+router.post('/directory/manage', authenticateToken, manageDirectoryListing);
 
 export default router;

@@ -466,7 +466,7 @@ export const getTransactions = async (req: AuthRequest, res: Response): Promise<
 const getTransactionDescription = (type: string, metadata: any): string => {
 	switch (type) {
 		case 'credits_topup':
-			return `Balance top-up of €${metadata.amount || 'N/A'}`;
+			return `Balance top-up of £${metadata.amount || 'N/A'}`;
 		case 'job_lead_purchase':
 			return `Job lead purchase: ${metadata.jobTitle || 'N/A'}`;
 		case 'membership_purchase':
@@ -531,7 +531,7 @@ export const changePassword = async (req: AuthRequest, res: Response): Promise<v
 	}
 };
 
-// Get boost plan prices (stored in Settings or from config)
+// Get boost plan prices (stored in Settings table)
 export const getBoostPlanPrices = async (req: AuthRequest, res: Response): Promise<void> => {
 	try {
 		if (!await isAdmin(req)) {
@@ -544,12 +544,16 @@ export const getBoostPlanPrices = async (req: AuthRequest, res: Response): Promi
 			'1_week_boost': { name: '1 Week Boost', price: 19.99, duration: 7 },
 			'1_month_boost': { name: '1 Month Boost', price: 49.99, duration: 30 },
 			'3_month_boost': { name: '3 Month Boost', price: 99.99, duration: 90 },
-			'5_year_unlimited': { name: '5 Year Unlimited Leads', price: 499.99, duration: 1825 }
+			'5_year_unlimited': { name: '5 Year Unlimited Leads', price: 995.00, duration: 1825 }
 		};
 
-		// In production, you'd fetch these from a Settings table
-		// For now, return the default prices
-		res.status(200).json({ prices: defaultPrices });
+		// Fetch from Settings table
+		const setting = await prisma.settings.findUnique({
+			where: { key: 'boost_plan_prices' }
+		});
+
+		const prices = setting ? setting.value : defaultPrices;
+		res.status(200).json({ prices });
 	} catch (error) {
 		console.error('Get boost plan prices error:', error);
 		res.status(500).json({ error: 'Failed to get boost plan prices' });
@@ -580,14 +584,14 @@ export const updateBoostPlanPrices = async (req: AuthRequest, res: Response): Pr
 			}
 		}
 
-		// In production, you'd save these to a Settings table
-		// For now, just return success
-		// Note: To make this persistent, you'd need to:
-		// 1. Create a Settings model in prisma
-		// 2. Store these prices there
-		// 3. Update the payment controller to read from Settings
+		// Save to Settings table
+		await prisma.settings.upsert({
+			where: { key: 'boost_plan_prices' },
+			update: { value: prices },
+			create: { key: 'boost_plan_prices', value: prices }
+		});
 
-		console.log('Boost plan prices updated:', prices);
+		console.log('Boost plan prices saved to database:', prices);
 
 		res.status(200).json({ 
 			message: 'Boost plan prices updated successfully',
@@ -700,14 +704,21 @@ export const updateUser = async (req: AuthRequest, res: Response): Promise<void>
 
 		const updateData: any = {};
 
+
 		if (name !== undefined) updateData.name = name;
 		if (email !== undefined) updateData.email = email;
 		if (phone !== undefined) updateData.phone = phone;
 		if (location !== undefined) updateData.location = location;
 		if (postcode !== undefined) updateData.workPostcode = postcode; // For homeowners, store in workPostcode
 		if (workPostcode !== undefined) updateData.workPostcode = workPostcode;
-		if (trades !== undefined) updateData.trades = trades;
-		if (workingArea !== undefined) updateData.workingArea = workingArea;
+		
+		// Fix array and json parsing
+		if (trades !== undefined) {
+			updateData.trades = Array.isArray(trades) ? trades : typeof trades === 'string' ? JSON.parse(trades) : trades;
+		}
+		if (workingArea !== undefined) {
+			updateData.workingArea = typeof workingArea === 'string' ? JSON.parse(workingArea) : workingArea;
+		}
 		if (jobRadius !== undefined) updateData.jobRadius = parseInt(jobRadius);
 
 		const updatedUser = await prisma.user.update({
@@ -738,6 +749,39 @@ export const updateUser = async (req: AuthRequest, res: Response): Promise<void>
 	}
 };
 
+// Get pricing settings
+export const getPricing = async (req: AuthRequest, res: Response): Promise<void> => {
+	try {
+		if (!await isAdmin(req)) {
+			res.status(403).json({ error: 'Forbidden: Admin access required' });
+			return;
+		}
+
+		const settings = await prisma.settings.findMany({
+			where: {
+				key: { in: ['default_lead_price', 'max_lead_purchases', 'directory_price'] }
+			}
+		});
+
+		const pricing: Record<string, any> = {
+			defaultLeadPrice: 9.99,
+			maxLeadPurchases: 6,
+			directoryPrice: 0.99
+		};
+
+		settings.forEach(s => {
+			if (s.key === 'default_lead_price') pricing.defaultLeadPrice = s.value;
+			if (s.key === 'max_lead_purchases') pricing.maxLeadPurchases = s.value;
+			if (s.key === 'directory_price') pricing.directoryPrice = s.value;
+		});
+
+		res.status(200).json({ pricing });
+	} catch (error) {
+		console.error('Get pricing error:', error);
+		res.status(500).json({ error: 'Failed to get pricing' });
+	}
+};
+
 // Update pricing
 export const updatePricing = async (req: AuthRequest, res: Response): Promise<void> => {
 	try {
@@ -746,20 +790,50 @@ export const updatePricing = async (req: AuthRequest, res: Response): Promise<vo
 			return;
 		}
 
-		const { defaultLeadPrice } = req.body;
+		const { defaultLeadPrice, maxLeadPurchases, directoryPrice } = req.body;
 
-		if (!defaultLeadPrice || isNaN(parseFloat(defaultLeadPrice))) {
-			res.status(400).json({ error: 'Invalid price' });
+		// Validate and update each setting if provided
+		if (defaultLeadPrice !== undefined) {
+			if (isNaN(parseFloat(defaultLeadPrice)) || parseFloat(defaultLeadPrice) < 0) {
+				res.status(400).json({ error: 'Invalid lead price' });
 			return;
 		}
+			await prisma.settings.upsert({
+				where: { key: 'default_lead_price' },
+				update: { value: parseFloat(defaultLeadPrice) },
+				create: { key: 'default_lead_price', value: parseFloat(defaultLeadPrice) }
+			});
+		}
 
-		// This would update a settings table in production
-		// For now, we'll just return success
-		// You can add a Settings model to store this
+		if (maxLeadPurchases !== undefined) {
+			if (isNaN(parseInt(maxLeadPurchases)) || parseInt(maxLeadPurchases) < 1) {
+				res.status(400).json({ error: 'Invalid max purchases' });
+				return;
+			}
+			await prisma.settings.upsert({
+				where: { key: 'max_lead_purchases' },
+				update: { value: parseInt(maxLeadPurchases) },
+				create: { key: 'max_lead_purchases', value: parseInt(maxLeadPurchases) }
+			});
+		}
+
+		if (directoryPrice !== undefined) {
+			if (isNaN(parseFloat(directoryPrice)) || parseFloat(directoryPrice) < 0) {
+				res.status(400).json({ error: 'Invalid directory price' });
+				return;
+			}
+			await prisma.settings.upsert({
+				where: { key: 'directory_price' },
+				update: { value: parseFloat(directoryPrice) },
+				create: { key: 'directory_price', value: parseFloat(directoryPrice) }
+			});
+		}
 
 		res.status(200).json({
 			message: 'Pricing updated successfully',
-			defaultLeadPrice: parseFloat(defaultLeadPrice)
+			defaultLeadPrice: defaultLeadPrice ? parseFloat(defaultLeadPrice) : undefined,
+			maxLeadPurchases: maxLeadPurchases ? parseInt(maxLeadPurchases) : undefined,
+			directoryPrice: directoryPrice ? parseFloat(directoryPrice) : undefined
 		});
 	} catch (error) {
 		console.error('Update pricing error:', error);
@@ -823,5 +897,183 @@ export const getDashboardStats = async (req: AuthRequest, res: Response): Promis
 	} catch (error) {
 		console.error('Get dashboard stats error:', error);
 		res.status(500).json({ error: 'Failed to get dashboard stats' });
+	}
+};
+
+// Get all directory listings (tradespeople with directory info)
+export const getDirectoryListings = async (req: AuthRequest, res: Response): Promise<void> => {
+	try {
+		if (!await isAdmin(req)) {
+			res.status(403).json({ error: 'Forbidden: Admin access required' });
+			return;
+		}
+
+		const { search, status, limit = '50', offset = '0' } = req.query;
+
+		const where: Prisma.UserWhereInput = {
+			type: 'tradesperson'
+		};
+
+		if (search) {
+			where.OR = [
+				{ name: { contains: search as string, mode: 'insensitive' } },
+				{ email: { contains: search as string, mode: 'insensitive' } }
+			];
+		}
+
+		if (status && status !== 'all') {
+			where.directoryStatus = status as any;
+		}
+
+		const tradespeople = await prisma.user.findMany({
+			where,
+			select: {
+				id: true,
+				name: true,
+				email: true,
+				phone: true,
+				location: true,
+				trades: true,
+				hasDirectoryListing: true,
+				directoryListingExpiry: true,
+				directoryStatus: true,
+				membershipType: true,
+				accountStatus: true,
+				createdAt: true
+			},
+			orderBy: { createdAt: 'desc' },
+			take: parseInt(limit as string),
+			skip: parseInt(offset as string)
+		});
+
+		const total = await prisma.user.count({ where });
+
+		res.status(200).json({
+			listings: tradespeople,
+			pagination: {
+				total,
+				limit: parseInt(limit as string),
+				offset: parseInt(offset as string)
+			}
+		});
+	} catch (error) {
+		console.error('Get directory listings error:', error);
+		res.status(500).json({ error: 'Failed to get directory listings' });
+	}
+};
+
+// Update directory status for a tradesperson
+export const updateDirectoryStatus = async (req: AuthRequest, res: Response): Promise<void> => {
+	try {
+		if (!await isAdmin(req)) {
+			res.status(403).json({ error: 'Forbidden: Admin access required' });
+			return;
+		}
+
+		const { userId } = req.params;
+		const { directoryStatus, hasDirectoryListing, directoryListingExpiry } = req.body;
+
+		const updateData: any = {};
+
+		if (directoryStatus) {
+			if (!['active', 'paused', 'suspended', 'deleted'].includes(directoryStatus)) {
+				res.status(400).json({ error: 'Invalid directory status' });
+				return;
+			}
+			updateData.directoryStatus = directoryStatus;
+			
+			// If suspended or deleted, also disable the listing
+			if (directoryStatus === 'suspended' || directoryStatus === 'deleted') {
+				updateData.hasDirectoryListing = false;
+			}
+		}
+
+		if (hasDirectoryListing !== undefined) {
+			updateData.hasDirectoryListing = hasDirectoryListing;
+		}
+
+		if (directoryListingExpiry !== undefined) {
+			updateData.directoryListingExpiry = directoryListingExpiry ? new Date(directoryListingExpiry) : null;
+		}
+
+		const updatedUser = await prisma.user.update({
+			where: { id: userId },
+			data: updateData,
+			select: {
+				id: true,
+				name: true,
+				email: true,
+				hasDirectoryListing: true,
+				directoryListingExpiry: true,
+				directoryStatus: true
+			}
+		});
+
+		res.status(200).json({
+			message: 'Directory status updated successfully',
+			user: updatedUser
+		});
+	} catch (error) {
+		console.error('Update directory status error:', error);
+		res.status(500).json({ error: 'Failed to update directory status' });
+	}
+};
+
+// Get social media links
+export const getSocialMediaLinks = async (req: AuthRequest, res: Response): Promise<void> => {
+	try {
+		if (!await isAdmin(req)) {
+			res.status(403).json({ error: 'Forbidden: Admin access required' });
+			return;
+		}
+
+		const setting = await prisma.settings.findUnique({
+			where: { key: 'social_media_links' }
+		});
+
+		const defaultLinks = {
+			facebook: '',
+			instagram: '',
+			twitter: '',
+			linkedin: ''
+		};
+
+		res.status(200).json({
+			socialLinks: setting ? setting.value : defaultLinks
+		});
+	} catch (error) {
+		console.error('Get social media links error:', error);
+		res.status(500).json({ error: 'Failed to get social media links' });
+	}
+};
+
+// Update social media links
+export const updateSocialMediaLinks = async (req: AuthRequest, res: Response): Promise<void> => {
+	try {
+		if (!await isAdmin(req)) {
+			res.status(403).json({ error: 'Forbidden: Admin access required' });
+			return;
+		}
+
+		const { socialLinks } = req.body;
+
+		if (!socialLinks || typeof socialLinks !== 'object') {
+			res.status(400).json({ error: 'Invalid social links format' });
+			return;
+		}
+
+		await prisma.settings.upsert({
+			where: { key: 'social_media_links' },
+			update: { value: socialLinks },
+			create: { key: 'social_media_links', value: socialLinks }
+		});
+
+		res.status(200).json({
+			message: 'Social media links updated successfully',
+			socialLinks
+		});
+	} catch (error) {
+		console.error('Update social media links error:', error);
+		res.status(500).json({ error: 'Failed to update social media links' });
 	}
 };
