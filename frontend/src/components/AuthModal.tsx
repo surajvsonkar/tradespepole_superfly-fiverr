@@ -642,19 +642,27 @@ const AuthModal = () => {
 									</button>
 								</div>
 
-								{/* Postcode Field */}
 								<div className="relative">
 									<MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
 									<input
 										type="text"
-										placeholder="Postcode (e.g., W1K 3DE)"
+										placeholder="Postcode (e.g., SW1A 1AA)"
 										value={formData.postcode}
-										onChange={(e) => setFormData({ ...formData, postcode: e.target.value.toUpperCase() })}
-										className="w-full px-4 py-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
+										onChange={(e) => {
+											const val = e.target.value.toUpperCase();
+											setFormData({ ...formData, postcode: val });
+											
+											// Basic UK Postcode validation
+											const postcodeRegex = /^([A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2}|GIR ?0AA)$/i;
+											if (val && !postcodeRegex.test(val)) {
+												// Optional: Set a temporary visual error or toast
+											}
+										}}
+										className="w-full px-4 py-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base uppercase"
 										required
 									/>
 									<p className="mt-1 text-xs text-gray-500">
-										Enter your postcode - helps match you with nearby jobs/professionals
+										Enter your UK postcode (e.g., SW1A 1AA)
 									</p>
 								</div>
 

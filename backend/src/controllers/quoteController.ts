@@ -1,6 +1,8 @@
 import { Response } from 'express';
 import prisma from '../configs/database';
 import { AuthRequest } from '../middlewares/authMiddleware';
+import { sendEmail, sendSMS } from '../utils/notifications';
+import crypto from 'crypto';
 
 // Create a quote request (Homeowner)
 export const createQuoteRequest = async (
@@ -179,7 +181,48 @@ export const getQuoteRequestById = async (
 			return;
 		}
 
-		res.status(200).json({ quoteRequest });
+		// Enrich responses with tradesperson details
+		const enrichedResponses = await Promise.all(
+			(quoteRequest.responses as any[]).map(async (response) => {
+				const tradesperson = await prisma.user.findUnique({
+					where: { id: response.tradespersonId },
+					select: {
+						id: true,
+						name: true,
+						email: true,
+						phone: true,
+						avatar: true,
+						rating: true,
+						trades: true,
+						verified: true
+					}
+				});
+
+				const isAccepted = response.status === 'accepted';
+
+				return {
+					...response,
+					tradespersonDetails: tradesperson ? {
+						id: tradesperson.id,
+						name: tradesperson.name,
+						avatar: tradesperson.avatar,
+						rating: tradesperson.rating,
+						trades: tradesperson.trades,
+						verified: tradesperson.verified,
+						// Reveal contact info only if accepted
+						email: isAccepted ? tradesperson.email : undefined,
+						phone: isAccepted ? tradesperson.phone : undefined,
+					} : null
+				};
+			})
+		);
+
+		res.status(200).json({ 
+			quoteRequest: {
+				...quoteRequest,
+				responses: enrichedResponses
+			} 
+		});
 	} catch (error) {
 		console.error('Get quote request error:', error);
 		res.status(500).json({ error: 'Failed to get quote request' });
@@ -208,7 +251,52 @@ export const getMyQuoteRequests = async (
 			},
 		});
 
-		res.status(200).json({ quoteRequests });
+		// Enrich responses for each quote request
+		const enrichedQuoteRequests = await Promise.all(
+			quoteRequests.map(async (qr) => {
+				const enrichedResponses = await Promise.all(
+					(qr.responses as any[]).map(async (response) => {
+						const tradesperson = await prisma.user.findUnique({
+							where: { id: response.tradespersonId },
+							select: {
+								id: true,
+								name: true,
+								email: true,
+								phone: true,
+								avatar: true,
+								rating: true,
+								trades: true,
+								verified: true
+							}
+						});
+
+						const isAccepted = response.status === 'accepted';
+
+						return {
+							...response,
+							tradespersonDetails: tradesperson ? {
+								id: tradesperson.id,
+								name: tradesperson.name,
+								avatar: tradesperson.avatar,
+								rating: tradesperson.rating,
+								trades: tradesperson.trades,
+								verified: tradesperson.verified,
+								// Reveal contact info only if accepted
+								email: isAccepted ? tradesperson.email : undefined,
+								phone: isAccepted ? tradesperson.phone : undefined,
+							} : null
+						};
+					})
+				);
+
+				return {
+					...qr,
+					responses: enrichedResponses
+				};
+			})
+		);
+
+		res.status(200).json({ quoteRequests: enrichedQuoteRequests });
 	} catch (error) {
 		console.error('Get my quote requests error:', error);
 		res.status(500).json({ error: 'Failed to get quote requests' });
@@ -373,6 +461,42 @@ export const updateQuoteResponseStatus = async (
 				responses: updatedResponses,
 			},
 		});
+
+		// Trigger notifications if status is accepted
+		if (status === 'accepted') {
+			try {
+				const acceptedResponse = updatedResponses.find((r: any) => r.id === responseId);
+				if (acceptedResponse) {
+					const tradesperson = await prisma.user.findUnique({
+						where: { id: acceptedResponse.tradespersonId },
+						select: { email: true, phone: true, name: true }
+					});
+
+					if (tradesperson) {
+						// Send Email
+						const emailSubject = `Quote Accepted: ${quoteRequest.projectTitle}`;
+						const emailText = `Hi ${tradesperson.name},\n\nYour quote for "${quoteRequest.projectTitle}" has been accepted by the homeowner. You can now contact them to discuss further.\n\nBest regards,\n24/7 Tradespeople Team`;
+						const emailHtml = `
+							<div style="font-family: sans-serif;">
+								<h2>Congratulations!</h2>
+								<p>Your quote for <strong>${quoteRequest.projectTitle}</strong> has been accepted.</p>
+								<p>You can now view the homeowner's contact details in your dashboard.</p>
+								<a href="${process.env.FRONTEND_URL || 'http://localhost:5173'}/profile" style="background-color: #2563eb; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">View Project</a>
+							</div>
+						`;
+						await sendEmail(tradesperson.email, emailSubject, emailText, emailHtml);
+
+						// Send SMS
+						if (tradesperson.phone) {
+							const smsMessage = `24/7 Tradespeople: Your quote for "${quoteRequest.projectTitle}" has been accepted! Login to view details.`;
+							await sendSMS(tradesperson.phone, smsMessage);
+						}
+					}
+				}
+			} catch (notificationError) {
+				console.error('Error sending quote acceptance notification:', notificationError);
+			}
+		}
 
 		res.status(200).json({
 			message: 'Quote response status updated successfully',

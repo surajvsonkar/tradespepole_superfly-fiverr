@@ -11,6 +11,14 @@ export interface GeocodingResult {
   country?: string;
 }
 
+/**
+ * Validate UK Postcode using regex
+ */
+export const isValidUKPostcode = (postcode: string): boolean => {
+  const ukPostcodeRegex = /^([A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2}|GIR ?0AA)$/i;
+  return ukPostcodeRegex.test(postcode.trim());
+};
+
 // Cache for geocoding results to reduce API calls
 const geocodeCache: Map<string, GeocodingResult> = new Map();
 

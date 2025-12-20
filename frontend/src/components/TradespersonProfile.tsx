@@ -27,6 +27,7 @@ import {
 	Upload,
 	Heart,
 	CheckCircle,
+	Loader,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { PortfolioItem, Conversation, Review } from '../types';
@@ -37,6 +38,7 @@ import ConversationsList from './ConversationsList';
 import ContactsList from './ContactsList';
 import QuoteRequest from './QuoteRequest';
 import BalanceTopUp from './BalanceTopUp';
+import SubscriptionModal from './SubscriptionModal';
 import { userService } from '../services/userService';
 import { reviewService } from '../services/reviewService';
 import { paymentService } from '../services/paymentService';
@@ -45,6 +47,11 @@ import { conversationService } from '../services/conversationService';
 const TradespersonProfile = () => {
 	const navigate = useNavigate();
 	const { state, dispatch } = useApp();
+
+	if (!state.currentUser) {
+		return null;
+	}
+
 	const [activeTab, setActiveTab] = useState('company-description');
 	const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 	const [companyDescription, setCompanyDescription] = useState(
@@ -62,6 +69,9 @@ const TradespersonProfile = () => {
 	const [selectedServices, setSelectedServices] = useState<string[]>(
 		state.currentUser?.trades || []
 	);
+	const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+	const [subscriptionType, setSubscriptionType] = useState<'directory_listing' | 'basic' | 'premium' | 'unlimited'>('directory_listing');
+	const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
 	const availableTrades = [
 		'Builder',
@@ -425,14 +435,53 @@ const TradespersonProfile = () => {
 		setShowIDVerification(false);
 	};
 
-	const handleWorkingAreaSave = (workingArea: WorkingAreaData) => {
+	const handleWorkingAreaSave = async (workingArea: WorkingAreaData) => {
 		if (state.currentUser) {
-			const updatedUser = {
-				...state.currentUser,
-				workingArea: workingArea,
+			try {
+				await userService.updateProfile({ workingArea });
+				const updatedUser = {
+					...state.currentUser,
+					workingArea: workingArea,
+				};
+				dispatch({ type: 'SET_USER', payload: updatedUser });
+				alert('Working area saved successfully!');
+			} catch (error) {
+				console.error('Error saving working area:', error);
+				alert('Failed to save working area.');
+			}
+		}
+	};
+
+	const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+		const file = e.target.files?.[0];
+		if (!file || !state.currentUser) return;
+
+		setUploadingAvatar(true);
+		try {
+			// In a real app, you'd upload to ImageKit/S3 here
+			// For now, we'll simulate it with a FileReader or a placeholder
+			const reader = new FileReader();
+			reader.onloadend = async () => {
+				const base64String = reader.result as string;
+				try {
+					await userService.updateProfile({ avatar: base64String });
+					dispatch({
+						type: 'UPDATE_USER',
+						payload: { avatar: base64String },
+					});
+					alert('Profile picture updated successfully!');
+				} catch (error) {
+					console.error('Error updating avatar:', error);
+					alert('Failed to update profile picture.');
+				} finally {
+					setUploadingAvatar(false);
+				}
 			};
-			dispatch({ type: 'SET_USER', payload: updatedUser });
-			alert('Working area saved successfully!');
+			reader.readAsDataURL(file);
+		} catch (error) {
+			console.error('Avatar upload error:', error);
+			alert('Failed to upload image.');
+			setUploadingAvatar(false);
 		}
 	};
 
@@ -1538,7 +1587,7 @@ const TradespersonProfile = () => {
 
 								<button
 									onClick={() =>
-										dispatch({ type: 'SET_VIEW', payload: 'boost' })
+										navigate('/membership')
 									}
 									className="flex items-center justify-center px-4 py-3 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
 								>
@@ -1959,8 +2008,8 @@ const TradespersonProfile = () => {
 								{!state.currentUser?.hasDirectoryListing && (
 									<button
 										onClick={() => {
-											// Open subscription modal for directory listing
-											dispatch({ type: 'SET_VIEW', payload: 'subscribe-directory' });
+											setSubscriptionType('directory_listing');
+											setShowSubscriptionModal(true);
 										}}
 										className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold flex items-center"
 									>
@@ -1978,7 +2027,7 @@ const TradespersonProfile = () => {
 														...state.currentUser,
 														hasDirectoryListing: false,
 														directoryStatus: 'paused'
-													};
+													} as any;
 													dispatch({ type: 'SET_USER', payload: updatedUser });
 													alert('Directory listing cancelled.');
 												} catch (error) {
@@ -2160,19 +2209,44 @@ const TradespersonProfile = () => {
 									return (
 										<div
 											key={item.id}
-											className="flex items-center py-3 px-3 bg-gray-50 rounded-lg mb-4 lg:mb-4"
+											className="flex items-center py-3 px-3 bg-gray-50 rounded-lg mb-4 lg:mb-4 group cursor-pointer"
+											onClick={() => document.getElementById('avatar-upload')?.click()}
 										>
-											<div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center mr-3">
-												<span className="text-white font-bold text-sm">
-													{state.currentUser.name.charAt(0)}
-												</span>
+											<div className="relative w-10 h-10 mr-3">
+												{state.currentUser.avatar ? (
+													<img
+														src={state.currentUser.avatar}
+														alt={state.currentUser.name}
+														className="w-full h-full rounded-full object-cover"
+													/>
+												) : (
+													<div className="w-full h-full bg-blue-600 rounded-full flex items-center justify-center">
+														<span className="text-white font-bold text-base">
+															{state.currentUser.name.charAt(0)}
+														</span>
+													</div>
+												)}
+												<div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+													{uploadingAvatar ? (
+														<Loader className="w-4 h-4 text-white animate-spin" />
+													) : (
+														<Upload className="w-4 h-4 text-white" />
+													)}
+												</div>
+												<input
+													id="avatar-upload"
+													type="file"
+													className="hidden"
+													accept="image/*"
+													onChange={handleAvatarUpload}
+												/>
 											</div>
 											<div>
 												<div className="font-semibold text-gray-900 text-sm truncate">
 													{item.label}
 												</div>
 												<div className="text-xs text-gray-500">
-													View profile
+													Click to change picture
 												</div>
 											</div>
 										</div>
@@ -2488,6 +2562,17 @@ const TradespersonProfile = () => {
 					}
 					// Refresh payment history
 					setPaymentHistory([]);
+				}}
+			/>
+
+			{/* Subscription Modal */}
+			<SubscriptionModal
+				isOpen={showSubscriptionModal}
+				onClose={() => setShowSubscriptionModal(false)}
+				type={subscriptionType}
+				onSuccess={() => {
+					// User's directory status will be updated via dispatch in modal
+					setShowSubscriptionModal(false);
 				}}
 			/>
 		</div>

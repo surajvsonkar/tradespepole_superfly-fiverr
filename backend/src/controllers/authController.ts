@@ -7,6 +7,7 @@ import crypto from 'crypto';
 import nodemailer from 'nodemailer';
 import { OAuth2Client } from 'google-auth-library';
 import axios from 'axios';
+import { isValidUKPostcode } from '../utils/geocoding';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '15m'; // Short-lived access token
@@ -107,6 +108,12 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 		// Validate phone number format (basic validation)
 		if (phone && !/^\+?[\d\s-]{10,}$/.test(phone)) {
 			res.status(400).json({ error: 'Please enter a valid phone number' });
+			return;
+		}
+
+		// Validate UK Postcode
+		if (postcode && !isValidUKPostcode(postcode)) {
+			res.status(400).json({ error: 'Invalid UK postcode' });
 			return;
 		}
 
@@ -227,6 +234,14 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
 		if (!isPasswordValid) {
 			res.status(401).json({ error: 'Invalid email or password' });
+			return;
+		}
+
+		if (!user.isEmailVerified) {
+			res.status(403).json({ 
+				error: 'Email not verified. Please check your email for the verification link.',
+				isEmailVerified: false
+			});
 			return;
 		}
 

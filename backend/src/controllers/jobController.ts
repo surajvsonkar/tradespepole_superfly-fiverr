@@ -1,67 +1,9 @@
 import { Response } from 'express';
 import prisma from '../configs/database';
 import { AuthRequest } from '../middlewares/authMiddleware';
-import twilio from 'twilio';
-import nodemailer from 'nodemailer';
-import { geocodePostcode, calculateDistanceMiles, DEFAULT_POSTCODE, DEFAULT_COORDS, DEFAULT_JOB_RADIUS_MILES } from '../utils/geocoding';
+import { geocodePostcode, calculateDistanceMiles, DEFAULT_POSTCODE, DEFAULT_COORDS, DEFAULT_JOB_RADIUS_MILES, isValidUKPostcode } from '../utils/geocoding';
+import { sendEmail, sendSMS } from '../utils/notifications';
 
-// Initialize Twilio
-const twilioClient = twilio(
-	process.env.TWILIO_ACCOUNT_SID,
-	process.env.TWILIO_AUTH_TOKEN
-);
-const TWILIO_PHONE = process.env.TWILIO_PHONE_NUMBER;
-
-// Helper to send SMS
-const sendSMS = async (to: string, message: string) => {
-	if (!TWILIO_PHONE || !process.env.TWILIO_ACCOUNT_SID) {
-		console.log('📱 Twilio not configured. SMS would be:', { to, message });
-		return;
-	}
-
-	try {
-		await twilioClient.messages.create({
-			body: message,
-			from: TWILIO_PHONE,
-			to
-		});
-		console.log(`✅ SMS sent to ${to}`);
-	} catch (error) {
-		console.error('❌ Failed to send SMS:', error);
-	}
-};
-
-// Helper to send email
-const sendEmail = async (to: string, subject: string, text: string, html?: string) => {
-	if (!process.env.SMTP_EMAIL || !process.env.SMTP_PASSWORD) {
-		console.log('\n📧 Email would be sent:');
-		console.log('To:', to);
-		console.log('Subject:', subject);
-		console.log('Content:', text);
-		return;
-	}
-
-	try {
-		const transporter = nodemailer.createTransport({
-			service: 'gmail',
-			auth: {
-				user: process.env.SMTP_EMAIL,
-				pass: process.env.SMTP_PASSWORD
-			}
-		});
-
-		await transporter.sendMail({
-			from: process.env.SMTP_EMAIL,
-			to,
-			subject,
-			text,
-			html
-		});
-		console.log(`✅ Email sent to ${to}`);
-	} catch (error) {
-		console.error('❌ Failed to send email:', error);
-	}
-};
 
 // Helper to calculate distance between two coordinates (Haversine formula)
 const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
@@ -260,6 +202,12 @@ export const createJobLead = async (req: AuthRequest, res: Response): Promise<vo
     // Use provided postcode or default
     const jobPostcode = postcode || DEFAULT_POSTCODE;
 
+    // Validate UK Postcode
+    if (jobPostcode && !isValidUKPostcode(jobPostcode)) {
+      res.status(400).json({ error: 'Invalid UK postcode' });
+      return;
+    }
+
     // Geocode the postcode to get coordinates if not provided
     let jobLatitude = latitude ? parseFloat(latitude) : null;
     let jobLongitude = longitude ? parseFloat(longitude) : null;
@@ -356,29 +304,14 @@ export const getJobLeads = async (req: AuthRequest, res: Response): Promise<void
       where.isActive = isActive === 'true';
     }
 
-    let jobLeads = await prisma.jobLead.findMany({
-      where,
-      include: {
-        poster: {
-          select: {
-            id: true,
-            name: true,
-            type: true
-          }
-        }
-      },
-      orderBy: {
-        createdAt: 'desc'
-      },
-      take: parseInt(limit as string) * 2, // Fetch extra to account for radius filtering
-      skip: parseInt(offset as string)
-    });
+    let jobLeads = [];
+    let tradesperson: any = null;
 
-    // If user is a tradesperson, filter jobs by their trades and postcode radius
     if (userId) {
-      const tradesperson = await prisma.user.findUnique({
+      tradesperson = await prisma.user.findUnique({
         where: { id: userId },
         select: {
+          id: true,
           type: true,
           trades: true,
           workPostcode: true,
@@ -388,86 +321,120 @@ export const getJobLeads = async (req: AuthRequest, res: Response): Promise<void
           workingArea: true
         }
       });
+    }
 
-      if (tradesperson && tradesperson.type === 'tradesperson') {
-        // Filter jobs by trades (if tradesperson has selected trades)
-        if (tradesperson.trades && tradesperson.trades.length > 0) {
-          const tradesList = tradesperson.trades.map(t => t.toLowerCase());
-          
-          jobLeads = jobLeads.filter(job => {
-            const jobCategory = job.category.toLowerCase();
-            // Check if job category matches any of the tradesperson's trades
-            return tradesList.some(trade => {
-              // Match if trade name is contained in category or vice versa
-              return jobCategory.includes(trade) || 
-                     trade.includes(jobCategory) ||
-                     // Also check for partial matches (e.g., "Plumber" matches "Plumbing")
-                     jobCategory.replace(/ing$|er$|or$/, '').includes(trade.replace(/ing$|er$|or$/, '')) ||
-                     trade.replace(/ing$|er$|or$/, '').includes(jobCategory.replace(/ing$|er$|or$/, ''));
-            });
-          });
-          
-          console.log(`🔧 Filtered jobs by trades (${tradesperson.trades.join(', ')}): ${jobLeads.length} jobs found`);
-        }
-
-        // Get tradesperson's coordinates for radius filtering
-        let tradeLat: number | null = null;
-        let tradeLng: number | null = null;
-        let radiusMiles = tradesperson.jobRadius || DEFAULT_JOB_RADIUS_MILES;
-
-        // Try to get coordinates from workingArea first
-        const workingArea = tradesperson.workingArea as any;
-        if (workingArea?.coordinates) {
-          tradeLat = workingArea.coordinates.lat;
-          tradeLng = workingArea.coordinates.lng;
-          radiusMiles = workingArea.radius || radiusMiles;
-        } else if (tradesperson.latitude && tradesperson.longitude) {
-          tradeLat = Number(tradesperson.latitude);
-          tradeLng = Number(tradesperson.longitude);
-        } else {
-          // Geocode tradesperson's postcode
-          const tradePostcode = tradesperson.workPostcode || DEFAULT_POSTCODE;
-          const geocodeResult = await geocodePostcode(tradePostcode);
-          if (geocodeResult) {
-            tradeLat = geocodeResult.lat;
-            tradeLng = geocodeResult.lng;
-          } else {
-            tradeLat = DEFAULT_COORDS.lat;
-            tradeLng = DEFAULT_COORDS.lng;
-          }
-        }
-
-        // Filter jobs by radius
-        if (tradeLat !== null && tradeLng !== null) {
-          jobLeads = jobLeads.filter(job => {
-            if (!job.latitude || !job.longitude) {
-              return true; // Include jobs without coordinates
+    if (tradesperson && tradesperson.type === 'tradesperson' && tradesperson.trades?.length > 0) {
+      // Find jobs matching skills
+      const tradesList = tradesperson.trades.map((t: string) => t.toLowerCase());
+      
+      jobLeads = await prisma.jobLead.findMany({
+        where: {
+          ...where,
+          isActive: true,
+          OR: tradesList.flatMap((trade: string) => {
+            const baseTrade = trade.replace(/ing$|er$|or$/, '');
+            return [
+              { category: { contains: trade, mode: 'insensitive' } },
+              { category: { contains: baseTrade, mode: 'insensitive' } }
+            ];
+          })
+        },
+        include: {
+          poster: {
+            select: {
+              id: true,
+              name: true,
+              type: true
             }
-            const jobLat = Number(job.latitude);
-            const jobLng = Number(job.longitude);
-            const distance = calculateDistanceMiles(tradeLat!, tradeLng!, jobLat, jobLng);
-            
-            // Add distance to job for display purposes
-            (job as any).distanceFromTradesperson = Math.round(distance * 10) / 10;
-            
-            return distance <= radiusMiles;
-          });
+          }
+        },
+        orderBy: {
+          createdAt: 'desc'
+        },
+        take: parseInt(limit as string) * 5
+      });
+    } else {
+      jobLeads = await prisma.jobLead.findMany({
+        where,
+        include: {
+          poster: {
+            select: {
+              id: true,
+              name: true,
+              type: true
+            }
+          }
+        },
+        orderBy: {
+          createdAt: 'desc'
+        },
+        take: parseInt(limit as string) * 2,
+        skip: parseInt(offset as string)
+      });
+    }
 
-          // Sort by distance
-          jobLeads.sort((a, b) => {
-            const distA = (a as any).distanceFromTradesperson || 0;
-            const distB = (b as any).distanceFromTradesperson || 0;
-            return distA - distB;
+    if (tradesperson && tradesperson.type === 'tradesperson') {
+      if (tradesperson.trades && tradesperson.trades.length > 0) {
+        const tradesList = tradesperson.trades.map((t: string) => t.toLowerCase());
+        
+        jobLeads = jobLeads.filter(job => {
+          const jobCategory = job.category.toLowerCase();
+          return tradesList.some((trade: string) => {
+            const baseTrade = trade.replace(/ing$|er$|or$/, '');
+            const baseCategory = jobCategory.replace(/ing$|er$|or$/, '');
+            return jobCategory.includes(trade) || 
+                   trade.includes(jobCategory) ||
+                   baseCategory.includes(baseTrade) ||
+                   baseTrade.includes(baseCategory);
           });
+        });
+      }
 
-          console.log(`📍 Filtered jobs for tradesperson (radius: ${radiusMiles} miles): ${jobLeads.length} jobs found`);
+      let tradeLat: number | null = null;
+      let tradeLng: number | null = null;
+      let radiusMiles = tradesperson.jobRadius || DEFAULT_JOB_RADIUS_MILES;
+
+      const workingArea = tradesperson.workingArea as any;
+      if (workingArea?.coordinates) {
+        tradeLat = workingArea.coordinates.lat;
+        tradeLng = workingArea.coordinates.lng;
+        radiusMiles = workingArea.radius || radiusMiles;
+      } else if (tradesperson.latitude && tradesperson.longitude) {
+        tradeLat = Number(tradesperson.latitude);
+        tradeLng = Number(tradesperson.longitude);
+      } else {
+        const tradePostcode = tradesperson.workPostcode || DEFAULT_POSTCODE;
+        const geocodeResult = await geocodePostcode(tradePostcode);
+        if (geocodeResult) {
+          tradeLat = geocodeResult.lat;
+          tradeLng = geocodeResult.lng;
+        } else {
+          tradeLat = DEFAULT_COORDS.lat;
+          tradeLng = DEFAULT_COORDS.lng;
         }
+      }
+
+      if (tradeLat !== null && tradeLng !== null) {
+        jobLeads = jobLeads.filter(job => {
+          if (!job.latitude || !job.longitude) {
+            return true;
+          }
+          const jobLat = Number(job.latitude);
+          const jobLng = Number(job.longitude);
+          const distance = calculateDistanceMiles(tradeLat!, tradeLng!, jobLat, jobLng);
+          (job as any).distanceFromTradesperson = Math.round(distance * 10) / 10;
+          return distance <= radiusMiles;
+        });
+
+        jobLeads.sort((a, b) => {
+          const distA = (a as any).distanceFromTradesperson || 0;
+          const distB = (b as any).distanceFromTradesperson || 0;
+          return distA - distB;
+        });
       }
     }
 
-    // Apply limit after filtering
     jobLeads = jobLeads.slice(0, parseInt(limit as string));
-
     const total = await prisma.jobLead.count({ where });
 
     res.status(200).json({

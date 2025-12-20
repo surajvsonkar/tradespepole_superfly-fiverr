@@ -47,7 +47,7 @@ app.use(
 );
 
 // IMPORTANT for preflight
-app.options('*', cors());
+app.options(/.*/, cors());
 
 // Stripe webhook needs raw body - must be before json middleware
 app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));

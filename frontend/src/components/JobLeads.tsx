@@ -83,7 +83,10 @@ const JobLeads = () => {
 					leads = response.jobLeads; // Backend returns 'jobLeads' not 'jobs'
 				} else {
 					// Fetch available job leads for tradespeople
-					const response = await jobService.getJobLeads();
+					const response = await jobService.getJobLeads({
+						category: categoryFilter !== 'all' ? categoryFilter : undefined,
+						isActive: true
+					});
 					leads = response.jobLeads; // Backend returns 'jobLeads' not 'jobs'
 				}
 				console.log('Fetched job leads:', leads); // Debug log
@@ -99,7 +102,7 @@ const JobLeads = () => {
 		};
 
 		fetchJobLeads();
-	}, [state.currentUser, dispatch]);
+	}, [state.currentUser, dispatch, categoryFilter]);
 
 	// Show different content for homeowners vs tradespeople
 	const isHomeowner = state.currentUser?.type === 'homeowner';
