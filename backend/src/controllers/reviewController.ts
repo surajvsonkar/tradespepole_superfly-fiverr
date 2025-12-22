@@ -54,6 +54,12 @@ export const createReview = async (req: AuthRequest, res: Response): Promise<voi
             name: true,
             avatar: true
           }
+        },
+        job: {
+          select: {
+            id: true,
+            title: true
+          }
         }
       }
     });
@@ -101,6 +107,12 @@ export const getUserReviews = async (req: AuthRequest, res: Response): Promise<v
             id: true,
             name: true,
             avatar: true
+          }
+        },
+        job: {
+          select: {
+            id: true,
+            title: true
           }
         }
       },
@@ -187,6 +199,12 @@ export const getRecentReviews = async (req: AuthRequest, res: Response): Promise
             name: true,
             trades: true,
             avatar: true
+          }
+        },
+        job: {
+          select: {
+            id: true,
+            title: true
           }
         }
       },

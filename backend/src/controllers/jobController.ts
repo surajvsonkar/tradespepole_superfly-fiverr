@@ -323,10 +323,24 @@ export const getJobLeads = async (req: AuthRequest, res: Response): Promise<void
       });
     }
 
-    if (tradesperson && tradesperson.type === 'tradesperson' && tradesperson.trades?.length > 0) {
-      // Find jobs matching skills
+    // Prepare filter based on user type and trades
+    if (tradesperson && tradesperson.type === 'tradesperson') {
+      // If tradesperson has no trades, they shouldn't see any jobs according to requirements
+      if (!tradesperson.trades || tradesperson.trades.length === 0) {
+        res.status(200).json({
+          jobLeads: [],
+          pagination: {
+            total: 0,
+            limit: parseInt(limit as string),
+            offset: parseInt(offset as string)
+          }
+        });
+        return;
+      }
+
       const tradesList = tradesperson.trades.map((t: string) => t.toLowerCase());
       
+      // Fetch jobs matching trades
       jobLeads = await prisma.jobLead.findMany({
         where: {
           ...where,
@@ -335,7 +349,9 @@ export const getJobLeads = async (req: AuthRequest, res: Response): Promise<void
             const baseTrade = trade.replace(/ing$|er$|or$/, '');
             return [
               { category: { contains: trade, mode: 'insensitive' } },
-              { category: { contains: baseTrade, mode: 'insensitive' } }
+              { category: { contains: baseTrade, mode: 'insensitive' } },
+              // Also check if trade contains category (reverse check)
+              { category: { in: tradesperson.trades } }
             ];
           })
         },
@@ -351,45 +367,23 @@ export const getJobLeads = async (req: AuthRequest, res: Response): Promise<void
         orderBy: {
           createdAt: 'desc'
         },
-        take: parseInt(limit as string) * 5
+        take: parseInt(limit as string) * 10 // Fetch more for post-filtering (distance)
       });
-    } else {
-      jobLeads = await prisma.jobLead.findMany({
-        where,
-        include: {
-          poster: {
-            select: {
-              id: true,
-              name: true,
-              type: true
-            }
-          }
-        },
-        orderBy: {
-          createdAt: 'desc'
-        },
-        take: parseInt(limit as string) * 2,
-        skip: parseInt(offset as string)
-      });
-    }
 
-    if (tradesperson && tradesperson.type === 'tradesperson') {
-      if (tradesperson.trades && tradesperson.trades.length > 0) {
-        const tradesList = tradesperson.trades.map((t: string) => t.toLowerCase());
-        
-        jobLeads = jobLeads.filter(job => {
-          const jobCategory = job.category.toLowerCase();
-          return tradesList.some((trade: string) => {
-            const baseTrade = trade.replace(/ing$|er$|or$/, '');
-            const baseCategory = jobCategory.replace(/ing$|er$|or$/, '');
-            return jobCategory.includes(trade) || 
-                   trade.includes(jobCategory) ||
-                   baseCategory.includes(baseTrade) ||
-                   baseTrade.includes(baseCategory);
-          });
+      // Post-fetch filtering for trades (stricter matching)
+      jobLeads = jobLeads.filter(job => {
+        const jobCategory = job.category.toLowerCase();
+        return tradesList.some((trade: string) => {
+          const baseTrade = trade.replace(/ing$|er$|or$/, '');
+          const baseCategory = jobCategory.replace(/ing$|er$|or$/, '');
+          return jobCategory.includes(trade) || 
+                 trade.includes(jobCategory) ||
+                 baseCategory.includes(baseTrade) ||
+                 baseTrade.includes(baseCategory);
         });
-      }
+      });
 
+      // Distance filtering
       let tradeLat: number | null = null;
       let tradeLng: number | null = null;
       let radiusMiles = tradesperson.jobRadius || DEFAULT_JOB_RADIUS_MILES;
@@ -408,34 +402,56 @@ export const getJobLeads = async (req: AuthRequest, res: Response): Promise<void
         if (geocodeResult) {
           tradeLat = geocodeResult.lat;
           tradeLng = geocodeResult.lng;
-        } else {
-          tradeLat = DEFAULT_COORDS.lat;
-          tradeLng = DEFAULT_COORDS.lng;
         }
       }
 
       if (tradeLat !== null && tradeLng !== null) {
         jobLeads = jobLeads.filter(job => {
-          if (!job.latitude || !job.longitude) {
-            return true;
-          }
-          const jobLat = Number(job.latitude);
-          const jobLng = Number(job.longitude);
-          const distance = calculateDistanceMiles(tradeLat!, tradeLng!, jobLat, jobLng);
+          if (!job.latitude || !job.longitude) return true;
+          const distance = calculateDistanceMiles(tradeLat!, tradeLng!, Number(job.latitude), Number(job.longitude));
           (job as any).distanceFromTradesperson = Math.round(distance * 10) / 10;
           return distance <= radiusMiles;
         });
 
-        jobLeads.sort((a, b) => {
-          const distA = (a as any).distanceFromTradesperson || 0;
-          const distB = (b as any).distanceFromTradesperson || 0;
-          return distA - distB;
-        });
+        jobLeads.sort((a, b) => ((a as any).distanceFromTradesperson || 0) - ((b as any).distanceFromTradesperson || 0));
       }
+    } else {
+      // Homeowner or guest - see filtered jobs normally
+      jobLeads = await prisma.jobLead.findMany({
+        where,
+        include: {
+          poster: {
+            select: { id: true, name: true, type: true }
+          }
+        },
+        orderBy: { createdAt: 'desc' },
+        take: parseInt(limit as string),
+        skip: parseInt(offset as string)
+      });
+    }
+
+    let total = 0;
+    if (tradesperson && tradesperson.type === 'tradesperson') {
+      const tradesList = tradesperson.trades.map((t: string) => t.toLowerCase());
+      total = await prisma.jobLead.count({
+        where: {
+          ...where,
+          isActive: true,
+          OR: tradesList.flatMap((trade: string) => {
+            const baseTrade = trade.replace(/ing$|er$|or$/, '');
+            return [
+              { category: { contains: trade, mode: 'insensitive' } },
+              { category: { contains: baseTrade, mode: 'insensitive' } },
+              { category: { in: tradesperson.trades } }
+            ];
+          })
+        }
+      });
+    } else {
+      total = await prisma.jobLead.count({ where });
     }
 
     jobLeads = jobLeads.slice(0, parseInt(limit as string));
-    const total = await prisma.jobLead.count({ where });
 
     res.status(200).json({
       jobLeads,
@@ -853,6 +869,17 @@ export const updateJobLead = async (req: AuthRequest, res: Response): Promise<vo
         ...(hiredTradesperson && { hiredTradesperson })
       }
     });
+
+    // If job is being marked as complete (isActive false) and there's a hired tradesperson
+    if (isActive === false && (hiredTradesperson || jobLead.hiredTradesperson)) {
+      const tradespersonId = hiredTradesperson || jobLead.hiredTradesperson;
+      if (tradespersonId) {
+        await prisma.user.update({
+          where: { id: tradespersonId },
+          data: { completedJobs: { increment: 1 } }
+        });
+      }
+    }
 
     res.status(200).json({
       message: 'Job lead updated successfully',

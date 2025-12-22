@@ -97,7 +97,7 @@ const sendEmail = async (to: string, subject: string, text: string): Promise<boo
 // Register a new user
 export const register = async (req: Request, res: Response): Promise<void> => {
 	try {
-		const { name, email, password, phone, type, location, postcode, trades, workingArea, captchaToken } = req.body;
+		const { name, email, password, phone, type, location, postcode, trades, workingArea, captchaToken, hourlyRate } = req.body;
 
 		// Validate required fields
 		if (!name || !email || !password || !type) {
@@ -156,6 +156,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 				workPostcode: postcode || 'W1K 3DE', // Store postcode for tradespeople, use as workPostcode
 				trades: trades || [],
 				workingArea: workingArea || null,
+				hourlyRate: hourlyRate ? parseFloat(hourlyRate) : null,
 				accountStatus: 'active',
 				verificationStatus: 'pending',
 				credits: type === 'tradesperson' ? 0 : undefined,
@@ -396,6 +397,7 @@ export const googleLogin = async (req: Request, res: Response): Promise<void> =>
 		const { email, name, sub: googleId, picture } = payload;
 
 		let user = await prisma.user.findUnique({ where: { email } });
+		let isNewUser = false;
 
 		if (!user) {
 			// Create new user
@@ -404,6 +406,12 @@ export const googleLogin = async (req: Request, res: Response): Promise<void> =>
 				return;
 			}
 
+			isNewUser = true;
+
+			// Generate verification token
+			const emailVerificationToken = crypto.randomBytes(32).toString('hex');
+			const emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
 			user = await prisma.user.create({
 				data: {
 					email,
@@ -411,19 +419,29 @@ export const googleLogin = async (req: Request, res: Response): Promise<void> =>
 					googleId,
 					avatar: picture,
 					type: userType,
-					isEmailVerified: true, // Google verified
+					isEmailVerified: false,
+					emailVerificationToken,
+					emailVerificationExpires,
 					accountStatus: 'active',
 					verificationStatus: 'pending',
 					credits: userType === 'tradesperson' ? 0 : undefined,
 					membershipType: userType === 'tradesperson' ? 'none' : undefined,
 				}
 			});
+
+			// Send verification email
+			const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${emailVerificationToken}`;
+			await sendEmail(
+				email,
+				'Verify your email',
+				`Please verify your email by clicking: ${verificationUrl}`
+			);
 		} else {
 			// Link Google ID if not linked
 			if (!user.googleId) {
 				user = await prisma.user.update({
 					where: { id: user.id },
-					data: { googleId, isEmailVerified: true }
+					data: { googleId }
 				});
 			}
 		}
@@ -436,7 +454,8 @@ export const googleLogin = async (req: Request, res: Response): Promise<void> =>
 			message: 'Login successful',
 			user: userWithoutSensitive,
 			token: accessToken,
-			refreshToken
+			refreshToken,
+			isNewUser
 		});
 	} catch (error) {
 		console.error('Google login error:', error);
@@ -480,6 +499,10 @@ export const facebookLogin = async (req: Request, res: Response): Promise<void> 
 				return;
 			}
 
+			// Generate verification token
+			const emailVerificationToken = crypto.randomBytes(32).toString('hex');
+			const emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
 			user = await prisma.user.create({
 				data: {
 					email,
@@ -487,19 +510,29 @@ export const facebookLogin = async (req: Request, res: Response): Promise<void> 
 					facebookId,
 					avatar: picture?.data?.url,
 					type: userType,
-					isEmailVerified: true, // Facebook verified
+					isEmailVerified: false,
+					emailVerificationToken,
+					emailVerificationExpires,
 					accountStatus: 'active',
 					verificationStatus: 'pending',
 					credits: userType === 'tradesperson' ? 0 : undefined,
 					membershipType: userType === 'tradesperson' ? 'none' : undefined,
 				}
 			});
+
+			// Send verification email
+			const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${emailVerificationToken}`;
+			await sendEmail(
+				email,
+				'Verify your email',
+				`Please verify your email by clicking: ${verificationUrl}`
+			);
 		} else {
 			// Link Facebook ID if not linked
 			if (!user.facebookId) {
 				user = await prisma.user.update({
 					where: { id: user.id },
-					data: { facebookId, isEmailVerified: true }
+					data: { facebookId }
 				});
 			}
 		}
@@ -586,6 +619,10 @@ export const linkedinLogin = async (req: Request, res: Response): Promise<void> 
 				return;
 			}
 
+			// Generate verification token
+			const emailVerificationToken = crypto.randomBytes(32).toString('hex');
+			const emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
 			user = await prisma.user.create({
 				data: {
 					email,
@@ -593,19 +630,29 @@ export const linkedinLogin = async (req: Request, res: Response): Promise<void> 
 					linkedinId,
 					avatar: picture,
 					type: userType,
-					isEmailVerified: true, // LinkedIn verified
+					isEmailVerified: false,
+					emailVerificationToken,
+					emailVerificationExpires,
 					accountStatus: 'active',
 					verificationStatus: 'pending',
 					credits: userType === 'tradesperson' ? 0 : undefined,
 					membershipType: userType === 'tradesperson' ? 'none' : undefined,
 				}
 			});
+
+			// Send verification email
+			const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${emailVerificationToken}`;
+			await sendEmail(
+				email,
+				'Verify your email',
+				`Please verify your email by clicking: ${verificationUrl}`
+			);
 		} else {
 			// Link LinkedIn ID if not linked
 			if (!user.linkedinId) {
 				user = await prisma.user.update({
 					where: { id: user.id },
-					data: { linkedinId, isEmailVerified: true }
+					data: { linkedinId }
 				});
 			}
 		}

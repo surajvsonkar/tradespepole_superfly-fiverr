@@ -5,7 +5,8 @@ import {
   getTradespeople,
   updateMembership,
   updateCredits,
-  manageDirectoryListing
+  manageDirectoryListing,
+  uploadProfilePhoto
 } from '../controllers/userController';
 import { authenticateToken } from '../middlewares/authMiddleware';
 
@@ -20,5 +21,6 @@ router.put('/profile', authenticateToken, updateProfile);
 router.put('/membership', authenticateToken, updateMembership);
 router.put('/credits', authenticateToken, updateCredits);
 router.post('/directory/manage', authenticateToken, manageDirectoryListing);
+router.post('/profile/photo', authenticateToken, uploadProfilePhoto);
 
 export default router;

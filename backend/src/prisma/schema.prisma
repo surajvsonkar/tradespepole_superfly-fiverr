@@ -98,6 +98,8 @@ model User {
   verificationStatus   VerificationStatus? @default(pending) @map("verification_status")
   verificationData     Json?               @map("verification_data")
   accountStatus        AccountStatus?      @default(active) @map("account_status")
+  hourlyRate           Decimal?            @db.Decimal(10, 2) @map("hourly_rate")
+  completedJobs        Int                 @default(0) @map("completed_jobs")
   parkedDate           DateTime?           @map("parked_date") @db.Timestamptz
   reactivatedDate      DateTime?           @map("reactivated_date") @db.Timestamptz
   workingArea          Json?               @map("working_area")
@@ -153,6 +155,7 @@ model JobLead {
   // Relations
   poster        User           @relation("PostedJobLeads", fields: [postedBy], references: [id], onDelete: Cascade)
   conversations Conversation[]
+  reviews       Review[]
 
   @@index([postedBy])
   @@index([category])
@@ -201,8 +204,9 @@ model Review {
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   // Relations
-  tradesperson User @relation("ReviewsReceived", fields: [tradespersonId], references: [id], onDelete: Cascade)
-  homeowner    User @relation("ReviewsGiven", fields: [homeownerId], references: [id], onDelete: Cascade)
+  tradesperson User    @relation("ReviewsReceived", fields: [tradespersonId], references: [id], onDelete: Cascade)
+  homeowner    User    @relation("ReviewsGiven", fields: [homeownerId], references: [id], onDelete: Cascade)
+  job          JobLead @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
   @@index([tradespersonId])
   @@index([homeownerId])

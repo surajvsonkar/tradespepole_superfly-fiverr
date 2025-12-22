@@ -1,6 +1,14 @@
 import { Response } from 'express';
 import prisma from '../configs/database';
 import { AuthRequest } from '../middlewares/authMiddleware';
+import ImageKit from 'imagekit';
+
+// Initialize ImageKit
+const imagekit = new ImageKit({
+  publicKey: process.env.IMAGEKIT_PUBLIC_KEY || '',
+  privateKey: process.env.IMAGEKIT_PRIVATE_KEY || '',
+  urlEndpoint: process.env.IMAGEKIT_URL_ENDPOINT || ''
+});
 
 // Get user by ID (public profile)
 export const getUserById = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -61,7 +69,8 @@ export const updateProfile = async (req: AuthRequest, res: Response): Promise<vo
       avatar,
       location,
       trades,
-      workingArea
+      workingArea,
+      hourlyRate
     } = req.body;
 
     const updatedUser = await prisma.user.update({
@@ -71,7 +80,8 @@ export const updateProfile = async (req: AuthRequest, res: Response): Promise<vo
         ...(avatar !== undefined && { avatar }),
         ...(location !== undefined && { location }),
         ...(trades !== undefined && { trades }),
-        ...(workingArea !== undefined && { workingArea })
+        ...(workingArea !== undefined && { workingArea }),
+        ...(hourlyRate !== undefined && { hourlyRate: hourlyRate ? parseFloat(hourlyRate) : null })
       },
       select: {
         id: true,
@@ -90,6 +100,8 @@ export const updateProfile = async (req: AuthRequest, res: Response): Promise<vo
         verificationStatus: true,
         accountStatus: true,
         workingArea: true,
+        hourlyRate: true,
+        completedJobs: true,
         createdAt: true,
         updatedAt: true
       }
@@ -169,6 +181,8 @@ export const getTradespeople = async (req: AuthRequest, res: Response): Promise<
         verified: true,
         membershipType: true,
         workingArea: true,
+        hourlyRate: true,
+        completedJobs: true,
         createdAt: true
       },
       orderBy: [
@@ -358,5 +372,78 @@ export const manageDirectoryListing = async (req: AuthRequest, res: Response): P
   } catch (error) {
     console.error('Manage directory listing error:', error);
     res.status(500).json({ error: 'Failed to manage directory listing' });
+  }
+};
+
+// Upload profile photo with ImageKit
+export const uploadProfilePhoto = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.userId;
+
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    const { image } = req.body; // Base64 image data
+
+    if (!image) {
+      res.status(400).json({ error: 'Image data is required' });
+      return;
+    }
+
+    // Validate image size (1MB limit = 1048576 bytes)
+    // Base64 increases size by ~33%, so we check for ~750KB base64 string
+    const base64Data = image.split(',')[1] || image;
+    const sizeInBytes = (base64Data.length * 3) / 4;
+    
+    if (sizeInBytes > 1048576) {
+      res.status(400).json({ error: 'Image size must be less than 1MB' });
+      return;
+    }
+
+    // Check if ImageKit is configured
+    if (!process.env.IMAGEKIT_PUBLIC_KEY || !process.env.IMAGEKIT_PRIVATE_KEY) {
+      res.status(500).json({ error: 'ImageKit is not configured' });
+      return;
+    }
+
+    // Upload to ImageKit
+    const uploadResponse = await imagekit.upload({
+      file: image,
+      fileName: `profile_${userId}_${Date.now()}.jpg`,
+      folder: '/profiles'
+    });
+
+    // Update user avatar in database
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: { avatar: uploadResponse.url },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        type: true,
+        avatar: true,
+        location: true,
+        trades: true,
+        rating: true,
+        reviews: true,
+        verified: true,
+        credits: true,
+        membershipType: true,
+        verificationStatus: true,
+        accountStatus: true
+      }
+    });
+
+    res.status(200).json({
+      message: 'Profile photo uploaded successfully',
+      avatarUrl: uploadResponse.url,
+      user: updatedUser
+    });
+  } catch (error) {
+    console.error('Upload profile photo error:', error);
+    res.status(500).json({ error: 'Failed to upload profile photo' });
   }
 };
