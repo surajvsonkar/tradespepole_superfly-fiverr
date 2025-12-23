@@ -61,4 +61,8 @@ export const userService = {
   manageDirectoryListing: async (action: 'cancel' | 'pause' | 'resume') => {
     return await apiClient.post('/users/directory/manage', { action });
   },
+
+  uploadProfilePhoto: async (imageBase64: string) => {
+    return await apiClient.post('/users/profile/photo', { image: imageBase64 });
+  },
 };

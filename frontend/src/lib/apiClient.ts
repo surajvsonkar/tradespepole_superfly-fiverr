@@ -1,4 +1,5 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
+const API_BASE_URL =
+	import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
 
 const getAuthToken = (): string | null => {
 	return localStorage.getItem('token');
@@ -26,11 +27,11 @@ const setRefreshToken = (token: string): void => {
 };
 
 const getAuthHeaders = (): HeadersInit => {
-  const token = getAuthToken();
-  return {
-    'Content-Type': 'application/json',
-    ...(token && { Authorization: `Bearer ${token}` }),
-  };
+	const token = getAuthToken();
+	return {
+		'Content-Type': 'application/json',
+		...(token && { Authorization: `Bearer ${token}` }),
+	};
 };
 
 // Token refresh logic
@@ -42,7 +43,7 @@ const subscribeTokenRefresh = (callback: (token: string) => void) => {
 };
 
 const onTokenRefreshed = (token: string) => {
-	refreshSubscribers.forEach(callback => callback(token));
+	refreshSubscribers.forEach((callback) => callback(token));
 	refreshSubscribers = [];
 };
 
@@ -111,7 +112,9 @@ const makeRequest = async (
 	}
 
 	if (!response.ok) {
-		const error = await response.json().catch(() => ({ error: 'Request failed' }));
+		const error = await response
+			.json()
+			.catch(() => ({ error: 'Request failed' }));
 		throw new Error(error.error || `HTTP error! status: ${response.status}`);
 	}
 
@@ -119,21 +122,27 @@ const makeRequest = async (
 };
 
 export const apiClient = {
-  get: async (endpoint: string) => {
-    return makeRequest('GET', endpoint);
-  },
+	get: async (endpoint: string) => {
+		return makeRequest('GET', endpoint);
+	},
 
-  post: async (endpoint: string, data?: any) => {
-    return makeRequest('POST', endpoint, data);
-  },
+	post: async (endpoint: string, data?: any) => {
+		return makeRequest('POST', endpoint, data);
+	},
 
-  put: async (endpoint: string, data?: any) => {
-    return makeRequest('PUT', endpoint, data);
-  },
+	put: async (endpoint: string, data?: any) => {
+		return makeRequest('PUT', endpoint, data);
+	},
 
-  delete: async (endpoint: string) => {
-    return makeRequest('DELETE', endpoint);
-  },
+	delete: async (endpoint: string) => {
+		return makeRequest('DELETE', endpoint);
+	},
 };
 
-export { getAuthToken, setAuthToken, removeAuthToken, getRefreshToken, setRefreshToken };
+export {
+	getAuthToken,
+	setAuthToken,
+	removeAuthToken,
+	getRefreshToken,
+	setRefreshToken,
+};

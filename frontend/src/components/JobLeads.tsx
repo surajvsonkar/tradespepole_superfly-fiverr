@@ -626,7 +626,7 @@ const JobLeads = () => {
 						<p className="text-gray-600 text-lg mb-4">
 							{isHomeowner 
 								? "You haven't posted any jobs yet." 
-								: "No job leads available at the moment."}
+								: "No job leads matching your selected trades available at the moment."}
 						</p>
 						{isHomeowner && (
 							<button

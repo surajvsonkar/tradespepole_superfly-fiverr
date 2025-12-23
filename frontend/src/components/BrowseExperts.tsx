@@ -5,7 +5,8 @@ import QuickQuote from './QuickQuote';
 import MapView from './MapView';
 import { useApp } from '../context/AppContext';
 import { userService } from '../services/userService';
-import { User } from '../types';
+import { reviewService } from '../services/reviewService';
+import { User, Review } from '../types';
 
 const BrowseExperts = () => {
   const navigate = useNavigate();
@@ -21,6 +22,8 @@ const BrowseExperts = () => {
   const [experts, setExperts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [expertReviews, setExpertReviews] = useState<Review[]>([]);
+  const [loadingReviews, setLoadingReviews] = useState(false);
 
   useEffect(() => {
     const fetchExperts = async () => {
@@ -47,10 +50,10 @@ const BrowseExperts = () => {
           verified: user.verified || false,
           checkatradeMember: user.membershipType === 'premium' || user.membershipType === 'unlimited_5_year',
           specialties: user.trades || [],
-          hourlyRate: '£40-60',
+          hourlyRate: user.hourlyRate ? `£${user.hourlyRate}` : 'Not specified',
           responseTime: '2 hours',
           availability: 'Available this week',
-          completedJobs: Math.floor(Math.random() * 200) + 50,
+          completedJobs: user.completedJobs || 0,
           description: `Professional ${user.trades?.[0] || 'tradesperson'} with years of experience.`,
           badges: user.verified ? ['Verified Professional', 'Insured'] : ['Professional'],
           lastActive: '2 hours ago'
@@ -74,7 +77,7 @@ const BrowseExperts = () => {
     setShowQuickQuote(true);
   };
 
-  const handleViewProfile = (expert: any) => {
+  const handleViewProfile = async (expert: any) => {
     // Check if user is signed in
     if (!state.currentUser) {
       dispatch({ type: 'SHOW_AUTH_MODAL', payload: { mode: 'login', userType: 'homeowner' } });
@@ -82,6 +85,16 @@ const BrowseExperts = () => {
     }
     setSelectedExpert(expert);
     setShowProfileModal(true);
+    setLoadingReviews(true);
+    try {
+      const response = await reviewService.getUserReviews(expert.id, { limit: 5 });
+      setExpertReviews(response.reviews || []);
+    } catch (err) {
+      console.error('Failed to fetch reviews:', err);
+      setExpertReviews([]);
+    } finally {
+      setLoadingReviews(false);
+    }
   };
 
   // Experts are now fetched from API in useEffect
@@ -445,89 +458,23 @@ const BrowseExperts = () => {
                 <h3 className="text-lg font-semibold text-gray-900 mb-3">Recent Reviews</h3>
                 <div className="bg-gray-50 rounded-lg p-4">
                   <div className="space-y-4">
-                    {(() => {
-                      // Sample reviews for each expert
-                      const expertReviews = {
-                        '1': [ // Alex Thompson
-                          {
-                            id: 'r1',
-                            customerName: 'Sarah Johnson',
-                            rating: 5,
-                            comment: 'Alex did an outstanding job fixing our emergency plumbing issue. Very professional and cleaned up after himself.',
-                            date: '2024-01-10',
-                            projectType: 'Emergency Plumbing Repair'
-                          },
-                          {
-                            id: 'r2',
-                            customerName: 'Michael Chen',
-                            rating: 5,
-                            comment: 'Excellent bathroom renovation work. Alex was punctual, communicative, and delivered exactly what we wanted.',
-                            date: '2024-01-05',
-                            projectType: 'Bathroom Renovation'
-                          },
-                          {
-                            id: 'r3',
-                            customerName: 'Emma Wilson',
-                            rating: 4,
-                            comment: 'Great work on our heating system upgrade. Very knowledgeable and fair pricing.',
-                            date: '2023-12-28',
-                            projectType: 'Heating System Upgrade'
-                          }
-                        ],
-                        '2': [ // Maya Patel
-                          {
-                            id: 'r4',
-                            customerName: 'David Thompson',
-                            rating: 5,
-                            comment: 'Maya installed our smart home system perfectly. Very tech-savvy and explained everything clearly.',
-                            date: '2024-01-08',
-                            projectType: 'Smart Home Installation'
-                          },
-                          {
-                            id: 'r5',
-                            customerName: 'Lisa Rodriguez',
-                            rating: 5,
-                            comment: 'Professional rewiring job. Maya was efficient, clean, and very safety-conscious.',
-                            date: '2024-01-02',
-                            projectType: 'House Rewiring'
-                          }
-                        ],
-                        '3': [ // James Mitchell
-                          {
-                            id: 'r6',
-                            customerName: 'Robert Davies',
-                            rating: 5,
-                            comment: 'James managed our home extension project brilliantly. Great communication and quality workmanship.',
-                            date: '2024-01-12',
-                            projectType: 'Home Extension'
-                          },
-                          {
-                            id: 'r7',
-                            customerName: 'Amanda Foster',
-                            rating: 5,
-                            comment: 'Full renovation completed on time and within budget. James coordinated everything perfectly.',
-                            date: '2023-12-20',
-                            projectType: 'Full Home Renovation'
-                          }
-                        ]
-                      };
-
-                      const reviews = expertReviews[selectedExpert.id as keyof typeof expertReviews] || [];
-                      
-                      if (reviews.length === 0) {
-                        return <p className="text-gray-500 text-center">No reviews yet</p>;
-                      }
-
-                      return reviews.map((review) => (
+                    {loadingReviews ? (
+                      <div className="flex justify-center py-4">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                      </div>
+                    ) : expertReviews.length === 0 ? (
+                      <p className="text-gray-500 text-center">No reviews yet</p>
+                    ) : (
+                      expertReviews.map((review) => (
                         <div key={review.id} className="border-b border-gray-200 pb-4 last:border-b-0 last:pb-0">
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center">
                               <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-sm font-medium mr-3">
-                                {review.customerName.charAt(0)}
+                                {(review.homeowner?.name || 'U').charAt(0)}
                               </div>
                               <div>
-                                <p className="font-medium text-gray-900">{review.customerName}</p>
-                                <p className="text-xs text-gray-500">{review.projectType}</p>
+                                <p className="font-medium text-gray-900">{review.homeowner?.name || 'Anonymous'}</p>
+                                <p className="text-xs text-gray-500">{review.job?.title || 'Project'}</p>
                               </div>
                             </div>
                             <div className="text-right">
@@ -543,13 +490,13 @@ const BrowseExperts = () => {
                                   </svg>
                                 ))}
                               </div>
-                              <p className="text-xs text-gray-500">{review.date}</p>
+                              <p className="text-xs text-gray-500">{new Date(review.createdAt).toLocaleDateString()}</p>
                             </div>
                           </div>
                           <p className="text-gray-700 text-sm leading-relaxed">{review.comment}</p>
                         </div>
-                      ));
-                    })()}
+                      ))
+                    )}
                   </div>
                 </div>
               </div>

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft,
+	ArrowLeft,
 	User,
 	Mail,
 	MapPin,
@@ -24,12 +24,13 @@ import {
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Conversation, JobLead } from '../types';
-import {ChatModal as MessagingModal} from './MessagingModal';
+import { ChatModal as MessagingModal } from './MessagingModal';
 import ContactsList from './ContactsList';
 import { jobService } from '../services/jobService';
 import { userService } from '../services/userService';
 import { reviewService } from '../services/reviewService';
 import { conversationService } from '../services/conversationService';
+import ProfilePhotoUpload from './ProfilePhotoUpload';
 
 const HomeownerProfile = () => {
 	const navigate = useNavigate();
@@ -44,6 +45,11 @@ const HomeownerProfile = () => {
 	);
 	const [showCancelJobConfirm, setShowCancelJobConfirm] = useState(false);
 	const [showReviewModal, setShowReviewModal] = useState(false);
+	const [showCompleteJobConfirm, setShowCompleteJobConfirm] = useState(false);
+	const [selectedJobToComplete, setSelectedJobToComplete] = useState<{
+		jobId: string;
+		tradespersonId: string;
+	} | null>(null);
 	const [showConversationsList, setShowConversationsList] = useState(false);
 	const [showMessaging, setShowMessaging] = useState(false);
 	const [selectedConversation, setSelectedConversation] =
@@ -82,19 +88,29 @@ const HomeownerProfile = () => {
 					const { latitude, longitude } = position.coords;
 					// Reverse geocode to get address
 					const response = await fetch(
-						`https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}`
+						`https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${
+							import.meta.env.VITE_GOOGLE_MAPS_API_KEY
+						}`
 					);
 					const data = await response.json();
-					
+
 					if (data.results && data.results[0]) {
 						const address = data.results[0].formatted_address;
-						setEditData(prev => ({ ...prev, location: address }));
+						setEditData((prev) => ({ ...prev, location: address }));
 					} else {
-						setEditData(prev => ({ ...prev, location: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}` }));
+						setEditData((prev) => ({
+							...prev,
+							location: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
+						}));
 					}
 				} catch (error) {
 					console.error('Error getting address:', error);
-					setEditData(prev => ({ ...prev, location: `${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)}` }));
+					setEditData((prev) => ({
+						...prev,
+						location: `${position.coords.latitude.toFixed(
+							4
+						)}, ${position.coords.longitude.toFixed(4)}`,
+					}));
 				} finally {
 					setFetchingLocation(false);
 				}
@@ -296,7 +312,46 @@ const HomeownerProfile = () => {
 			alert('Failed to cancel job');
 		}
 	};
+	const handleMarkAsComplete = (jobId: string, tradespersonId: string) => {
+		setSelectedJobToComplete({ jobId, tradespersonId });
+		setShowCompleteJobConfirm(true);
+	};
 
+	const confirmCompleteJob = async () => {
+		if (!selectedJobToComplete) return;
+
+		try {
+			await jobService.updateJobLead(selectedJobToComplete.jobId, {
+				isActive: false,
+			});
+
+			setMyProjects((prev) =>
+				prev.map((lead) =>
+					lead.id === selectedJobToComplete.jobId
+						? { ...lead, isActive: false }
+						: lead
+				)
+			);
+
+			const updatedJobLeads = state.jobLeads.map((lead) =>
+				lead.id === selectedJobToComplete.jobId
+					? { ...lead, isActive: false }
+					: lead
+			);
+			dispatch({ type: 'UPDATE_JOB_LEADS', payload: updatedJobLeads });
+
+			setShowCompleteJobConfirm(false);
+			
+			// Show review modal automatically
+			handleLeaveReview(selectedJobToComplete.jobId, selectedJobToComplete.tradespersonId);
+			setSelectedJobToComplete(null);
+			
+			alert('Job marked as completed! Please leave a review for the professional.');
+		} catch (error) {
+			console.error('Failed to complete job:', error);
+			alert('Failed to complete job');
+		}
+	};
 	const handleHireTradesperson = async (
 		jobId: string,
 		tradespersonId: string
@@ -323,7 +378,7 @@ const HomeownerProfile = () => {
 			setMyProjects((prev) =>
 				prev.map((lead) =>
 					lead.id === jobId
-						? { ...lead, hiredTradesperson: tradespersonId, isActive: false }
+						? { ...lead, hiredTradesperson: tradespersonId, isActive: true }
 						: lead
 				)
 			);
@@ -421,6 +476,12 @@ const HomeownerProfile = () => {
 							</div>
 
 							<div className="space-y-4">
+								{/* Profile Photo Upload */}
+								<div className="mb-4 pb-4 border-b border-gray-200">
+									<h4 className="text-sm font-medium text-gray-700 mb-3">Profile Photo</h4>
+									<ProfilePhotoUpload currentAvatar={state.currentUser?.avatar} />
+								</div>
+
 								<div className="flex items-center">
 									<User className="w-5 h-5 text-gray-400 mr-3" />
 									{isEditing ? (
@@ -498,7 +559,9 @@ const HomeownerProfile = () => {
 
 								<div className="flex items-center">
 									<Calendar className="w-5 h-5 text-gray-400 mr-3" />
-									<span className="text-gray-900">Member since 2024</span>
+									<span className="text-gray-900">
+										Member since {state.currentUser.createdAt ? new Date(state.currentUser.createdAt).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }) : '2025'}
+									</span>
 								</div>
 							</div>
 						</div>
@@ -530,9 +593,10 @@ const HomeownerProfile = () => {
 										)}
 									</button>
 									<button
-										onClick={() =>
-											dispatch({ type: 'SET_VIEW', payload: 'submit-project' })
-										}
+										onClick={() => {
+											navigate('/submit-project');
+											setTimeout(() => dispatch({ type: 'SET_VIEW', payload: 'submit-project' }), 100);
+										}}
 										className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
 									>
 										Post New Project
@@ -550,9 +614,10 @@ const HomeownerProfile = () => {
 										You haven't posted any projects yet
 									</p>
 									<button
-										onClick={() =>
-											dispatch({ type: 'SET_VIEW', payload: 'submit-project' })
-										}
+										onClick={() => {
+											navigate('/submit-project');
+											setTimeout(() => dispatch({ type: 'SET_VIEW', payload: 'submit-project' }), 100);
+										}}
 										className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
 									>
 										Post Your First Project
@@ -582,39 +647,39 @@ const HomeownerProfile = () => {
 													</button>
 												)}
 
-													<div className="flex items-center space-x-2">
-														{project.hiredTradesperson && project.isActive && (
-															<span className="px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-																Work in Progress
-															</span>
-														)}
-														{!project.isActive && project.hiredTradesperson && (
-															<span className="px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-																Job Completed
-															</span>
-														)}
-														{!project.isActive && !project.hiredTradesperson && (
-															<span className="px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600">
-																Cancelled
-															</span>
-														)}
-														{project.isActive && !project.hiredTradesperson && (
-															<span className="px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
-																Active
-															</span>
-														)}
-														<span
-															className={`px-3 py-1 rounded-full text-sm font-medium ${
-																project.urgency === 'High'
-																	? 'bg-red-100 text-red-800'
-																	: project.urgency === 'Medium'
-																	? 'bg-orange-100 text-orange-800'
-																	: 'bg-green-100 text-green-800'
-															}`}
-														>
-															{project.urgency} Priority
+												<div className="flex items-center space-x-2">
+													{project.hiredTradesperson && project.isActive !== false && (
+														<span className="px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+															Work in Progress
 														</span>
-													</div>
+													)}
+													{project.hiredTradesperson && project.isActive === false && (
+														<span className="px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+															Job Completed
+														</span>
+													)}
+													{!project.hiredTradesperson && project.isActive === false && (
+														<span className="px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-600">
+															Cancelled
+														</span>
+													)}
+													{!project.hiredTradesperson && project.isActive !== false && (
+														<span className="px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
+															Active
+														</span>
+													)}
+													<span
+														className={`px-3 py-1 rounded-full text-sm font-medium ${
+															project.urgency === 'High'
+																? 'bg-red-100 text-red-800'
+																: project.urgency === 'Medium'
+																? 'bg-orange-100 text-orange-800'
+																: 'bg-green-100 text-green-800'
+														}`}
+													>
+														{project.urgency} Priority
+													</span>
+												</div>
 												<p className="text-gray-600 mb-3">
 													{project.description}
 												</p>
@@ -683,16 +748,28 @@ const HomeownerProfile = () => {
 																					<button
 																						onClick={async () => {
 																							try {
-																								const response = await conversationService.createConversation({
-																									jobId: project.id,
-																									homeownerId: state.currentUser!.id,
-																									tradespersonId: tradespersonId,
-																								});
-																								setSelectedConversation(response.conversation);
+																								const response =
+																									await conversationService.createConversation(
+																										{
+																											jobId: project.id,
+																											homeownerId:
+																												state.currentUser!.id,
+																											tradespersonId:
+																												tradespersonId,
+																										}
+																									);
+																								setSelectedConversation(
+																									response.conversation
+																								);
 																								setShowMessaging(true);
 																							} catch (error) {
-																								console.error('Failed to create conversation:', error);
-																								alert('Failed to start conversation. Please try again.');
+																								console.error(
+																									'Failed to create conversation:',
+																									error
+																								);
+																								alert(
+																									'Failed to start conversation. Please try again.'
+																								);
 																							}
 																						}}
 																						className="bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center text-sm font-medium"
@@ -757,40 +834,36 @@ const HomeownerProfile = () => {
 																		<MessageCircle className="w-4 h-4 mr-1" />
 																		Message
 																	</button>
-																	{!project.isActive && project.hiredTradesperson && (
-																		<button
-																			onClick={() =>
-																				handleLeaveReview(
-																					project.id,
-																					hiredTradesperson.id
-																				)
-																			}
-																			className="bg-orange-600 text-white px-3 py-2 rounded-lg hover:bg-orange-700 transition-colors flex items-center text-sm font-medium"
-																		>
-																			<Star className="w-4 h-4 mr-1" />
-																			Review
-																		</button>
-																	)}
-																	{project.isActive && project.hiredTradesperson && (
-																		<button
-																			onClick={async () => {
-																				if (window.confirm('Are you sure you want to mark this job as complete?')) {
-																					try {
-																						await jobService.updateJobLead(project.id, { isActive: false });
-																						setMyProjects(prev => prev.map(p => p.id === project.id ? { ...p, isActive: false } : p));
-																						alert('Job marked as complete!');
-																					} catch (error) {
-																						console.error('Error completing job:', error);
-																						alert('Failed to mark job as complete.');
-																					}
+																	{project.isActive === false &&
+																		project.hiredTradesperson && (
+																			<button
+																				onClick={() =>
+																					handleLeaveReview(
+																						project.id,
+																						hiredTradesperson.id
+																					)
 																				}
-																			}}
-																			className="bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center text-sm font-medium"
-																		>
-																			<CheckCircle className="w-4 h-4 mr-1" />
-																			Complete
-																		</button>
-																	)}
+																				className="bg-orange-600 text-white px-3 py-2 rounded-lg hover:bg-orange-700 transition-colors flex items-center text-sm font-medium"
+																			>
+																				<Star className="w-4 h-4 mr-1" />
+																				Review
+																			</button>
+																		)}
+																	{project.isActive !== false &&
+																		project.hiredTradesperson && (
+																			<button
+																				onClick={() =>
+																					handleMarkAsComplete(
+																						project.id,
+																						project.hiredTradesperson!
+																					)
+																				}
+																				className="bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center text-sm font-medium"
+																			>
+																				<CheckCircle className="w-4 h-4 mr-1" />
+																				Mark as Complete
+																			</button>
+																		)}
 																</div>
 															</div>
 														</div>
@@ -1161,16 +1234,15 @@ const HomeownerProfile = () => {
 							{/* Modal Header */}
 							<div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 flex items-center justify-between">
 								<div>
-									<h3 className="text-2xl font-bold mb-1">
-										All Responses
-									</h3>
+									<h3 className="text-2xl font-bold mb-1">All Responses</h3>
 									<p className="text-blue-100 text-sm">
 										{selectedProjectForDetails.title}
 									</p>
 								</div>
 								<button
 									onClick={() => setSelectedProjectForDetails(null)}
-									className="text-white hover:bg-white hover:bg-opacity-20 rounded-full p-2 transition-colors">
+									className="text-white hover:bg-white hover:bg-opacity-20 rounded-full p-2 transition-colors"
+								>
 									<X className="w-6 h-6" />
 								</button>
 							</div>
@@ -1182,7 +1254,9 @@ const HomeownerProfile = () => {
 									<div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
 										<div className="flex items-center justify-between">
 											<div>
-												<p className="text-sm text-blue-600 font-medium">Purchased Leads</p>
+												<p className="text-sm text-blue-600 font-medium">
+													Purchased Leads
+												</p>
 												<p className="text-2xl font-bold text-blue-900">
 													{selectedProjectForDetails.purchasedBy.length}
 												</p>
@@ -1193,7 +1267,9 @@ const HomeownerProfile = () => {
 									<div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
 										<div className="flex items-center justify-between">
 											<div>
-												<p className="text-sm text-purple-600 font-medium">Expressed Interest</p>
+												<p className="text-sm text-purple-600 font-medium">
+													Expressed Interest
+												</p>
 												<p className="text-2xl font-bold text-purple-900">
 													{selectedProjectForDetails.interests.length}
 												</p>
@@ -1204,9 +1280,12 @@ const HomeownerProfile = () => {
 									<div className="bg-green-50 border border-green-200 rounded-lg p-4">
 										<div className="flex items-center justify-between">
 											<div>
-												<p className="text-sm text-green-600 font-medium">Total Responses</p>
+												<p className="text-sm text-green-600 font-medium">
+													Total Responses
+												</p>
 												<p className="text-2xl font-bold text-green-900">
-													{selectedProjectForDetails.purchasedBy.length + selectedProjectForDetails.interests.length}
+													{selectedProjectForDetails.purchasedBy.length +
+														selectedProjectForDetails.interests.length}
 												</p>
 											</div>
 											<Users className="w-8 h-8 text-green-400" />
@@ -1222,84 +1301,118 @@ const HomeownerProfile = () => {
 											Professionals Who Purchased This Lead
 										</h4>
 										<div className="space-y-3">
-											{selectedProjectForDetails.purchasedBy.map((tradespersonId) => {
-												const tradesperson = state.users.find((u) => u.id === tradespersonId);
-												if (!tradesperson) return null;
+											{(selectedProjectForDetails.purchasedByDetails || []).map(
+												(tradesperson) => {
+													if (!tradesperson) return null;
 
-												return (
-													<div
-														key={tradespersonId}
-														className="bg-blue-50 border border-blue-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-														<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-															<div className="flex items-center space-x-3 min-w-0 flex-1">
-																<div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-lg flex-shrink-0">
-																	{tradesperson.name.charAt(0)}
-																</div>
-																<div className="min-w-0 flex-1">
-																	<p className="font-semibold text-gray-900 truncate">
-																		{tradesperson.name}
-																	</p>
-																	<p className="text-sm text-gray-600 truncate">
-																		{tradesperson.trades?.join(', ') || 'General Contractor'}
-																	</p>
-																	<div className="flex items-center text-sm text-gray-500 mt-1">
-																		<Star className="w-4 h-4 text-yellow-400 fill-current mr-1" />
-																		{tradesperson.rating ? Number(tradesperson.rating).toFixed(1) : '0.0'}{' '}
-																		({tradesperson.reviews || 0} reviews)
+													return (
+														<div
+															key={tradesperson.id}
+															className="bg-blue-50 border border-blue-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+														>
+															<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+																<div className="flex items-center space-x-3 min-w-0 flex-1">
+																	<div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-lg flex-shrink-0">
+																		{tradesperson.name.charAt(0)}
 																	</div>
-																	{tradesperson.location && (
+																	<div className="min-w-0 flex-1">
+																		<p className="font-semibold text-gray-900 truncate">
+																			{tradesperson.name}
+																		</p>
+																		<p className="text-sm text-gray-600 truncate">
+																			{tradesperson.trades?.join(', ') ||
+																				'General Contractor'}
+																		</p>
 																		<div className="flex items-center text-sm text-gray-500 mt-1">
-																			<MapPin className="w-4 h-4 mr-1" />
-																			{tradesperson.location}
+																			<Star className="w-4 h-4 text-yellow-400 fill-current mr-1" />
+																			{tradesperson.rating
+																				? Number(tradesperson.rating).toFixed(1)
+																				: '0.0'}{' '}
+																			({tradesperson.reviews || 0} reviews)
+																		</div>
+																		{tradesperson.location && (
+																			<div className="flex items-center text-sm text-gray-500 mt-1">
+																				<MapPin className="w-4 h-4 mr-1" />
+																				{tradesperson.location}
+																			</div>
+																		)}
+																	</div>
+																</div>
+																<div className="flex flex-col sm:flex-row gap-2 flex-shrink-0">
+																	{!selectedProjectForDetails.hiredTradesperson &&
+																		selectedProjectForDetails.isActive !==
+																			false && (
+																			<>
+																				<button
+																					onClick={() => {
+																						setShowMessaging(true);
+																						setSelectedConversation({
+																							id: `temp_${selectedProjectForDetails.id}_${tradesperson.id}`,
+																							jobId:
+																								selectedProjectForDetails.id,
+																							jobTitle:
+																								selectedProjectForDetails.title,
+																							homeownerId:
+																								state.currentUser!.id,
+																							tradespersonId: tradesperson.id,
+																							otherUserId: tradesperson.id,
+																							messages: [],
+																							createdAt:
+																								new Date().toISOString(),
+																							unreadCount: 0,
+																						});
+																						setSelectedProjectForDetails(null);
+																					}}
+																					className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center text-sm font-medium whitespace-nowrap"
+																				>
+																					<MessageCircle className="w-4 h-4 mr-1" />
+																					Message
+																				</button>
+																				<button
+																					onClick={() => {
+																						handleHireTradesperson(
+																							selectedProjectForDetails.id,
+																							tradesperson.id
+																						);
+																						setSelectedProjectForDetails(null);
+																					}}
+																					className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center text-sm font-medium whitespace-nowrap"
+																				>
+																					<UserCheck className="w-4 h-4 mr-1" />
+																					Hire
+																				</button>
+																			</>
+																		)}
+																	{selectedProjectForDetails.hiredTradesperson ===
+																		tradesperson.id && (
+																		<div className="flex flex-col gap-2 flex-shrink-0">
+																			{selectedProjectForDetails.isActive !== false && (
+																				<button
+																					onClick={() => {
+																						handleMarkAsComplete(
+																							selectedProjectForDetails.id,
+																							tradesperson.id
+																						);
+																						setSelectedProjectForDetails(null);
+																					}}
+																					className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm font-medium flex items-center justify-center whitespace-nowrap"
+																				>
+																					<CheckCircle className="w-4 h-4 mr-1" />
+																					Mark as Complete
+																				</button>
+																			)}
+																			<span className="bg-green-100 text-green-700 px-3 py-2 rounded-lg text-sm font-medium flex items-center justify-center whitespace-nowrap">
+																				<CheckCircle className="w-4 h-4 mr-1" />
+																				Hired
+																			</span>
 																		</div>
 																	)}
 																</div>
 															</div>
-															<div className="flex flex-col sm:flex-row gap-2 flex-shrink-0">
-																{!selectedProjectForDetails.hiredTradesperson && selectedProjectForDetails.isActive !== false && (
-																	<>
-																		<button
-																			onClick={() => {
-																				setShowMessaging(true);
-																				setSelectedConversation({
-																					id: `temp_${selectedProjectForDetails.id}_${tradespersonId}`,
-																					jobId: selectedProjectForDetails.id,
-																					jobTitle: selectedProjectForDetails.title,
-																					homeownerId: state.currentUser!.id,
-																					tradespersonId: tradespersonId,
-																					otherUserId: tradespersonId,
-																					messages: [],
-																					createdAt: new Date().toISOString(),
-																					unreadCount: 0,
-																				});
-																				setSelectedProjectForDetails(null);
-																			}}
-																			className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center text-sm font-medium whitespace-nowrap">
-																			<MessageCircle className="w-4 h-4 mr-1" />
-																			Message
-																		</button>
-																		<button
-																			onClick={() => {
-																				handleHireTradesperson(selectedProjectForDetails.id, tradespersonId);
-																				setSelectedProjectForDetails(null);
-																			}}
-																			className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center text-sm font-medium whitespace-nowrap">
-																			<UserCheck className="w-4 h-4 mr-1" />
-																			Hire
-																		</button>
-																	</>
-																)}
-																{selectedProjectForDetails.hiredTradesperson === tradespersonId && (
-																	<span className="bg-green-100 text-green-700 px-3 py-2 rounded-lg text-sm font-medium flex items-center whitespace-nowrap">
-																		<CheckCircle className="w-4 h-4 mr-1" />
-																		Hired
-																	</span>
-																)}
-															</div>
 														</div>
-													</div>
-												);
-											})}
+													);
+												}
+											)}
 										</div>
 									</div>
 								)}
@@ -1313,12 +1426,15 @@ const HomeownerProfile = () => {
 										</h4>
 										<div className="space-y-3">
 											{selectedProjectForDetails.interests.map((interest) => {
-												const tradesperson = state.users.find((u) => u.id === interest.tradespersonId);
-												
+												const tradesperson = state.users.find(
+													(u) => u.id === interest.tradespersonId
+												);
+
 												return (
 													<div
 														key={interest.id}
-														className="bg-purple-50 border border-purple-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+														className="bg-purple-50 border border-purple-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+													>
 														<div className="flex flex-col gap-4">
 															{/* Tradesperson Info */}
 															<div className="flex items-start justify-between gap-4">
@@ -1340,53 +1456,93 @@ const HomeownerProfile = () => {
 																		{tradesperson && (
 																			<>
 																				<p className="text-sm text-gray-600">
-																					{tradesperson.trades?.join(', ') || 'General Contractor'}
+																					{tradesperson.trades?.join(', ') ||
+																						'General Contractor'}
 																				</p>
 																				<div className="flex items-center text-sm text-gray-500 mt-1">
 																					<Star className="w-4 h-4 text-yellow-400 fill-current mr-1" />
-																					{tradesperson.rating ? Number(tradesperson.rating).toFixed(1) : '0.0'}{' '}
+																					{tradesperson.rating
+																						? Number(
+																								tradesperson.rating
+																						  ).toFixed(1)
+																						: '0.0'}{' '}
 																					({tradesperson.reviews || 0} reviews)
 																				</div>
 																			</>
 																		)}
-																		<p className="text-xs text-gray-500 mt-1">{interest.date}</p>
+																		<p className="text-xs text-gray-500 mt-1">
+																			{interest.date}
+																		</p>
 																	</div>
 																</div>
 															</div>
 
 															{/* Interest Message */}
 															<div className="bg-white rounded-lg p-3 border border-purple-100">
-																<p className="text-sm text-gray-700 whitespace-pre-wrap">{interest.message}</p>
+																<p className="text-sm text-gray-700 whitespace-pre-wrap">
+																	{interest.message}
+																</p>
 															</div>
 
 															{/* Action Buttons */}
 															<div className="flex flex-col sm:flex-row gap-2">
-																{interest.status === 'pending' && selectedProjectForDetails.isActive !== false && (
-																	<button
-																		onClick={() => {
-																			handleAcceptInterest(selectedProjectForDetails.id, interest.id);
-																		}}
-																		className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm font-medium flex items-center justify-center">
-																		<CheckCircle className="w-4 h-4 mr-1" />
-																		Accept Interest
-																	</button>
-																)}
-																{interest.status === 'accepted' && !selectedProjectForDetails.hiredTradesperson && selectedProjectForDetails.isActive !== false && (
-																	<button
-																		onClick={() => {
-																			handleHireTradesperson(selectedProjectForDetails.id, interest.tradespersonId);
-																			setSelectedProjectForDetails(null);
-																		}}
-																		className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center justify-center">
-																		<UserCheck className="w-4 h-4 mr-1" />
-																		Hire This Professional
-																	</button>
-																)}
-																{selectedProjectForDetails.hiredTradesperson === interest.tradespersonId && (
-																	<span className="bg-green-100 text-green-700 px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center">
-																		<CheckCircle className="w-4 h-4 mr-1" />
-																		Hired
-																	</span>
+																{interest.status === 'pending' &&
+																	selectedProjectForDetails.isActive !==
+																		false && (
+																		<button
+																			onClick={() => {
+																				handleAcceptInterest(
+																					selectedProjectForDetails.id,
+																					interest.id
+																				);
+																			}}
+																			className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm font-medium flex items-center justify-center"
+																		>
+																			<CheckCircle className="w-4 h-4 mr-1" />
+																			Accept Interest
+																		</button>
+																	)}
+																{interest.status === 'accepted' &&
+																	!selectedProjectForDetails.hiredTradesperson &&
+																	selectedProjectForDetails.isActive !==
+																		false && (
+																		<button
+																			onClick={() => {
+																				handleHireTradesperson(
+																					selectedProjectForDetails.id,
+																					interest.tradespersonId
+																				);
+																				setSelectedProjectForDetails(null);
+																			}}
+																			className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center justify-center"
+																		>
+																			<UserCheck className="w-4 h-4 mr-1" />
+																			Hire This Professional
+																		</button>
+																	)}
+																{selectedProjectForDetails.hiredTradesperson ===
+																	interest.tradespersonId && (
+																	<div className="flex flex-col gap-2 w-full">
+																		{selectedProjectForDetails.isActive !== false && (
+																			<button
+																				onClick={() => {
+																					handleMarkAsComplete(
+																						selectedProjectForDetails.id,
+																						interest.tradespersonId
+																					);
+																					setSelectedProjectForDetails(null);
+																				}}
+																				className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm font-medium flex items-center justify-center"
+																			>
+																				<CheckCircle className="w-4 h-4 mr-1" />
+																				Mark as Complete
+																			</button>
+																		)}
+																		<span className="bg-green-100 text-green-700 px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center">
+																			<CheckCircle className="w-4 h-4 mr-1" />
+																			Hired
+																		</span>
+																	</div>
 																)}
 															</div>
 														</div>
@@ -1398,25 +1554,60 @@ const HomeownerProfile = () => {
 								)}
 
 								{/* No Responses Message */}
-								{selectedProjectForDetails.purchasedBy.length === 0 && selectedProjectForDetails.interests.length === 0 && (
-									<div className="text-center py-12">
-										<div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-											<Users className="w-8 h-8 text-gray-400" />
+								{selectedProjectForDetails.purchasedBy.length === 0 &&
+									selectedProjectForDetails.interests.length === 0 && (
+										<div className="text-center py-12">
+											<div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+												<Users className="w-8 h-8 text-gray-400" />
+											</div>
+											<p className="text-gray-500 text-lg font-medium">
+												No responses yet
+											</p>
+											<p className="text-gray-400 text-sm mt-2">
+												Tradespeople will see your job and can purchase the lead
+												or express interest.
+											</p>
 										</div>
-										<p className="text-gray-500 text-lg font-medium">No responses yet</p>
-										<p className="text-gray-400 text-sm mt-2">
-											Tradespeople will see your job and can purchase the lead or express interest.
-										</p>
-									</div>
-								)}
+									)}
 							</div>
 
 							{/* Modal Footer */}
 							<div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
 								<button
 									onClick={() => setSelectedProjectForDetails(null)}
-									className="w-full bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 transition-colors font-medium">
+									className="w-full bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 transition-colors font-medium"
+								>
 									Close
+								</button>
+							</div>
+						</div>
+					</div>
+				)}
+				{showCompleteJobConfirm && (
+					<div className="fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center p-4">
+						<div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl">
+							<div className="flex items-center text-green-600 mb-4">
+								<CheckCircle className="w-8 h-8 mr-3" />
+								<h3 className="text-xl font-bold">Mark Job as Complete?</h3>
+							</div>
+							<p className="text-gray-600 mb-6">
+								Are you sure you want to mark this job as completed? This will close the project and allow you to leave a review for the professional.
+							</p>
+							<div className="flex flex-col sm:flex-row gap-3">
+								<button
+									onClick={confirmCompleteJob}
+									className="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition-colors"
+								>
+									Yes, Mark as Complete
+								</button>
+								<button
+									onClick={() => {
+										setShowCompleteJobConfirm(false);
+										setSelectedJobToComplete(null);
+									}}
+									className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-200 transition-colors"
+								>
+									Cancel
 								</button>
 							</div>
 						</div>

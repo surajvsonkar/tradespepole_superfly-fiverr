@@ -6,6 +6,7 @@ import { User as UserType } from '../types';
 import { authService } from '../services/authService';
 import { GoogleLogin } from '@react-oauth/google';
 import ReCAPTCHA from 'react-google-recaptcha';
+import ProfileCompletionModal from './ProfileCompletionModal';
 
 // Check if we have a real reCAPTCHA key (not the test key)
 const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
@@ -45,12 +46,15 @@ const AuthModal = () => {
 		trades: [] as string[],
 		location: '',
 		postcode: 'W1K 3DE', // Default postcode
+		hourlyRate: '',
 	});
 
 	const [captchaToken, setCaptchaToken] = useState<string | null>(null);
 	const [showPassword, setShowPassword] = useState(false);
 	const [devResetUrl, setDevResetUrl] = useState<string | null>(null);
 	const [fetchingLocation, setFetchingLocation] = useState(false);
+	const [showProfileCompletion, setShowProfileCompletion] = useState(false);
+	const [newGoogleUser, setNewGoogleUser] = useState<{ id: string; name: string; email: string; type: 'homeowner' | 'tradesperson' } | null>(null);
 
 	// Initialize Facebook SDK
 	useEffect(() => {
@@ -146,6 +150,7 @@ const AuthModal = () => {
 			trades: [],
 			location: '',
 			postcode: 'W1K 3DE',
+			hourlyRate: '',
 		});
 		setView('default');
 		setCaptchaToken(null);
@@ -208,7 +213,19 @@ const AuthModal = () => {
 				credentialResponse.credential,
 				state.authMode === 'signup' ? state.userType : undefined
 			);
-			handleAuthSuccess(response);
+			
+			// If this is a new user from Google sign-up, show profile completion form
+			if (response.isNewUser) {
+				setNewGoogleUser({
+					id: response.user.id,
+					name: response.user.name,
+					email: response.user.email,
+					type: response.user.type,
+				});
+				setShowProfileCompletion(true);
+			} else {
+				handleAuthSuccess(response);
+			}
 		} catch (err: any) {
 			if (err.message?.includes('User type required')) {
 				setStatus({ type: 'error', text: 'Please select if you are a Homeowner or Tradesperson first' });
@@ -377,6 +394,7 @@ const AuthModal = () => {
 	};
 
 	return (
+	<>
 		<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
 			<div className="bg-white rounded-xl p-6 sm:p-8 max-w-md w-full max-h-[95vh] overflow-y-auto">
 				<div className="flex justify-between items-center mb-6">
@@ -611,7 +629,6 @@ const AuthModal = () => {
 									/>
 								</div>
 
-								{/* Location Field with Use Current Button */}
 								<div className="relative">
 									<MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
 									<input
@@ -641,6 +658,19 @@ const AuthModal = () => {
 										)}
 									</button>
 								</div>
+
+								{state.userType === 'tradesperson' && (
+									<div className="relative">
+										<div className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 flex items-center justify-center font-bold">£</div>
+										<input
+											type="number"
+											placeholder="Hourly Rate (Optional)"
+											value={(formData as any).hourlyRate}
+											onChange={(e) => setFormData({ ...formData, hourlyRate: e.target.value } as any)}
+											className="w-full px-4 py-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
+										/>
+									</div>
+								)}
 
 								<div className="relative">
 									<MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -764,6 +794,45 @@ const AuthModal = () => {
 				)}
 			</div>
 		</div>
+
+		{/* Profile Completion Modal for Google Sign-ups */}
+		{showProfileCompletion && newGoogleUser && (
+			<ProfileCompletionModal
+				isOpen={showProfileCompletion}
+				onClose={() => setShowProfileCompletion(false)}
+				user={newGoogleUser}
+				onComplete={(updatedUser) => {
+					// Create full user object and complete auth
+					const user: UserType = {
+						id: updatedUser.id,
+						name: updatedUser.name,
+						email: updatedUser.email,
+						type: updatedUser.type,
+						location: updatedUser.location,
+						trades: updatedUser.trades || [],
+						rating: updatedUser.rating || 0,
+						reviews: updatedUser.reviews || 0,
+						verified: updatedUser.verified || false,
+						credits: updatedUser.credits || 0,
+						membershipType: updatedUser.membershipType || 'none',
+						membershipExpiry: updatedUser.membershipExpiry,
+						verificationStatus: updatedUser.verificationStatus,
+						accountStatus: updatedUser.accountStatus,
+						workingArea: updatedUser.workingArea,
+						hasDirectoryListing: updatedUser.hasDirectoryListing || false,
+						directoryListingExpiry: updatedUser.directoryListingExpiry,
+					};
+					
+					dispatch({ type: 'SET_USER', payload: user });
+					window.dispatchEvent(new CustomEvent('user-logged-in'));
+					setShowProfileCompletion(false);
+					setNewGoogleUser(null);
+					setStatus({ type: 'success', text: 'Profile completed successfully!' });
+					closeModalDelayed();
+				}}
+			/>
+		)}
+	</>
 	);
 };
 

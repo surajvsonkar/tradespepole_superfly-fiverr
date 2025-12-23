@@ -22,7 +22,10 @@ export interface User {
     radius: number;
     coordinates?: { lat: number; lng: number };
   };
+  createdAt?: string;
   // Tradesperson-specific fields
+  completedJobs?: number;
+  hourlyRate?: number;
   phone?: string;
   businessName?: string;
   companyDescription?: string;
@@ -125,6 +128,7 @@ export interface Review {
   createdAt: string;
   homeowner?: { name: string; location?: string; avatar?: string };
   tradesperson?: { name: string; trades?: string[]; avatar?: string };
+  job?: { id: string; title: string };
 }
 
 export interface Message {

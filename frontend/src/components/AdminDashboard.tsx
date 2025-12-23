@@ -148,8 +148,14 @@ const AdminDashboard = () => {
 		try {
 			const data = await adminService.getDashboardStats();
 			setDashboardStats(data);
-		} catch (error) {
+		} catch (error: any) {
 			console.error('Failed to load dashboard stats:', error);
+			// If unauthorized, redirect to admin login
+			if (error.response?.status === 401 || error.response?.status === 403) {
+				localStorage.removeItem('adminToken');
+				navigate('/admin/login');
+				return;
+			}
 			alert('Failed to load dashboard data. Please ensure you have admin access.');
 		} finally {
 			setLoading(false);

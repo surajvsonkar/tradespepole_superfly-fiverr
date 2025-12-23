@@ -148,9 +148,21 @@ const QuoteRequest = () => {
     }
   };
 
-  const handleAcceptQuote = (quoteId: string, responseId: string) => {
-    dispatch({ type: 'ACCEPT_QUOTE_RESPONSE', payload: { quoteId, responseId } });
-    alert('Quote accepted! The tradesperson will be notified.');
+  const handleAcceptQuote = async (quoteId: string, responseId: string) => {
+    try {
+      await quoteService.updateQuoteResponseStatus(quoteId, responseId, 'accepted');
+      // Update local state after successful API call
+      setQuoteRequests(prev => prev.map(q => 
+        q.id === quoteId ? {
+          ...q,
+          responses: q.responses.map(r => r.id === responseId ? {...r, status: 'accepted'} : r)
+        } : q
+      ));
+      alert('Quote accepted! The tradesperson has been notified.');
+    } catch (err: any) {
+      console.error('Failed to accept quote:', err);
+      alert(err.response?.data?.error || 'Failed to accept quote. Please try again.');
+    }
   };
 
   const getUrgencyColor = (urgency: string) => {

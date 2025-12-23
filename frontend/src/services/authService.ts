@@ -13,6 +13,7 @@ export interface RegisterData {
     radius: number;
     coordinates?: { lat: number; lng: number };
   };
+  hourlyRate?: number;
   captchaToken?: string;
 }
 

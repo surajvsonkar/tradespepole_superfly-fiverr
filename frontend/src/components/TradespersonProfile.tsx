@@ -43,6 +43,7 @@ import { userService } from '../services/userService';
 import { reviewService } from '../services/reviewService';
 import { paymentService } from '../services/paymentService';
 import { conversationService } from '../services/conversationService';
+import ProfilePhotoUpload from './ProfilePhotoUpload';
 
 const TradespersonProfile = () => {
 	const navigate = useNavigate();
@@ -147,6 +148,7 @@ const TradespersonProfile = () => {
 		email: state.currentUser?.email || '',
 		phone: state.currentUser?.phone || '',
 		businessName: state.currentUser?.businessName || '',
+		hourlyRate: state.currentUser?.hourlyRate?.toString() || '',
 	});
 	const [reviews, setReviews] = useState<Review[]>([]);
 
@@ -737,14 +739,14 @@ const TradespersonProfile = () => {
 									<Star
 										key={star}
 										className={`w-4 h-4 ${
-											star <= (state.currentUser.rating || 0)
+											star <= (state.currentUser?.rating || 0)
 												? 'text-yellow-400 fill-current'
 												: 'text-gray-300'
 										}`}
 									/>
 								))}
 								<span className="ml-2 text-sm font-medium text-gray-700">
-									{state.currentUser.rating
+									{state.currentUser?.rating
 										? Number(state.currentUser.rating).toFixed(1)
 										: '0.0'}
 								</span>
@@ -789,13 +791,6 @@ const TradespersonProfile = () => {
 							) : (
 								<div className="space-y-4">
 									{userReviews.map((review) => {
-										const reviewer = state.users.find(
-											(u) => u.id === review.homeownerId
-										);
-										const job = state.jobLeads.find(
-											(j) => j.id === review.jobId
-										);
-
 										return (
 											<div
 												key={review.id}
@@ -804,14 +799,14 @@ const TradespersonProfile = () => {
 												<div className="flex items-start justify-between mb-4">
 													<div className="flex items-center">
 														<div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold mr-3">
-															{reviewer?.name.charAt(0) || 'U'}
+															{(review.homeowner?.name || 'U').charAt(0)}
 														</div>
 														<div>
 															<h4 className="font-semibold text-gray-900">
-																{reviewer?.name || 'Anonymous'}
+																{review.homeowner?.name || 'Anonymous'}
 															</h4>
 															<p className="text-sm text-gray-500">
-																{job?.title || 'Project'}
+																{review.job?.title || 'Project'}
 															</p>
 														</div>
 													</div>
@@ -841,58 +836,6 @@ const TradespersonProfile = () => {
 									})}
 								</div>
 							)}
-						</div>
-						) : (
-						<div className="space-y-4">
-							{userReviews.map((review) => {
-								const reviewer = state.users.find(
-									(u) => u.id === review.homeownerId
-								);
-								const job = state.jobLeads.find((j) => j.id === review.jobId);
-
-								return (
-									<div
-										key={review.id}
-										className="bg-white border border-gray-200 rounded-lg p-6"
-									>
-										<div className="flex items-start justify-between mb-4">
-											<div className="flex items-center">
-												<div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-semibold mr-3">
-													{reviewer?.name.charAt(0) || 'U'}
-												</div>
-												<div>
-													<h4 className="font-semibold text-gray-900">
-														{reviewer?.name || 'Anonymous'}
-													</h4>
-													<p className="text-sm text-gray-500">
-														{job?.title || 'Project'}
-													</p>
-												</div>
-											</div>
-											<div className="text-right">
-												<div className="flex items-center mb-1">
-													{[...Array(5)].map((_, i) => (
-														<Star
-															key={i}
-															className={`w-4 h-4 ${
-																i < review.rating
-																	? 'text-yellow-400 fill-current'
-																	: 'text-gray-300'
-															}`}
-														/>
-													))}
-												</div>
-												<p className="text-sm text-gray-500">
-													{new Date(review.createdAt).toLocaleDateString()}
-												</p>
-											</div>
-										</div>
-										<p className="text-gray-700 leading-relaxed">
-											{review.comment}
-										</p>
-									</div>
-								);
-							})}
 						</div>
 					</div>
 				);
@@ -1096,11 +1039,11 @@ const TradespersonProfile = () => {
 							{purchasedLeads.map((lead) => {
 								const hasAcceptedInterest = lead.interests.some(
 									(interest) =>
-										interest.tradespersonId === state.currentUser.id &&
+										interest.tradespersonId === state.currentUser?.id &&
 										interest.status === 'accepted'
 								);
 								const wasPurchased = lead.purchasedBy.includes(
-									state.currentUser.id
+									state.currentUser?.id || ''
 								);
 
 								return (
@@ -1474,6 +1417,23 @@ const TradespersonProfile = () => {
 							</div>
 							<div>
 								<label className="block text-sm font-medium text-gray-700 mb-2">
+									Hourly rate (£)
+								</label>
+								<input
+									type="number"
+									value={contactData.hourlyRate}
+									onChange={(e) =>
+										setContactData({
+											...contactData,
+											hourlyRate: e.target.value,
+										})
+									}
+									className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+									placeholder="e.g. 50"
+								/>
+							</div>
+							<div>
+								<label className="block text-sm font-medium text-gray-700 mb-2">
 									Email
 								</label>
 								<input
@@ -1508,6 +1468,14 @@ const TradespersonProfile = () => {
 						<h2 className="text-xl font-semibold text-gray-900">
 							Manage account
 						</h2>
+
+						{/* Profile Photo Upload */}
+						<div className="bg-white border border-gray-200 rounded-lg p-6">
+							<h3 className="text-lg font-semibold text-gray-900 mb-4">
+								Profile Photo
+							</h3>
+							<ProfilePhotoUpload currentAvatar={state.currentUser.avatar} />
+						</div>
 
 						{/* Verification Status */}
 						<div className="bg-white border border-gray-200 rounded-lg p-6">
