@@ -6,13 +6,13 @@ import {
 	Loader,
 	Lock,
 	Zap,
-	Star,
 	TrendingUp,
-	BarChart3,
-	Headphones,
+	Star,
 	Award,
-	Infinity,
+	BarChart3,
 	ChevronRight,
+	Sparkles,
+	Crown,
 } from 'lucide-react';
 import { loadStripe } from '@stripe/stripe-js';
 import {
@@ -38,81 +38,112 @@ interface BoostPaymentModalProps {
 interface BoostPlan {
 	id: string;
 	name: string;
+	displayName: string;
 	price: number;
 	duration: number;
+	durationLabel: string;
+	leadPrice: string;
+	normalLeadPrice: string;
+	weeklyEquivalent?: string;
+	description: string;
 	features: string[];
-	savings?: string | null;
-	popular?: boolean;
-	special?: boolean;
+	badge?: string;
+	badgeColor?: string;
+	recommended?: boolean;
+	isLongTerm?: boolean;
 }
 
 const BOOST_PLANS: BoostPlan[] = [
 	{
 		id: '1_week_boost',
-		name: '1 Week Boost',
+		name: '1 Week Profile Boost',
+		displayName: '1 Week Boost',
 		price: 19.99,
 		duration: 7,
+		durationLabel: '7 days',
+		leadPrice: '£7.99',
+		normalLeadPrice: '£9.99',
+		description: 'Short-term visibility',
 		features: [
-			'Priority placement in search results',
-			'3x more profile views',
-			'Featured badge on your profile',
-			'Advanced analytics dashboard',
-			'Premium customer support',
+			'Priority placement for 7 days',
+			'Featured profile badge',
+			'£7.99 per job lead while Boosted',
 		],
 	},
 	{
 		id: '1_month_boost',
-		name: '1 Month Boost',
+		name: '1 Month Profile Boost',
+		displayName: '1 Month Boost',
 		price: 49.99,
 		duration: 30,
+		durationLabel: '30 days',
+		leadPrice: '£7.99',
+		normalLeadPrice: '£9.99',
+		weeklyEquivalent: '£12.50/week',
+		description: 'Best for steady work',
+		badge: 'Most Popular',
+		badgeColor: 'bg-blue-500',
 		features: [
-			'Priority placement in search results',
-			'3x more profile views',
-			'Featured badge on your profile',
-			'Advanced analytics dashboard',
-			'Premium customer support',
+			'Consistent visibility for 30 days',
+			'Priority placement throughout the month',
+			'£7.99 per job lead while Boosted',
+			'Equivalent to £12.50 per week',
 		],
-		savings: '37%',
-		popular: true,
+		recommended: true,
 	},
 	{
 		id: '3_month_boost',
-		name: '3 Month Boost',
+		name: '3 Month Profile Boost',
+		displayName: '3 Month Boost',
 		price: 99.99,
 		duration: 90,
+		durationLabel: '90 days',
+		leadPrice: '£7.99',
+		normalLeadPrice: '£9.99',
+		weeklyEquivalent: '£8.33/week',
+		description: 'Save 58% · Lowest weekly cost',
+		badge: 'Best Value',
+		badgeColor: 'bg-green-500',
 		features: [
-			'Priority placement in search results',
-			'3x more profile views',
-			'Featured badge on your profile',
-			'Advanced analytics dashboard',
-			'Premium customer support',
+			'Maximum visibility over time',
+			'Ideal for busy trades',
+			'£7.99 per job lead while Boosted',
+			'Equivalent to £8.33 per week',
 		],
-		savings: '58%',
 	},
 	{
 		id: '5_year_unlimited',
-		name: '5 Years Unlimited Leads',
+		name: '5-Year Profile Boost Pass',
+		displayName: '5-Year Pass',
 		price: 995.0,
 		duration: 1825,
+		durationLabel: '5 years',
+		leadPrice: '£7.99',
+		normalLeadPrice: '£9.99',
+		description: 'One-time payment · Maximum value',
+		badge: 'Long-Term',
+		badgeColor: 'bg-yellow-500',
 		features: [
-			'Priority placement in search results',
-			'3x more profile views',
-			'Featured badge on your profile',
-			'Advanced analytics dashboard',
-			'Premium customer support',
-			'Unlimited job leads at no extra cost',
+			'Continuous Profile Boost for 5 full years',
+			'Priority placement & featured badge',
+			'Discounted job lead pricing while active',
+			'No renewals · No contracts',
 		],
-		special: true,
+		isLongTerm: true,
 	},
 ];
 
 const FeatureIcon = ({ feature }: { feature: string }) => {
-	if (feature.includes('Priority')) return <TrendingUp className="w-4 h-4" />;
-	if (feature.includes('views')) return <Star className="w-4 h-4" />;
-	if (feature.includes('badge')) return <Award className="w-4 h-4" />;
-	if (feature.includes('analytics')) return <BarChart3 className="w-4 h-4" />;
-	if (feature.includes('support')) return <Headphones className="w-4 h-4" />;
-	if (feature.includes('Unlimited')) return <Infinity className="w-4 h-4" />;
+	if (feature.includes('Priority') || feature.includes('placement'))
+		return <TrendingUp className="w-4 h-4" />;
+	if (feature.includes('visibility') || feature.includes('Consistent'))
+		return <Star className="w-4 h-4" />;
+	if (feature.includes('badge') || feature.includes('Featured'))
+		return <Award className="w-4 h-4" />;
+	if (feature.includes('lead') || feature.includes('£'))
+		return <BarChart3 className="w-4 h-4" />;
+	if (feature.includes('Continuous') || feature.includes('renewals'))
+		return <Crown className="w-4 h-4" />;
 	return <Check className="w-4 h-4" />;
 };
 
@@ -172,13 +203,15 @@ const PaymentForm = ({
 			if (paymentIntent?.status === 'succeeded') {
 				// Confirm the boost purchase on our backend to update the database
 				try {
-					const confirmResponse = await paymentService.confirmBoostPurchase(paymentIntent.id);
-					
+					const confirmResponse = await paymentService.confirmBoostPurchase(
+						paymentIntent.id
+					);
+
 					// Update user membership in app state with confirmed data from database
 					dispatch({
 						type: 'UPDATE_USER',
 						payload: {
-							membershipType: confirmResponse.user.membershipType,
+							membershipType: confirmResponse.user.membershipType as any,
 							membershipExpiry: confirmResponse.user.membershipExpiry,
 							verified: true,
 						},
@@ -192,19 +225,13 @@ const PaymentForm = ({
 				} catch (confirmError: any) {
 					console.error('Boost confirmation error:', confirmError);
 					// Payment succeeded but confirmation failed - show success anyway
-					// Use estimated values
 					const expiryDate = new Date();
 					expiryDate.setDate(expiryDate.getDate() + plan.duration);
 
 					dispatch({
 						type: 'UPDATE_USER',
 						payload: {
-							membershipType:
-								plan.id === '5_year_unlimited'
-									? 'unlimited_5_year'
-									: plan.id === '3_month_boost'
-									? 'premium'
-									: 'basic',
+							membershipType: plan.id as any,
 							membershipExpiry: expiryDate.toISOString(),
 							verified: true,
 						},
@@ -234,12 +261,15 @@ const PaymentForm = ({
 					🎉 Boost Activated!
 				</h3>
 				<p className="text-gray-600 mb-4">
-					Your {plan.name} has been successfully activated.
+					Your {plan.displayName} has been successfully activated.
 				</p>
 				<div className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-xl p-4">
-					<p className="text-sm text-blue-700">
-						Your profile is now boosted and you'll start seeing results
-						immediately!
+					<p className="text-sm text-blue-700 mb-2">
+						Your profile is now boosted! You'll start seeing results
+						immediately.
+					</p>
+					<p className="text-xs text-blue-600">
+						Job leads now cost {plan.leadPrice} (save £2 per lead)
 					</p>
 				</div>
 			</div>
@@ -250,61 +280,102 @@ const PaymentForm = ({
 		<form onSubmit={handleSubmit} className="space-y-6">
 			{/* Plan Summary */}
 			<div
-				className={`rounded-xl p-4 ${
-					plan.special
-						? 'bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-300'
-						: 'bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200'
+				className={`rounded-xl p-5 ${
+					plan.isLongTerm
+						? 'bg-gradient-to-br from-yellow-50 via-orange-50 to-red-50 border-2 border-yellow-300'
+						: plan.recommended
+						? 'bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-300'
+						: 'bg-gradient-to-br from-gray-50 to-blue-50 border-2 border-gray-200'
 				}`}
 			>
-				<div className="flex justify-between items-center mb-3">
-					<div>
-						<h4
-							className={`font-bold text-lg ${
-								plan.special ? 'text-yellow-800' : 'text-blue-900'
-							}`}
-						>
-							{plan.special && '🔥 '}
-							{plan.name}
-						</h4>
-						{plan.savings && (
-							<span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
-								Save {plan.savings}
+				<div className="flex justify-between items-start mb-4">
+					<div className="flex-1">
+						<div className="flex items-center gap-2 mb-2">
+							{plan.isLongTerm && <Crown className="w-5 h-5 text-yellow-600" />}
+							{plan.recommended && (
+								<Sparkles className="w-5 h-5 text-blue-600" />
+							)}
+							<h4
+								className={`font-bold text-lg ${
+									plan.isLongTerm
+										? 'text-yellow-800'
+										: plan.recommended
+										? 'text-blue-900'
+										: 'text-gray-900'
+								}`}
+							>
+								{plan.name}
+							</h4>
+						</div>
+						{plan.badge && (
+							<span
+								className={`inline-block ${plan.badgeColor} text-white text-xs font-semibold px-2 py-1 rounded-full`}
+							>
+								{plan.badge}
 							</span>
 						)}
+						<p className="text-sm text-gray-600 mt-2">{plan.description}</p>
 					</div>
-					<div className="text-right">
+					<div className="text-right ml-4">
 						<div
-							className={`text-2xl font-bold ${
-								plan.special ? 'text-yellow-700' : 'text-blue-600'
+							className={`text-3xl font-bold ${
+								plan.isLongTerm
+									? 'text-yellow-700'
+									: plan.recommended
+									? 'text-blue-600'
+									: 'text-gray-900'
 							}`}
 						>
 							£{plan.price.toFixed(2)}
 						</div>
-						<div className="text-xs text-gray-500">
-							{plan.id === '5_year_unlimited' ? 'one-time' : 'one-time payment'}
-						</div>
-					</div>
-				</div>
-
-				<div className="border-t border-gray-200 pt-3 mt-3">
-					<p className="text-xs text-gray-600 mb-2">What you'll get:</p>
-					<div className="grid grid-cols-1 gap-1">
-						{plan.features.slice(0, 3).map((feature, index) => (
-							<div
-								key={index}
-								className="flex items-center text-xs text-gray-700"
-							>
-								<Check className="w-3 h-3 text-green-500 mr-1 flex-shrink-0" />
-								<span className="truncate">{feature}</span>
-							</div>
-						))}
-						{plan.features.length > 3 && (
-							<div className="text-xs text-blue-600">
-								+{plan.features.length - 3} more benefits
+						<div className="text-xs text-gray-500 mt-1">one-time</div>
+						{plan.weeklyEquivalent && (
+							<div className="text-xs text-green-600 font-medium mt-1">
+								{plan.weeklyEquivalent}
 							</div>
 						)}
 					</div>
 				</div>
+
+				<div className="border-t border-gray-300 pt-4 mt-4">
+					<div className="bg-white/60 rounded-lg p-3 mb-3">
+						<div className="flex items-center justify-between text-sm">
+							<span className="text-gray-600">Lead price while boosted:</span>
+							<div className="flex items-center gap-2">
+								<span className="text-gray-400 line-through">
+									{plan.normalLeadPrice}
+								</span>
+								<span className="text-green-600 font-bold text-lg">
+									{plan.leadPrice}
+								</span>
+							</div>
+						</div>
+						<p className="text-xs text-gray-500 mt-1">Save £2 per lead</p>
+					</div>
+
+					<p className="text-xs font-medium text-gray-700 mb-2">
+						What's included:
+					</p>
+					<div className="space-y-2">
+						{plan.features.map((feature, index) => (
+							<div
+								key={index}
+								className="flex items-start text-sm text-gray-700"
+							>
+								<Check className="w-4 h-4 text-green-500 mr-2 flex-shrink-0 mt-0.5" />
+								<span>{feature}</span>
+							</div>
+						))}
+					</div>
+				</div>
+			</div>
+
+			{/* Important Notice */}
+			<div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+				<p className="text-xs text-blue-800">
+					<strong>Note:</strong> Boosts increase visibility and reduce lead
+					prices. All job leads remain visible to all tradespeople.
+				</p>
 			</div>
 
 			{/* Card Input */}
@@ -340,9 +411,25 @@ const PaymentForm = ({
 			)}
 
 			{/* Secure Payment Notice */}
-			<div className="flex items-center justify-center text-sm text-gray-500">
-				<Lock className="w-4 h-4 mr-1" />
-				Secured by Stripe. Your card details are encrypted.
+			<div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+				<div className="flex items-center justify-center text-sm text-gray-600 mb-2">
+					<Lock className="w-4 h-4 mr-2" />
+					Secured by Stripe. Your card details are encrypted.
+				</div>
+				<div className="flex flex-wrap justify-center gap-3 text-xs text-gray-500">
+					<span className="flex items-center">
+						<Check className="w-3 h-3 text-green-500 mr-1" />
+						No contracts
+					</span>
+					<span className="flex items-center">
+						<Check className="w-3 h-3 text-green-500 mr-1" />
+						Optional upgrade
+					</span>
+					<span className="flex items-center">
+						<Check className="w-3 h-3 text-green-500 mr-1" />
+						Transparent pricing
+					</span>
+				</div>
 			</div>
 
 			{/* Buttons */}
@@ -358,10 +445,12 @@ const PaymentForm = ({
 				<button
 					type="submit"
 					disabled={!stripe || loading}
-					className={`flex-1 py-3 px-4 rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center transition-colors ${
-						plan.special
-							? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white hover:from-yellow-600 hover:to-orange-600'
-							: 'bg-blue-600 text-white hover:bg-blue-700'
+					className={`flex-1 py-3 px-4 rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center transition-all ${
+						plan.isLongTerm
+							? 'bg-gradient-to-r from-yellow-500 via-orange-500 to-red-500 text-white hover:from-yellow-600 hover:via-orange-600 hover:to-red-600'
+							: plan.recommended
+							? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700'
+							: 'bg-gray-900 text-white hover:bg-gray-800'
 					}`}
 				>
 					{loading ? (
@@ -414,7 +503,7 @@ const BoostPaymentModal = ({
 
 	return (
 		<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-			<div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+			<div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
 				<div className="p-6">
 					{/* Header */}
 					<div className="flex items-center justify-between mb-6">
@@ -424,12 +513,14 @@ const BoostPaymentModal = ({
 							</div>
 							<div>
 								<h2 className="text-xl font-bold text-gray-900">
-									{step === 'select' ? 'Choose Your Boost Plan' : 'Complete Payment'}
-								</h2>
-								<p className="text-sm text-gray-500">
 									{step === 'select'
-										? 'Supercharge your profile visibility'
-										: `Purchasing ${selectedPlan?.name}`}
+										? '🚀 Boost Your Profile'
+										: 'Complete Payment'}
+								</h2>
+								<p className="text-sm text-gray-600">
+									{step === 'select'
+										? 'Get more visibility · Pay less per lead'
+										: `Purchasing ${selectedPlan?.displayName}`}
 								</p>
 							</div>
 						</div>
@@ -442,88 +533,174 @@ const BoostPaymentModal = ({
 					</div>
 
 					{step === 'select' ? (
-						<div className="space-y-4">
-							{BOOST_PLANS.map((plan) => (
+						<div className="space-y-5">
+							{/* Info Banner */}
+							<div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+								<p className="text-sm text-blue-800 mb-2">
+									<strong>Important:</strong> All job leads are always visible
+									to all tradespeople.
+								</p>
+								<p className="text-xs text-blue-700">
+									Boosts increase visibility and reduce the price you pay per
+									lead while active (£7.99 vs £9.99).
+								</p>
+							</div>
+
+							{/* Standard Plans */}
+							<div className="space-y-3">
+								{BOOST_PLANS.filter((plan) => !plan.isLongTerm).map((plan) => (
+									<button
+										key={plan.id}
+										onClick={() => handlePlanSelect(plan)}
+										className={`w-full text-left rounded-xl p-4 border-2 transition-all hover:shadow-lg ${
+											plan.recommended
+												? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-400 hover:border-blue-500 ring-2 ring-blue-200'
+												: 'bg-white border-gray-200 hover:border-blue-300'
+										}`}
+									>
+										<div className="flex items-center justify-between mb-3">
+											<div className="flex-1">
+												<div className="flex items-center gap-2 mb-1">
+													<h3 className="font-bold text-lg text-gray-900">
+														{plan.name}
+													</h3>
+													{plan.badge && (
+														<span
+															className={`${plan.badgeColor} text-white text-xs font-semibold px-2 py-1 rounded-full`}
+														>
+															{plan.badge}
+														</span>
+													)}
+												</div>
+												<p className="text-sm text-gray-600">
+													{plan.description}
+												</p>
+											</div>
+											<div className="flex items-center gap-3 ml-4">
+												<div className="text-right">
+													<div className="text-2xl font-bold text-blue-600">
+														£{plan.price.toFixed(2)}
+													</div>
+													{plan.weeklyEquivalent && (
+														<div className="text-xs text-green-600 font-medium">
+															{plan.weeklyEquivalent}
+														</div>
+													)}
+												</div>
+												<ChevronRight className="w-5 h-5 text-gray-400" />
+											</div>
+										</div>
+
+										{/* Lead Price Highlight */}
+										<div className="bg-green-50 border border-green-200 rounded-lg p-2 mb-3">
+											<div className="flex items-center justify-between text-sm">
+												<span className="text-gray-600">
+													Job leads while boosted:
+												</span>
+												<div className="flex items-center gap-2">
+													<span className="text-gray-400 line-through text-xs">
+														£9.99
+													</span>
+													<span className="text-green-700 font-bold">
+														£7.99
+													</span>
+												</div>
+											</div>
+										</div>
+
+										{/* Features */}
+										<div className="grid grid-cols-2 gap-2">
+											{plan.features.slice(0, 4).map((feature, index) => (
+												<div
+													key={index}
+													className="flex items-center text-xs text-gray-600"
+												>
+													<FeatureIcon feature={feature} />
+													<span className="ml-1.5 truncate">
+														{feature.length > 30
+															? feature.substring(0, 30) + '...'
+															: feature}
+													</span>
+												</div>
+											))}
+										</div>
+									</button>
+								))}
+							</div>
+
+							{/* 5-Year Plan - Separate */}
+							{BOOST_PLANS.filter((plan) => plan.isLongTerm).map((plan) => (
 								<button
 									key={plan.id}
 									onClick={() => handlePlanSelect(plan)}
-									className={`w-full text-left rounded-xl p-4 border-2 transition-all hover:shadow-md ${
-										plan.special
-											? 'bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-300 hover:border-yellow-400'
-											: plan.popular
-											? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-300 hover:border-blue-400'
-											: 'bg-white border-gray-200 hover:border-blue-300'
-									}`}
+									className="w-full text-left rounded-xl p-5 border-2 border-yellow-400 bg-gradient-to-br from-yellow-50 via-orange-50 to-red-50 hover:shadow-xl transition-all"
 								>
-									<div className="flex items-center justify-between">
-										<div className="flex-1">
-											<div className="flex items-center gap-2 mb-1">
-												<h3
-													className={`font-bold ${
-														plan.special ? 'text-yellow-800' : 'text-gray-900'
-													}`}
-												>
-													{plan.special && '🔥 '}
-													{plan.name}
-												</h3>
-												{plan.popular && (
-													<span className="text-xs bg-blue-600 text-white px-2 py-0.5 rounded-full">
-														Popular
+									<div className="flex items-start justify-between mb-3">
+										<div className="flex items-center flex-1">
+											<Crown className="w-6 h-6 text-yellow-600 mr-3 flex-shrink-0" />
+											<div>
+												<div className="flex items-center gap-2 mb-1">
+													<h3 className="font-bold text-lg text-yellow-800">
+														🔥 {plan.name}
+													</h3>
+													<span className="bg-yellow-500 text-white text-xs font-semibold px-2 py-1 rounded-full">
+														{plan.badge}
 													</span>
-												)}
-												{plan.savings && (
-													<span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
-														Save {plan.savings}
-													</span>
-												)}
-											</div>
-											<div className="flex items-center gap-4 text-sm text-gray-600">
-												<span>
-													{plan.duration < 30
-														? `${plan.duration} days`
-														: plan.duration < 365
-														? `${Math.round(plan.duration / 30)} month${
-																plan.duration >= 60 ? 's' : ''
-														  }`
-														: '5 years'}
-												</span>
-												<span>•</span>
-												<span>{plan.features.length} benefits</span>
+												</div>
+												<p className="text-sm text-yellow-700">
+													{plan.description}
+												</p>
 											</div>
 										</div>
-										<div className="flex items-center gap-3">
+										<div className="flex items-center gap-3 ml-4">
 											<div className="text-right">
-												<div
-													className={`text-xl font-bold ${
-														plan.special ? 'text-yellow-700' : 'text-blue-600'
-													}`}
-												>
-													£{plan.price.toFixed(2)}
+												<div className="text-3xl font-bold text-yellow-800">
+													£{plan.price.toFixed(0)}
 												</div>
+												<div className="text-xs text-yellow-600">one-time</div>
 											</div>
-											<ChevronRight className="w-5 h-5 text-gray-400" />
+											<ChevronRight className="w-6 h-6 text-yellow-600" />
 										</div>
 									</div>
 
-									{/* Features Preview */}
-									<div className="mt-3 pt-3 border-t border-gray-200 grid grid-cols-2 gap-2">
+									<div className="bg-white/60 rounded-lg p-3 mb-3">
+										<p className="text-sm text-gray-700 mb-2">
+											<strong>Best long-term value</strong> for serious
+											professionals
+										</p>
+										<div className="flex items-center justify-between text-sm">
+											<span className="text-gray-600">Lead pricing:</span>
+											<span className="text-green-700 font-bold">
+												£7.99 for 5 years
+											</span>
+										</div>
+									</div>
+
+									<div className="grid grid-cols-2 gap-2">
 										{plan.features.map((feature, index) => (
 											<div
 												key={index}
-												className="flex items-center text-xs text-gray-600"
+												className="flex items-start text-xs text-gray-700"
 											>
 												<FeatureIcon feature={feature} />
-												<span className="ml-1.5 truncate">{feature}</span>
+												<span className="ml-1.5">
+													{feature.length > 35
+														? feature.substring(0, 35) + '...'
+														: feature}
+												</span>
 											</div>
 										))}
 									</div>
 								</button>
 							))}
 
-							<p className="text-xs text-gray-500 text-center mt-4">
-								All plans include instant activation. One-time payment, no
-								recurring charges.
-							</p>
+							{/* Footer Note */}
+							<div className="text-center pt-2">
+								<p className="text-xs text-gray-500">
+									✔ No contracts · ✔ No auto-renewal · ✔ Secure payment via
+									Stripe
+								</p>
+							</div>
 						</div>
 					) : (
 						selectedPlan && (
@@ -543,4 +720,3 @@ const BoostPaymentModal = ({
 };
 
 export default BoostPaymentModal;
-

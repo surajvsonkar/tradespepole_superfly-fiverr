@@ -97,6 +97,7 @@ const sendEmail = async (to: string, subject: string, text: string): Promise<boo
 // Register a new user
 export const register = async (req: Request, res: Response): Promise<void> => {
 	try {
+		console.log('Registering user with body:', req.body);
 		const { name, email, password, phone, type, location, postcode, trades, workingArea, captchaToken, hourlyRate } = req.body;
 
 		// Validate required fields
@@ -126,9 +127,9 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 			}
 		}
 
-		// Check if user already exists
+		// Check if user exists
 		const existingUser = await prisma.user.findUnique({
-			where: { email },
+			where: { email }
 		});
 
 		if (existingUser) {
@@ -144,6 +145,27 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 		const emailVerificationExpires = new Date();
 		emailVerificationExpires.setHours(emailVerificationExpires.getHours() + 24); // 24 hours
 
+		// Determine work postcode: use specific 'postcode' field if provided, otherwise 'location' or default
+		const workPostcodeValue = postcode || location || 'W1K 3DE';
+		
+		// Parse workingArea if it's a string
+		let parsedWorkingArea = workingArea;
+		if (typeof workingArea === 'string') {
+			try {
+				parsedWorkingArea = JSON.parse(workingArea);
+			} catch (e) {
+				console.error('Error parsing workingArea:', e);
+			}
+		}
+
+		// FIX: Initialize workingArea from postcode if not provided so it persists in the map view
+		if (!parsedWorkingArea && type === 'tradesperson') {
+			parsedWorkingArea = {
+				centerLocation: workPostcodeValue,
+				radius: 15
+			};
+		}
+
 		// Create user
 		const user = await prisma.user.create({
 			data: {
@@ -155,7 +177,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 				location,
 				workPostcode: postcode || 'W1K 3DE', // Store postcode for tradespeople, use as workPostcode
 				trades: trades || [],
-				workingArea: workingArea || null,
+				workingArea: parsedWorkingArea || null,
 				hourlyRate: hourlyRate ? parseFloat(hourlyRate) : null,
 				accountStatus: 'active',
 				verificationStatus: 'pending',
@@ -169,6 +191,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 				id: true,
 				name: true,
 				email: true,
+				phone: true,
 				type: true,
 				avatar: true,
 				location: true,
@@ -182,6 +205,8 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 				verificationStatus: true,
 				accountStatus: true,
 				workingArea: true,
+				workPostcode: true, // FIX: Include workPostcode in response
+				hourlyRate: true,   // FIX: Include hourlyRate in response
 				hasDirectoryListing: true,
 				directoryListingExpiry: true,
 				createdAt: true,
@@ -792,6 +817,7 @@ export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
 				id: true,
 				name: true,
 				email: true,
+				phone: true,
 				type: true,
 				avatar: true,
 				location: true,
@@ -807,6 +833,12 @@ export const getMe = async (req: AuthRequest, res: Response): Promise<void> => {
 				workingArea: true,
 				hasDirectoryListing: true,
 				directoryListingExpiry: true,
+				directoryStatus: true,
+				businessName: true,
+				companyDescription: true,
+				hourlyRate: true,
+				completedJobs: true,
+				workPostcode: true,
 				createdAt: true,
 			},
 		});

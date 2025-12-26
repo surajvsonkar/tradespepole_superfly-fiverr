@@ -29,7 +29,6 @@ import {
 	Instagram,
 	Twitter,
 	Linkedin,
-	Globe,
 } from 'lucide-react';
 import { adminService } from '../services/adminService';
 
@@ -118,6 +117,11 @@ const AdminDashboard = () => {
 	const [savingPrices, setSavingPrices] = useState(false);
 	const [priceMessage, setPriceMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 	
+	// Boost page management
+	const [hideBoostPage, setHideBoostPage] = useState(false);
+	const [boostPageContent, setBoostPageContent] = useState<any>({});
+	const [savingBoostContent, setSavingBoostContent] = useState(false);
+	
 	// Settings active sub-tab
 	const [settingsTab, setSettingsTab] = useState<'pricing' | 'boost' | 'social' | 'security'>('pricing');
 
@@ -140,6 +144,7 @@ const AdminDashboard = () => {
 			loadBoostPrices();
 			loadPricing();
 			loadSocialLinks();
+			loadExtraSettings();
 		}
 	}, [activeTab, searchTerm, transactionFilter, directoryFilter]);
 
@@ -251,6 +256,51 @@ const AdminDashboard = () => {
 			setSocialLinks(data.socialLinks || { facebook: '', instagram: '', twitter: '', linkedin: '' });
 		} catch (error) {
 			console.error('Failed to load social links:', error);
+		}
+	};
+
+	const loadExtraSettings = async () => {
+		try {
+			const data = await adminService.getAllSettings();
+			const settings = data.settings;
+			setHideBoostPage(settings.hide_boost_page === 'true' || settings.hide_boost_page === true);
+			setBoostPageContent(settings.boost_page_content || {
+				title: 'Boost Your Profile',
+				subtitle: 'Get more leads and grow your business with our premium boost plans',
+				features: [
+					{ title: 'Top Search Placement', description: 'Be the first profile clients see when searching' },
+					{ title: '3x More Profile Views', description: 'Dramatically increase your visibility' },
+					{ title: 'Featured Profile Badge', description: 'Stand out with a premium badge' },
+					{ title: '20% Cheaper Job Leads', description: 'Pay less for every lead you purchase' },
+					{ title: 'Premium Support', description: 'Get priority assistance whenever you need help' }
+				]
+			});
+		} catch (error) {
+			console.error('Failed to load extra settings:', error);
+		}
+	};
+
+	const handleUpdateBoostVisibility = async (hide: boolean) => {
+		try {
+			await adminService.updateSetting('hide_boost_page', hide);
+			setHideBoostPage(hide);
+			alert(`Boost page is now ${hide ? 'hidden' : 'visible'}`);
+		} catch (error) {
+			console.error('Failed to update boost visibility:', error);
+			alert('Failed to update boost visibility');
+		}
+	};
+
+	const handleUpdateBoostContent = async () => {
+		setSavingBoostContent(true);
+		try {
+			await adminService.updateSetting('boost_page_content', boostPageContent);
+			alert('Boost page content updated successfully');
+		} catch (error) {
+			console.error('Failed to update boost content:', error);
+			alert('Failed to update boost content');
+		} finally {
+			setSavingBoostContent(false);
 		}
 	};
 
@@ -372,6 +422,28 @@ const AdminDashboard = () => {
 		} catch (error) {
 			console.error('Failed to delete user:', error);
 			alert('Failed to delete user');
+		}
+	};
+
+	const handleSuspendUser = async (userId: string, isSuspended: boolean) => {
+		try {
+			await adminService.suspendUser(userId, isSuspended);
+			alert(`User ${isSuspended ? 'suspended' : 'active'} successfully`);
+			
+			// Reload data
+			if (activeTab === 'homeowners') {
+				loadHomeowners();
+			} else if (activeTab === 'tradespeople') {
+				loadTradespeople();
+			}
+			
+			// Update local state if modal is open
+			if (selectedUser && selectedUser.id === userId) {
+				setSelectedUser({ ...selectedUser, isSuspended });
+			}
+		} catch (error) {
+			console.error('Failed to suspend user:', error);
+			alert('Failed to update suspension status');
 		}
 	};
 
@@ -1023,47 +1095,142 @@ const AdminDashboard = () => {
 				)}
 
 				{settingsTab === 'boost' && (
-					<div className="space-y-6">
-						{priceMessage && (
-							<div className={`p-4 rounded-lg ${priceMessage.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-								{priceMessage.text}
+					<div className="space-y-8">
+						{/* Visibility Toggle */}
+						<div className="bg-blue-50 p-4 rounded-lg border border-blue-100 flex items-center justify-between">
+							<div>
+								<h3 className="font-semibold text-blue-900">Boost Page Visibility</h3>
+								<p className="text-sm text-blue-700">Toggle whether tradespeople can see the Boost Profile page.</p>
 							</div>
-						)}
-						{Object.entries(boostPrices).map(([key, plan]) => (
-							<div key={key} className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 border border-gray-100 rounded-lg bg-gray-50">
-								<div>
-									<label className="block text-xs font-medium text-gray-500 uppercase mb-1">Plan Name</label>
-									<p className="font-medium text-gray-900">{plan.name}</p>
+							<button
+								onClick={() => handleUpdateBoostVisibility(!hideBoostPage)}
+								className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+									hideBoostPage 
+										? 'bg-red-600 text-white hover:bg-red-700' 
+										: 'bg-green-600 text-white hover:bg-green-700'
+								}`}
+							>
+								{hideBoostPage ? (
+									<div className="flex items-center gap-2">
+										<EyeOff className="w-4 h-4" />
+										Page is Hidden
+									</div>
+								) : (
+									<div className="flex items-center gap-2">
+										<Eye className="w-4 h-4" />
+										Page is Visible
+									</div>
+								)}
+							</button>
+						</div>
+
+						{/* Plan Prices */}
+						<div className="space-y-4">
+							<h3 className="text-lg font-semibold text-gray-900">Plan Pricing</h3>
+							{priceMessage && (
+								<div className={`p-4 rounded-lg ${priceMessage.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+									{priceMessage.text}
 								</div>
+							)}
+							<div className="grid grid-cols-1 gap-4">
+								{Object.entries(boostPrices).map(([key, plan]) => (
+									<div key={key} className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4 border border-gray-100 rounded-lg bg-gray-50">
+										<div>
+											<label className="block text-xs font-medium text-gray-500 uppercase mb-1">Plan Name</label>
+											<p className="font-medium text-gray-900">{plan.name}</p>
+										</div>
+										<div>
+											<label className="block text-xs font-medium text-gray-500 uppercase mb-2">Price (£)</label>
+											<input
+												type="number"
+												step="0.01"
+												value={plan.price}
+												onChange={(e) => {
+													setBoostPrices(prev => ({
+														...prev,
+														[key]: { ...prev[key], price: parseFloat(e.target.value) }
+													}));
+												}}
+												className="w-full px-3 py-2 border border-gray-300 rounded-md"
+											/>
+										</div>
+										<div>
+											<label className="block text-xs font-medium text-gray-500 uppercase mb-1">Duration (Days)</label>
+											<p className="font-medium text-gray-900">{plan.duration}</p>
+										</div>
+									</div>
+								))}
+							</div>
+							<button
+								onClick={handleUpdateBoostPrices}
+								disabled={savingPrices}
+								className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center disabled:opacity-50"
+							>
+								<Save className="w-4 h-4 mr-2" />
+								{savingPrices ? 'Saving...' : 'Save Boost Prices'}
+							</button>
+						</div>
+
+						{/* Page Content Editing */}
+						<div className="space-y-4 border-t border-gray-100 pt-8">
+							<h3 className="text-lg font-semibold text-gray-900">Page Content</h3>
+							<div className="space-y-4">
 								<div>
-									<label className="block text-xs font-medium text-gray-500 uppercase mb-2">Price (£)</label>
+									<label className="block text-sm font-medium text-gray-700 mb-1">Main Title</label>
 									<input
-										type="number"
-										step="0.01"
-										value={plan.price}
-										onChange={(e) => {
-											setBoostPrices(prev => ({
-												...prev,
-												[key]: { ...prev[key], price: parseFloat(e.target.value) }
-											}));
-										}}
-										className="w-full px-3 py-2 border border-gray-300 rounded-md"
+										type="text"
+										value={boostPageContent.title || ''}
+										onChange={(e) => setBoostPageContent({ ...boostPageContent, title: e.target.value })}
+										className="w-full px-4 py-2 border border-gray-300 rounded-lg"
 									/>
 								</div>
 								<div>
-									<label className="block text-xs font-medium text-gray-500 uppercase mb-1">Duration (Days)</label>
-									<p className="font-medium text-gray-900">{plan.duration}</p>
+									<label className="block text-sm font-medium text-gray-700 mb-1">Subtitle</label>
+									<textarea
+										value={boostPageContent.subtitle || ''}
+										onChange={(e) => setBoostPageContent({ ...boostPageContent, subtitle: e.target.value })}
+										className="w-full px-4 py-2 border border-gray-300 rounded-lg h-20"
+									/>
+								</div>
+								
+								<div className="space-y-3">
+									<label className="block text-sm font-medium text-gray-700">Features</label>
+									{boostPageContent.features?.map((feature: any, index: number) => (
+										<div key={index} className="p-4 border border-gray-200 rounded-lg space-y-3">
+											<input
+												type="text"
+												placeholder="Feature Title"
+												value={feature.title}
+												onChange={(e) => {
+													const newFeatures = [...boostPageContent.features];
+													newFeatures[index].title = e.target.value;
+													setBoostPageContent({ ...boostPageContent, features: newFeatures });
+												}}
+												className="w-full px-3 py-1 border border-gray-300 rounded"
+											/>
+											<textarea
+												placeholder="Feature Description"
+												value={feature.description}
+												onChange={(e) => {
+													const newFeatures = [...boostPageContent.features];
+													newFeatures[index].description = e.target.value;
+													setBoostPageContent({ ...boostPageContent, features: newFeatures });
+												}}
+												className="w-full px-3 py-1 border border-gray-300 rounded h-16 text-sm"
+											/>
+										</div>
+									))}
 								</div>
 							</div>
-						))}
-						<button
-							onClick={handleUpdateBoostPrices}
-							disabled={savingPrices}
-							className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center disabled:opacity-50"
-						>
-							<Save className="w-4 h-4 mr-2" />
-							{savingPrices ? 'Saving...' : 'Save Boost Prices'}
-						</button>
+							<button
+								onClick={handleUpdateBoostContent}
+								disabled={savingBoostContent}
+								className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center disabled:opacity-50"
+							>
+								<Save className="w-4 h-4 mr-2" />
+								{savingBoostContent ? 'Saving...' : 'Save Page Content'}
+							</button>
+						</div>
 					</div>
 				)}
 
@@ -1655,10 +1822,38 @@ const AdminDashboard = () => {
 													: 'bg-gray-200 text-gray-700 hover:bg-gray-300'
 											}`}
 										>
-											Suspended
+											Close Account
 										</button>
 									</div>
 								</div>
+
+								{/* Suspension Control */}
+								<div>
+									<label className="text-sm font-medium text-gray-600">Access Control</label>
+									<div className="flex items-center space-x-2 mt-2">
+										<button
+											onClick={() => handleSuspendUser(selectedUser.id, !selectedUser.isSuspended)}
+											className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center ${
+												selectedUser.isSuspended
+													? 'bg-red-100 text-red-700 border border-red-200 hover:bg-red-200'
+													: 'bg-green-100 text-green-700 border border-green-200 hover:bg-green-200'
+											}`}
+										>
+											{selectedUser.isSuspended ? (
+												<>
+													<Lock className="w-4 h-4 mr-2" />
+													User Suspended (Click to Activate)
+												</>
+											) : (
+												<>
+													<UserCheck className="w-4 h-4 mr-2" />
+													User Active (Click to Suspend)
+												</>
+											)}
+										</button>
+									</div>
+								</div>
+
 								<div>
 									<label className="text-sm font-medium text-gray-600">Verification Status</label>
 									<div className="flex items-center space-x-2 mt-2">

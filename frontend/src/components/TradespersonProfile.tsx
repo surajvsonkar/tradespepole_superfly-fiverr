@@ -30,11 +30,10 @@ import {
 	Loader,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { PortfolioItem, Conversation, Review } from '../types';
+import { PortfolioItem, Conversation, Review, User as UserType } from '../types';
 import IDVerification from './IDVerification';
 import WorkingAreaSelector, { WorkingAreaData } from './WorkingAreaSelector';
 import { ChatModal as MessagingModal } from './MessagingModal';
-import ConversationsList from './ConversationsList';
 import ContactsList from './ContactsList';
 import QuoteRequest from './QuoteRequest';
 import BalanceTopUp from './BalanceTopUp';
@@ -52,6 +51,8 @@ const TradespersonProfile = () => {
 	if (!state.currentUser) {
 		return null;
 	}
+
+	const currentUser = state.currentUser!;
 
 	const [activeTab, setActiveTab] = useState('company-description');
 	const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -137,6 +138,7 @@ const TradespersonProfile = () => {
 	const [showBalanceTopUp, setShowBalanceTopUp] = useState(false);
 	const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
 	const [loadingPaymentHistory, setLoadingPaymentHistory] = useState(false);
+	const [hasFetchedBalance, setHasFetchedBalance] = useState(false);
 	const [portfolioData, setPortfolioData] = useState({
 		title: '',
 		description: '',
@@ -166,17 +168,65 @@ const TradespersonProfile = () => {
 					const userResponse = await userService.getUserById(
 						state.currentUser.id
 					);
-					if (userResponse.user) {
-						// dispatch({ type: 'SET_USER', payload: userResponse.user });
-					}
+						dispatch({ type: 'UPDATE_USER', payload: userResponse.user });
 				} catch (error) {
 					console.error('Error fetching profile data:', error);
 				}
 			}
 		};
 
+
 		fetchProfileData();
 	}, [state.currentUser?.id]);
+
+	// Update local state when currentUser changes
+	useEffect(() => {
+		if (state.currentUser) {
+			setContactData({
+				name: state.currentUser.name || '',
+				email: state.currentUser.email || '',
+				phone: state.currentUser.phone || '',
+				businessName: state.currentUser.businessName || '',
+				hourlyRate: state.currentUser.hourlyRate?.toString() || '',
+			});
+			setCompanyDescription(state.currentUser.companyDescription || '');
+			setSelectedTrades(state.currentUser.trades || []);
+		}
+	}, [state.currentUser]);
+
+	// Fetch balance and payment history when balance tab is active
+	useEffect(() => {
+		if (activeTab === 'balance' && !hasFetchedBalance) {
+			const fetchBalanceData = async () => {
+				try {
+					const balanceResponse = await paymentService.getBalance();
+					if (balanceResponse.balance !== Number(state.currentUser?.credits || 0)) {
+						dispatch({
+							type: 'UPDATE_USER',
+							payload: { credits: balanceResponse.balance },
+						});
+					}
+				} catch (error) {
+					console.error('Error fetching balance:', error);
+				}
+
+				if (paymentHistory.length === 0 && !loadingPaymentHistory) {
+					setLoadingPaymentHistory(true);
+					try {
+						const response = await paymentService.getPaymentHistory({ limit: 10, type: 'credits_topup' });
+						setPaymentHistory(response.payments || []);
+					} catch (error) {
+						console.error('Error fetching payment history:', error);
+					} finally {
+						setLoadingPaymentHistory(false);
+					}
+				}
+
+				setHasFetchedBalance(true);
+			};
+			fetchBalanceData();
+		}
+	}, [activeTab, hasFetchedBalance]);
 
 	const navigationItems = [
 		{
@@ -218,8 +268,9 @@ const TradespersonProfile = () => {
 
 	// Get jobs where this tradesperson was hired
 	const jobsWon = state.jobLeads.filter(
-		(lead) => lead.hiredTradesperson === state.currentUser?.id
+		(lead) => lead.hiredTradesperson === currentUser?.id
 	);
+	console.log('Jobs won:', jobsWon.length);
 
 	if (!state.currentUser || state.currentUser.type !== 'tradesperson') {
 		return (
@@ -277,7 +328,7 @@ const TradespersonProfile = () => {
 		{
 			id: 'home-counties',
 			label:
-				state.currentUser.businessName || state.currentUser.name.toUpperCase(),
+				state.currentUser!.businessName || state.currentUser!.name.toUpperCase(),
 			icon: Building,
 			type: 'header',
 		},
@@ -400,28 +451,46 @@ const TradespersonProfile = () => {
 		setActiveTab(tabId);
 	};
 
-	const handleSaveCompanyDescription = () => {
-		if (state.currentUser) {
-			const updatedUser = {
-				...state.currentUser,
-				companyDescription: companyDescription,
-			};
-			dispatch({ type: 'SET_USER', payload: updatedUser });
-			alert('Company description saved successfully!');
+	const handleSaveCompanyDescription = async () => {
+		if (currentUser) {
+			try {
+				await userService.updateProfile({ companyDescription });
+				const updatedUser = {
+					...currentUser,
+					companyDescription: companyDescription,
+				};
+				dispatch({ type: 'SET_USER', payload: updatedUser });
+				alert('Company description saved successfully!');
+			} catch (error) {
+				console.error('Error saving company description:', error);
+				alert('Failed to save company description. Please try again.');
+			}
 		}
 	};
 
-	const handleSaveContactDetails = () => {
-		if (state.currentUser) {
-			const updatedUser = {
-				...state.currentUser,
-				name: contactData.name,
-				email: contactData.email,
-				phone: contactData.phone,
-				businessName: contactData.businessName,
-			};
-			dispatch({ type: 'SET_USER', payload: updatedUser });
-			alert('Contact details saved successfully!');
+	const handleSaveContactDetails = async () => {
+		if (currentUser) {
+			try {
+				await userService.updateProfile({
+					name: contactData.name,
+					phone: contactData.phone,
+					businessName: contactData.businessName,
+					hourlyRate: contactData.hourlyRate,
+				});
+				const updatedUser: UserType = {
+					...currentUser,
+					name: contactData.name,
+					email: contactData.email,
+					phone: contactData.phone,
+					businessName: contactData.businessName,
+					hourlyRate: contactData.hourlyRate ? parseFloat(contactData.hourlyRate) : null,
+				};
+				dispatch({ type: 'SET_USER', payload: updatedUser });
+				alert('Contact details saved successfully!');
+			} catch (error) {
+				console.error('Error saving contact details:', error);
+				alert('Failed to save contact details. Please try again.');
+			}
 		}
 	};
 
@@ -440,12 +509,24 @@ const TradespersonProfile = () => {
 	const handleWorkingAreaSave = async (workingArea: WorkingAreaData) => {
 		if (state.currentUser) {
 			try {
-				await userService.updateProfile({ workingArea });
-				const updatedUser = {
-					...state.currentUser,
-					workingArea: workingArea,
-				};
-				dispatch({ type: 'SET_USER', payload: updatedUser });
+				// FIX: Also update workPostcode when saving working area
+				// Extract postcode from centerLocation if it looks like a UK postcode
+				const postcodeRegex = /^([A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2}|GIR ?0AA)$/i;
+				const workPostcode = postcodeRegex.test(workingArea.centerLocation.trim()) 
+					? workingArea.centerLocation.trim().toUpperCase()
+					: undefined;
+				
+				await userService.updateProfile({ 
+					workingArea,
+					...(workPostcode && { workPostcode })
+				});
+				dispatch({ 
+					type: 'UPDATE_USER', 
+					payload: { 
+						workingArea,
+						...(workPostcode && { workPostcode })
+					} 
+				});
 				alert('Working area saved successfully!');
 			} catch (error) {
 				console.error('Error saving working area:', error);
@@ -456,7 +537,7 @@ const TradespersonProfile = () => {
 
 	const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
 		const file = e.target.files?.[0];
-		if (!file || !state.currentUser) return;
+		if (!file || !currentUser) return;
 
 		setUploadingAvatar(true);
 		try {
@@ -505,10 +586,10 @@ const TradespersonProfile = () => {
 			createdAt: new Date().toISOString(),
 		};
 
-		if (state.currentUser) {
+		if (currentUser) {
 			const updatedUser = {
-				...state.currentUser,
-				portfolio: [...(state.currentUser.portfolio || []), newPortfolioItem],
+				...currentUser,
+				portfolio: [...(currentUser.portfolio || []), newPortfolioItem],
 			};
 			dispatch({ type: 'SET_USER', payload: updatedUser });
 		}
@@ -537,7 +618,7 @@ const TradespersonProfile = () => {
 	};
 
 	const handleParkAccount = () => {
-		dispatch({ type: 'PARK_ACCOUNT', payload: state.currentUser.id });
+		dispatch({ type: 'PARK_ACCOUNT', payload: currentUser!.id });
 		setShowParkConfirm(false);
 		alert(
 			'Account parked successfully. You can reactivate anytime from your profile.'
@@ -545,12 +626,12 @@ const TradespersonProfile = () => {
 	};
 
 	const handleReactivateAccount = () => {
-		dispatch({ type: 'REACTIVATE_ACCOUNT', payload: state.currentUser.id });
+		dispatch({ type: 'REACTIVATE_ACCOUNT', payload: currentUser!.id });
 		alert("Account reactivated successfully! You're now live again.");
 	};
 
 	const handleDeleteAccount = () => {
-		dispatch({ type: 'DELETE_ACCOUNT', payload: state.currentUser.id });
+		dispatch({ type: 'DELETE_ACCOUNT', payload: currentUser!.id });
 		setShowDeleteConfirm(false);
 		alert('Account deleted successfully.');
 	};
@@ -601,15 +682,15 @@ const TradespersonProfile = () => {
 
 	// Filter purchased leads to show both purchased and accepted interests
 	const purchasedLeads = state.jobLeads.filter((lead) => {
-		if (!state.currentUser) return false;
+		if (!currentUser) return false;
 
 		// Check if user purchased the lead
-		const hasPurchased = lead.purchasedBy.includes(state.currentUser.id);
+		const hasPurchased = lead.purchasedBy.includes(currentUser.id);
 
 		// Check if user has an accepted interest
 		const hasAcceptedInterest = lead.interests.some(
 			(interest) =>
-				interest.tradespersonId === state.currentUser.id &&
+				interest.tradespersonId === currentUser.id &&
 				interest.status === 'accepted'
 		);
 
@@ -624,7 +705,7 @@ const TradespersonProfile = () => {
 	const acceptedInterestLeads = state.jobLeads.filter((lead) =>
 		lead.interests.some(
 			(interest) =>
-				interest.tradespersonId === state.currentUser.id &&
+				interest.tradespersonId === currentUser.id &&
 				interest.status === 'accepted'
 		)
 	);
@@ -632,16 +713,16 @@ const TradespersonProfile = () => {
 	// Get activity data
 	const expressedInterests = state.jobLeads.flatMap((lead) =>
 		lead.interests.filter(
-			(interest) => interest.tradespersonId === state.currentUser.id
+			(interest) => interest.tradespersonId === currentUser.id
 		)
 	);
 
 	const hiredJobs = state.jobLeads.filter(
-		(lead) => lead.hiredTradesperson === state.currentUser.id
+		(lead) => lead.hiredTradesperson === currentUser.id
 	);
 
 	const dismissedJobs = state.jobLeads.filter((lead) =>
-		lead.dismissedBy?.includes(state.currentUser.id)
+		lead.dismissedBy?.includes(currentUser.id)
 	);
 
 	const renderContent = () => {
@@ -764,7 +845,7 @@ const TradespersonProfile = () => {
 											<Star
 												key={i}
 												className={`w-4 h-4 ${
-													i < Math.floor(state.currentUser?.rating || 0)
+													i < Math.floor(currentUser.rating || 0)
 														? 'text-yellow-400 fill-current'
 														: 'text-gray-300'
 												}`}
@@ -772,8 +853,8 @@ const TradespersonProfile = () => {
 										))}
 									</div>
 									<span className="text-sm font-medium text-gray-700">
-										{state.currentUser?.rating
-											? Number(state.currentUser.rating).toFixed(1)
+										{currentUser.rating
+											? Number(currentUser.rating).toFixed(1)
 											: '0.0'}{' '}
 										({userReviews.length} reviews)
 									</span>
@@ -853,8 +934,8 @@ const TradespersonProfile = () => {
 							</button>
 						</div>
 
-						{!state.currentUser.portfolio ||
-						state.currentUser.portfolio.length === 0 ? (
+						{!currentUser.portfolio ||
+						currentUser.portfolio.length === 0 ? (
 							<div className="bg-gray-50 rounded-lg p-8 text-center">
 								<User className="w-12 h-12 text-gray-400 mx-auto mb-4" />
 								<p className="text-gray-600">No portfolio items yet</p>
@@ -864,7 +945,7 @@ const TradespersonProfile = () => {
 							</div>
 						) : (
 							<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-								{state.currentUser.portfolio.map((item, index) => (
+								{currentUser.portfolio.map((item, index) => (
 									<div
 										key={index}
 										className="bg-white border border-gray-200 rounded-lg overflow-hidden"
@@ -923,7 +1004,7 @@ const TradespersonProfile = () => {
 							{acceptedInterestLeads.map((lead) => {
 												const myInterest = lead.interests.find(
 													(interest) =>
-														interest.tradespersonId === state.currentUser?.id &&
+														interest.tradespersonId === currentUser.id &&
 														interest.status === 'accepted'
 												);
 
@@ -1039,11 +1120,11 @@ const TradespersonProfile = () => {
 							{purchasedLeads.map((lead) => {
 								const hasAcceptedInterest = lead.interests.some(
 									(interest) =>
-										interest.tradespersonId === state.currentUser?.id &&
+										interest.tradespersonId === currentUser.id &&
 										interest.status === 'accepted'
 								);
 								const wasPurchased = lead.purchasedBy.includes(
-									state.currentUser?.id || ''
+									currentUser.id || ''
 								);
 
 								return (
@@ -1072,12 +1153,12 @@ const TradespersonProfile = () => {
 											<div className="text-right">
 												{(() => {
 													const hasPurchased = lead.purchasedBy.includes(
-														state.currentUser.id
+														state.currentUser!.id
 													);
 													const hasAcceptedInterest = lead.interests.some(
 														(interest) =>
 															interest.tradespersonId ===
-																state.currentUser.id &&
+																state.currentUser!.id &&
 															interest.status === 'accepted'
 													);
 
@@ -1102,11 +1183,11 @@ const TradespersonProfile = () => {
 										{/* Contact Details */}
 										{(() => {
 											const hasPurchased = lead.purchasedBy.includes(
-												state.currentUser.id
+												state.currentUser!.id
 											);
 											const hasAcceptedInterest = lead.interests.some(
 												(interest) =>
-													interest.tradespersonId === state.currentUser.id &&
+													interest.tradespersonId === state.currentUser!.id &&
 													interest.status === 'accepted'
 											);
 
@@ -1474,7 +1555,7 @@ const TradespersonProfile = () => {
 							<h3 className="text-lg font-semibold text-gray-900 mb-4">
 								Profile Photo
 							</h3>
-							<ProfilePhotoUpload currentAvatar={state.currentUser.avatar} />
+							<ProfilePhotoUpload currentAvatar={currentUser.avatar} />
 						</div>
 
 						{/* Verification Status */}
@@ -1486,19 +1567,19 @@ const TradespersonProfile = () => {
 								<div className="flex items-center">
 									<Shield
 										className={`w-6 h-6 mr-3 ${
-											state.currentUser.verified
+											currentUser.verified
 												? 'text-green-600'
 												: 'text-gray-400'
 										}`}
 									/>
 									<div>
 										<p className="font-medium text-gray-900">
-											{state.currentUser.verified
+											{currentUser.verified
 												? 'Verified Professional'
 												: 'Verification Pending'}
 										</p>
 										<p className="text-sm text-gray-600">
-											{state.currentUser.verified
+											{currentUser.verified
 												? 'Your identity has been verified'
 												: 'Complete ID verification to build trust with customers'}
 										</p>
@@ -1516,7 +1597,7 @@ const TradespersonProfile = () => {
 						</div>
 
 						{/* Account Status */}
-						{state.currentUser.accountStatus === 'parked' && (
+						{currentUser.accountStatus === 'parked' && (
 							<div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
 								<div className="flex items-center">
 									<Pause className="w-5 h-5 text-yellow-600 mr-2" />
@@ -1526,7 +1607,7 @@ const TradespersonProfile = () => {
 								</div>
 								<p className="text-yellow-700 text-sm mt-1">
 									Parked on{' '}
-									{new Date(state.currentUser.parkedDate!).toLocaleDateString()}
+									{new Date(currentUser.parkedDate!).toLocaleDateString()}
 									. Reactivate to start receiving leads again.
 								</p>
 							</div>
@@ -1535,7 +1616,7 @@ const TradespersonProfile = () => {
 						{purchasedLeads.length === 0 &&
 						acceptedInterestLeads.length === 0 ? (
 							<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-								{state.currentUser.accountStatus !== 'parked' ? (
+								{currentUser.accountStatus !== 'parked' ? (
 									<button
 										onClick={() => setShowParkConfirm(true)}
 										className="flex items-center justify-center px-4 py-3 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 transition-colors"
@@ -1776,36 +1857,6 @@ const TradespersonProfile = () => {
 				);
 
 			case 'balance':
-				const fetchBalanceData = async () => {
-					// Fetch current balance from database
-					try {
-						const balanceResponse = await paymentService.getBalance();
-						if (balanceResponse.balance !== Number(state.currentUser?.credits || 0)) {
-							// Update local state if different from database
-							dispatch({
-								type: 'UPDATE_USER',
-								payload: { credits: balanceResponse.balance },
-							});
-						}
-					} catch (error) {
-						console.error('Error fetching balance:', error);
-					}
-
-					// Fetch payment history
-					if (paymentHistory.length === 0 && !loadingPaymentHistory) {
-						setLoadingPaymentHistory(true);
-						try {
-							const response = await paymentService.getPaymentHistory({ limit: 10, type: 'credits_topup' });
-							setPaymentHistory(response.payments || []);
-						} catch (error) {
-							console.error('Error fetching payment history:', error);
-						} finally {
-							setLoadingPaymentHistory(false);
-						}
-					}
-				};
-				fetchBalanceData();
-
 				return (
 					<div className="space-y-6">
 						<div className="flex items-center justify-between">
@@ -1991,12 +2042,7 @@ const TradespersonProfile = () => {
 											if (window.confirm('Are you sure you want to cancel your directory listing? You will no longer appear in homeowner searches.')) {
 												try {
 													await userService.manageDirectoryListing('cancel');
-													const updatedUser = {
-														...state.currentUser,
-														hasDirectoryListing: false,
-														directoryStatus: 'paused'
-													} as any;
-													dispatch({ type: 'SET_USER', payload: updatedUser });
+													dispatch({ type: 'UPDATE_USER', payload: { hasDirectoryListing: false, directoryStatus: 'paused' } });
 													alert('Directory listing cancelled.');
 												} catch (error) {
 													console.error('Error cancelling listing:', error);
@@ -2018,7 +2064,6 @@ const TradespersonProfile = () => {
 									'Your profile appears in homeowner searches',
 									'Homeowners can contact you directly',
 									'Increased visibility for job opportunities',
-									'Profile analytics and view counts',
 									'Cancel anytime - no commitment'
 								].map((benefit, index) => (
 									<div key={index} className="flex items-center text-gray-700">
@@ -2521,13 +2566,7 @@ const TradespersonProfile = () => {
 				onClose={() => setShowBalanceTopUp(false)}
 				onSuccess={(newBalance) => {
 					// Update the user's credits in state
-					if (state.currentUser) {
-						const updatedUser = {
-							...state.currentUser,
-							credits: newBalance,
-						};
-						dispatch({ type: 'SET_USER', payload: updatedUser });
-					}
+						dispatch({ type: 'UPDATE_USER', payload: { credits: newBalance } });
 					// Refresh payment history
 					setPaymentHistory([]);
 				}}

@@ -126,7 +126,13 @@ export const updateSettings = async (req: AuthRequest, res: Response): Promise<v
 export const getPublicSettings = async (req: AuthRequest, res: Response): Promise<void> => {
 	try {
 		// Only return public settings that clients need
-		const publicKeys = ['social_media_links', 'directory_price'];
+		const publicKeys = [
+			'social_media_links', 
+			'directory_price', 
+			'boost_plan_prices',
+			'hide_boost_page',
+			'boost_page_content'
+		];
 		
 		const settings = await prisma.settings.findMany({
 			where: {

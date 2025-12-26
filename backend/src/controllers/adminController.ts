@@ -1,4 +1,4 @@
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import prisma from '../configs/database';
 import { AuthRequest } from '../middlewares/authMiddleware';
 import { Prisma } from '@prisma/client';
@@ -215,6 +215,7 @@ export const getAllHomeowners = async (req: AuthRequest, res: Response): Promise
 				type: true,
 				accountStatus: true,
 				verificationStatus: true,
+				isSuspended: true,
 				createdAt: true,
 				postedJobLeads: {
 					select: {
@@ -288,6 +289,7 @@ export const getAllTradespeople = async (req: AuthRequest, res: Response): Promi
 				membershipType: true,
 				accountStatus: true,
 				verificationStatus: true,
+				isSuspended: true,
 				credits: true,
 				createdAt: true
 			},
@@ -600,6 +602,38 @@ export const updateBoostPlanPrices = async (req: AuthRequest, res: Response): Pr
 	} catch (error) {
 		console.error('Update boost plan prices error:', error);
 		res.status(500).json({ error: 'Failed to update boost plan prices' });
+	}
+};
+
+// Suspend user
+export const suspendUser = async (req: AuthRequest, res: Response): Promise<void> => {
+	try {
+		if (!await isAdmin(req)) {
+			res.status(403).json({ error: 'Forbidden: Admin access required' });
+			return;
+		}
+
+		const { userId } = req.params;
+		const { isSuspended } = req.body; // Boolean
+
+		if (typeof isSuspended !== 'boolean') {
+			res.status(400).json({ error: 'isSuspended must be a boolean' });
+			return;
+		}
+
+		const updatedUser = await prisma.user.update({
+			where: { id: userId },
+			data: { isSuspended },
+			select: { id: true, name: true, isSuspended: true }
+		});
+
+		res.status(200).json({
+			message: `User ${isSuspended ? 'suspended' : 'unsuspended'} successfully`,
+			user: updatedUser
+		});
+	} catch (error) {
+		console.error('Suspend user error:', error);
+		res.status(500).json({ error: 'Failed to suspend user' });
 	}
 };
 

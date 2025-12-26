@@ -10,7 +10,7 @@ export interface User {
   reviews?: number;
   verified?: boolean;
   credits?: number;
-  membershipType?: 'none' | 'basic' | 'premium' | 'unlimited_5_year';
+  membershipType?: 'none' | 'basic' | 'premium' | 'premium_3_month' | 'unlimited_5_year';
   membershipExpiry?: string;
   verificationStatus?: 'pending' | 'verified' | 'rejected';
   verificationData?: any;
@@ -25,7 +25,7 @@ export interface User {
   createdAt?: string;
   // Tradesperson-specific fields
   completedJobs?: number;
-  hourlyRate?: number;
+  hourlyRate?: number | null;
   phone?: string;
   businessName?: string;
   companyDescription?: string;
@@ -35,6 +35,7 @@ export interface User {
   // Directory listing subscription (£0.99/month for profile visibility)
   hasDirectoryListing?: boolean;
   directoryListingExpiry?: string;
+  directoryStatus?: 'active' | 'paused';
 }
 
 export interface JobLead {

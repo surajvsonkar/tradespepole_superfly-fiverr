@@ -31,6 +31,7 @@ const Header = () => {
     const membershipNames = {
       basic: 'Basic',
       premium: 'Premium', 
+      premium_3_month: 'Premium', // Added to fix indexing error
       unlimited_5_year: 'VIP'
     };
     
@@ -47,6 +48,7 @@ const Header = () => {
     { path: '/quote-requests', label: 'Quote Requests', show: true },
     { path: '/boost', label: 'Boost Profile', show: state.currentUser?.type === 'tradesperson' },
     { path: '/membership', label: 'Membership', show: state.currentUser?.type === 'tradesperson' },
+    { path: '/directory', label: 'Directory', show: state.currentUser?.type === 'tradesperson' },
   ];
 
   return (

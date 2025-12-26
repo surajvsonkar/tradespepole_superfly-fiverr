@@ -10,6 +10,11 @@ export interface UpdateProfileData {
     radius: number;
     coordinates?: { lat: number; lng: number };
   };
+  companyDescription?: string;
+  phone?: string;
+  businessName?: string;
+  hourlyRate?: string;
+  workPostcode?: string;
 }
 
 export interface UpdateMembershipData {

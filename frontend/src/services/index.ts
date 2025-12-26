@@ -6,6 +6,8 @@ export { reviewService } from './reviewService';
 export { conversationService } from './conversationService';
 export { paymentService } from './paymentService';
 export { geocodingService } from './geocodingService';
+export { settingsService } from './settingsService';
+export { analyticsService } from './analyticsService';
 export { getAuthToken, setAuthToken, removeAuthToken } from '../lib/apiClient';
 
 export type { RegisterData, LoginData } from './authService';

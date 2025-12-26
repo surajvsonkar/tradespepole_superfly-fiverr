@@ -115,6 +115,18 @@ export const adminService = {
 		return response.data;
 	},
 
+	// Suspend/Unsuspend user
+	async suspendUser(userId: string, isSuspended: boolean) {
+		const response = await axios.put(
+			`${API_URL}/admin/users/${userId}/suspend`,
+			{ isSuspended },
+			{
+				headers: getAuthHeader(),
+			}
+		);
+		return response.data;
+	},
+
 	// Delete user
 	async deleteUser(userId: string) {
 		const response = await axios.delete(`${API_URL}/admin/users/${userId}`, {
@@ -189,6 +201,28 @@ export const adminService = {
 
 	async updateSocialMediaLinks(socialLinks: { facebook?: string; instagram?: string; twitter?: string; linkedin?: string }) {
 		const response = await axios.patch(`${API_URL}/admin/social-links`, { socialLinks }, {
+			headers: getAuthHeader(),
+		});
+		return response.data;
+	},
+
+	// General settings management
+	async getAllSettings() {
+		const response = await axios.get(`${API_URL}/settings`, {
+			headers: getAuthHeader(),
+		});
+		return response.data;
+	},
+
+	async updateSetting(key: string, value: any) {
+		const response = await axios.patch(`${API_URL}/settings/${key}`, { value }, {
+			headers: getAuthHeader(),
+		});
+		return response.data;
+	},
+
+	async updateSettings(settings: Record<string, any>) {
+		const response = await axios.patch(`${API_URL}/settings`, { settings }, {
 			headers: getAuthHeader(),
 		});
 		return response.data;

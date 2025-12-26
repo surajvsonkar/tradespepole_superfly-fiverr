@@ -23,13 +23,14 @@ import {
 	Loader,
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { Conversation, JobLead } from '../types';
+import { Conversation, JobLead, QuoteRequest } from '../types';
 import { ChatModal as MessagingModal } from './MessagingModal';
 import ContactsList from './ContactsList';
 import { jobService } from '../services/jobService';
 import { userService } from '../services/userService';
 import { reviewService } from '../services/reviewService';
 import { conversationService } from '../services/conversationService';
+import { quoteService } from '../services/quoteService';
 import ProfilePhotoUpload from './ProfilePhotoUpload';
 
 const HomeownerProfile = () => {
@@ -38,6 +39,7 @@ const HomeownerProfile = () => {
 	const [isEditing, setIsEditing] = useState(false);
 	const [loading, setLoading] = useState(false);
 	const [myProjects, setMyProjects] = useState<JobLead[]>([]);
+	const [myQuoteRequests, setMyQuoteRequests] = useState<QuoteRequest[]>([]);
 	const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 	const [showParkConfirm, setShowParkConfirm] = useState(false);
 	const [selectedJobToCancel, setSelectedJobToCancel] = useState<string | null>(
@@ -130,10 +132,15 @@ const HomeownerProfile = () => {
 
 			setLoading(true);
 			try {
-				const response = await jobService.getMyJobs();
-				setMyProjects(response.jobLeads || []);
+				// Fetch both jobs and quote requests
+				const [jobsResponse, quotesResponse] = await Promise.all([
+					jobService.getMyJobs(),
+					quoteService.getMyQuoteRequests()
+				]);
+				setMyProjects(jobsResponse.jobLeads || []);
+				setMyQuoteRequests(quotesResponse.quoteRequests || []);
 			} catch (err) {
-				console.error('Failed to fetch my jobs:', err);
+				console.error('Failed to fetch my data:', err);
 			} finally {
 				setLoading(false);
 			}
@@ -221,7 +228,7 @@ const HomeownerProfile = () => {
 				location: editData.location,
 			});
 
-			dispatch({ type: 'SET_USER', payload: response.user });
+			dispatch({ type: 'UPDATE_USER', payload: response.user });
 			setIsEditing(false);
 			alert('Profile updated successfully!');
 		} catch (error) {
@@ -953,6 +960,97 @@ const HomeownerProfile = () => {
 						</div>
 					</div>
 				</div>
+
+				{/* Accepted Quotes Section */}
+				{myQuoteRequests.filter(q => q.responses.some(r => r.status === 'accepted')).length > 0 && (
+					<div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+						<h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
+							<CheckCircle className="w-6 h-6 mr-2 text-green-600" />
+							Accepted Quotes
+						</h2>
+						<div className="space-y-4">
+							{myQuoteRequests
+								.filter(q => q.responses.some(r => r.status === 'accepted'))
+								.map((quote) => {
+									const acceptedResponse = quote.responses.find(r => r.status === 'accepted');
+									if (!acceptedResponse) return null;
+									
+									return (
+										<div
+											key={quote.id}
+											className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4"
+										>
+											<div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+												<div className="flex-1 min-w-0">
+													<h3 className="font-semibold text-gray-900 truncate">
+														{quote.projectTitle}
+													</h3>
+													<p className="text-sm text-gray-600 mt-1">
+														{quote.projectDescription.substring(0, 100)}...
+													</p>
+													<div className="flex flex-wrap gap-2 mt-2">
+														<span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-medium">
+															Accepted
+														</span>
+														<span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs">
+															{quote.category}
+														</span>
+													</div>
+												</div>
+												<div className="flex flex-col items-end gap-2">
+													<div className="text-right">
+														<p className="font-medium text-gray-900">
+															{acceptedResponse.tradespersonName}
+														</p>
+														<p className="text-lg font-bold text-green-600">
+															£{typeof acceptedResponse.quotedPrice === 'number' 
+																? acceptedResponse.quotedPrice.toFixed(2) 
+																: acceptedResponse.quotedPrice}
+														</p>
+														<p className="text-xs text-gray-500">
+															{acceptedResponse.timeline}
+														</p>
+													</div>
+													<div className="flex space-x-2">
+														<button
+															onClick={async () => {
+																try {
+																	const result = await conversationService.createConversation({
+																		jobId: quote.id,
+																		homeownerId: state.currentUser!.id,
+																		tradespersonId: acceptedResponse.tradespersonId
+																	});
+																	setSelectedConversation({
+																		...result.conversation,
+																		jobTitle: quote.projectTitle,
+																	} as Conversation);
+																	setShowMessaging(true);
+																} catch (err) {
+																	console.error('Failed to start conversation:', err);
+																	alert('Failed to start conversation. Please try again.');
+																}
+															}}
+															className="bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center text-sm font-medium"
+														>
+															<MessageCircle className="w-4 h-4 mr-1" />
+															Message
+														</button>
+														<button
+															onClick={() => handleLeaveReview(quote.id, acceptedResponse.tradespersonId)}
+															className="bg-orange-600 text-white px-3 py-2 rounded-lg hover:bg-orange-700 transition-colors flex items-center text-sm font-medium"
+														>
+															<Star className="w-4 h-4 mr-1" />
+															Review
+														</button>
+													</div>
+												</div>
+											</div>
+										</div>
+									);
+								})}
+						</div>
+					</div>
+				)}
 
 				{/* Account Management Section */}
 				<div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-200 p-6">

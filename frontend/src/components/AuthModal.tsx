@@ -285,23 +285,14 @@ const AuthModal = () => {
 	const handleAuthSuccess = (response: any) => {
 		if (response.user) {
 			const user: UserType = {
-				id: response.user.id,
-				name: response.user.name,
-				email: response.user.email,
-				type: response.user.type,
-				location: response.user.location,
+				...response.user,
 				trades: response.user.trades || [],
 				rating: response.user.rating || 0,
 				reviews: response.user.reviews || 0,
 				verified: response.user.verified || false,
 				credits: response.user.credits || 0,
 				membershipType: response.user.membershipType || 'none',
-				membershipExpiry: response.user.membershipExpiry,
-				verificationStatus: response.user.verificationStatus,
-				accountStatus: response.user.accountStatus,
-				workingArea: response.user.workingArea,
 				hasDirectoryListing: response.user.hasDirectoryListing || false,
-				directoryListingExpiry: response.user.directoryListingExpiry,
 			};
 
 			dispatch({ type: 'SET_USER', payload: user });
@@ -345,7 +336,11 @@ const AuthModal = () => {
 					location: formData.location,
 					postcode: formData.postcode || 'W1K 3DE',
 					captchaToken: captchaToken || undefined,
-					...(state.userType === 'tradesperson' && { trades: formData.trades }),
+					...(state.userType === 'tradesperson' && { 
+						trades: formData.trades,
+						// FIX: Include hourlyRate during registration (parsed as number)
+						hourlyRate: formData.hourlyRate ? parseFloat(formData.hourlyRate) : undefined
+					}),
 				};
 
 				await authService.register(registerData);

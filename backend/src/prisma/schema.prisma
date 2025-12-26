@@ -98,15 +98,23 @@ model User {
   verificationStatus   VerificationStatus? @default(pending) @map("verification_status")
   verificationData     Json?               @map("verification_data")
   accountStatus        AccountStatus?      @default(active) @map("account_status")
-  hourlyRate           Decimal?            @db.Decimal(10, 2) @map("hourly_rate")
+  hourlyRate           Decimal?            @map("hourly_rate") @db.Decimal(10, 2)
   completedJobs        Int                 @default(0) @map("completed_jobs")
   parkedDate           DateTime?           @map("parked_date") @db.Timestamptz
   reactivatedDate      DateTime?           @map("reactivated_date") @db.Timestamptz
   workingArea          Json?               @map("working_area")
   jobRadius            Int?                @default(15) @map("job_radius") // Default job alert radius in miles for tradespeople
   workPostcode         String?             @default("W1K 3DE") @map("work_postcode") // Default postcode for tradespeople
+  companyDescription   String?             @map("company_description")
+  businessName         String?             @map("business_name")
   createdAt            DateTime            @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt            DateTime            @updatedAt @map("updated_at") @db.Timestamptz
+  // Admin Controls
+  isSuspended          Boolean             @default(false) @map("is_suspended")
+
+  // Boost & Membership
+  boostExpiresAt DateTime? @map("boost_expires_at") @db.Timestamptz
+
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   // Relations
   postedJobLeads              JobLead[]      @relation("PostedJobLeads")
@@ -116,6 +124,8 @@ model User {
   messagesSent                Message[]      @relation("MessagesSent")
   conversationsAsHomeowner    Conversation[] @relation("HomeownerConversations")
   conversationsAsTradesperson Conversation[] @relation("TradespersonConversations")
+  transactions                Transaction[]
+  profileViews                ProfileView[]  @relation("TradespersonProfileViews")
 
   @@index([email])
   @@index([type])
@@ -125,6 +135,59 @@ model User {
   @@index([latitude, longitude])
   @@index([stripeCustomerId])
   @@map("users")
+}
+
+model Transaction {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  amount      Decimal  @db.Decimal(10, 2)
+  type        String // 'credit', 'debit', 'purchase', 'refund', 'topup'
+  description String
+  referenceId String?  @map("reference_id") // ID of related entity (jobId, paymentId, etc.)
+  status      String   @default("completed") // 'pending', 'completed', 'failed'
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([type])
+  @@index([createdAt])
+  @@map("transactions")
+}
+
+model ProfileView {
+  id             String   @id @default(uuid()) @db.Uuid
+  tradespersonId String   @map("tradesperson_id") @db.Uuid
+  viewerId       String?  @map("viewer_id") @db.Uuid // Optional, if viewer is logged in
+  ipAddress      String?  @map("ip_address")
+  viewedAt       DateTime @default(now()) @map("viewed_at") @db.Timestamptz
+
+  tradesperson User @relation("TradespersonProfileViews", fields: [tradespersonId], references: [id], onDelete: Cascade)
+
+  @@index([tradespersonId])
+  @@index([viewedAt])
+  @@map("profile_views")
+}
+
+model BoostAnalytics {
+  id        String   @id @default(uuid()) @db.Uuid
+  date      DateTime @db.Date
+  purchases Int      @default(0)
+  revenue   Decimal  @default(0) @db.Decimal(10, 2)
+  views     Int      @default(0) // Views on boost page
+  dropOffs  Int      @default(0) // Exits without purchase
+
+  // Breakdown by tier
+  weeklyPurchases    Int @default(0) @map("weekly_purchases")
+  monthlyPurchases   Int @default(0) @map("monthly_purchases")
+  quarterlyPurchases Int @default(0) @map("quarterly_purchases")
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@unique([date])
+  @@index([date])
+  @@map("boost_analytics")
 }
 
 model JobLead {
@@ -184,7 +247,8 @@ model QuoteRequest {
   updatedAt          DateTime     @updatedAt @map("updated_at") @db.Timestamptz
 
   // Relations
-  homeowner User @relation("HomeownerQuoteRequests", fields: [homeownerId], references: [id], onDelete: Cascade)
+  homeowner     User           @relation("HomeownerQuoteRequests", fields: [homeownerId], references: [id], onDelete: Cascade)
+  conversations Conversation[]
 
   @@index([homeownerId])
   @@index([category])
@@ -235,7 +299,8 @@ model Message {
 
 model Conversation {
   id             String   @id @default(uuid()) @db.Uuid
-  jobId          String   @map("job_id") @db.Uuid
+  jobId          String?  @map("job_id") @db.Uuid
+  quoteId        String?  @map("quote_id") @db.Uuid
   jobTitle       String   @map("job_title")
   homeownerId    String   @map("homeowner_id") @db.Uuid
   tradespersonId String   @map("tradesperson_id") @db.Uuid
@@ -243,15 +308,18 @@ model Conversation {
   updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   // Relations
-  job          JobLead   @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  homeowner    User      @relation("HomeownerConversations", fields: [homeownerId], references: [id], onDelete: Cascade)
-  tradesperson User      @relation("TradespersonConversations", fields: [tradespersonId], references: [id], onDelete: Cascade)
+  job          JobLead?      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  quote        QuoteRequest? @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  homeowner    User          @relation("HomeownerConversations", fields: [homeownerId], references: [id], onDelete: Cascade)
+  tradesperson User          @relation("TradespersonConversations", fields: [tradespersonId], references: [id], onDelete: Cascade)
   messages     Message[]
 
   @@unique([jobId, homeownerId, tradespersonId])
+  @@unique([quoteId, homeownerId, tradespersonId])
   @@index([homeownerId])
   @@index([tradespersonId])
   @@index([jobId])
+  @@index([quoteId])
   @@map("conversations")
 }
 

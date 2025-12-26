@@ -1,3 +1,4 @@
+import { getLeadPrice } from '../utils/pricing';
 import { Response } from 'express';
 import prisma from '../configs/database';
 import { AuthRequest } from '../middlewares/authMiddleware';
@@ -318,7 +319,8 @@ export const getJobLeads = async (req: AuthRequest, res: Response): Promise<void
           jobRadius: true,
           latitude: true,
           longitude: true,
-          workingArea: true
+          workingArea: true,
+          membershipType: true
         }
       });
     }
@@ -453,8 +455,24 @@ export const getJobLeads = async (req: AuthRequest, res: Response): Promise<void
 
     jobLeads = jobLeads.slice(0, parseInt(limit as string));
 
+    // Calculate user-specific prices
+    const processedJobLeads = jobLeads.map(job => {
+      // Cast to any to avoid type issues with adding new property
+      const jobObj = job as any;
+      let userPrice = Number(job.price);
+      
+      if (tradesperson && tradesperson.type === 'tradesperson') {
+        userPrice = getLeadPrice(Number(job.price), tradesperson.membershipType);
+      }
+      
+      return {
+        ...jobObj,
+        userPrice
+      };
+    });
+
     res.status(200).json({
-      jobLeads,
+      jobLeads: processedJobLeads,
       pagination: {
         total,
         limit: parseInt(limit as string),
@@ -470,6 +488,7 @@ export const getJobLeads = async (req: AuthRequest, res: Response): Promise<void
 // Get job lead by ID
 export const getJobLeadById = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    const userId = req.userId;
     const { id } = req.params;
 
     const jobLead = await prisma.jobLead.findUnique({
@@ -492,7 +511,21 @@ export const getJobLeadById = async (req: AuthRequest, res: Response): Promise<v
       return;
     }
 
-    res.status(200).json({ jobLead });
+    // Calculate user price if logged in as tradesperson
+    let userPrice = Number(jobLead.price);
+    
+    if (userId) {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { type: true, membershipType: true }
+      });
+      
+      if (user && user.type === 'tradesperson') {
+         userPrice = getLeadPrice(Number(jobLead.price), user.membershipType);
+      }
+    }
+
+    res.status(200).json({ jobLead: { ...jobLead, userPrice } });
   } catch (error) {
     console.error('Get job lead error:', error);
     res.status(500).json({ error: 'Failed to get job lead' });
@@ -583,6 +616,7 @@ export const purchaseJobLead = async (req: AuthRequest, res: Response): Promise<
 		}
 
 		// Use a transaction for race-condition safe purchasing
+		// FIX: Added timeout configuration to prevent P2028 transaction errors
 		const result = await prisma.$transaction(async (tx) => {
 			// Get job lead with locking (simplified by using findFirst inside tx)
 			const jobLead = await tx.jobLead.findFirst({
@@ -617,19 +651,13 @@ export const purchaseJobLead = async (req: AuthRequest, res: Response): Promise<
 				throw new Error('Sort:User not found');
 			}
 
-			// Calculate price (VIP check)
-			let price = Number(jobLead.price);
-			if (user.membershipType === 'unlimited_5_year') {
-				price = 0;
-			} else if (user.membershipType === 'basic' || user.membershipType === 'premium') {
-				// Apply discounts if any (logic from paymentController could be moved here or shared)
-				// For now assuming only unlimited is free, or price is fixed per job
-			}
+			// Calculate price using centralized utility
+			const price = getLeadPrice(Number(jobLead.price), user.membershipType);
 
 			// Check credits if price > 0
 			const userCredits = Number(user.credits) || 0;
 			if (price > 0 && userCredits < price) {
-				throw new Error('Sort:Insufficient credits');
+				throw new Error('Insufficient credits');
 			}
 
 			// Deduct credits if needed
@@ -650,6 +678,18 @@ export const purchaseJobLead = async (req: AuthRequest, res: Response): Promise<
 						metadata: { jobLeadId: id }
 					}
 				});
+
+				// Create Transaction record (Modern ledger)
+				await (tx as any).transaction.create({
+					data: {
+						userId,
+						amount: price,
+						type: 'debit',
+						description: `Purchased lead: ${jobLead.title}`,
+						referenceId: id,
+						status: 'completed'
+					}
+				});
 			}
 
 			// Update job lead
@@ -663,6 +703,10 @@ export const purchaseJobLead = async (req: AuthRequest, res: Response): Promise<
 			});
 
 			return { jobLead: updatedJobLead, price, user };
+		}, {
+			// FIX: Increased timeout to prevent P2028 errors
+			maxWait: 5000,  // Maximum time to wait for a transaction slot
+			timeout: 20000  // Maximum time for the transaction to complete
 		});
 
 		// Send SMS notification outside transaction

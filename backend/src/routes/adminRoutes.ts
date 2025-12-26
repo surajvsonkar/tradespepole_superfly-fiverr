@@ -20,7 +20,8 @@ import {
 	getDirectoryListings,
 	updateDirectoryStatus,
 	getSocialMediaLinks,
-	updateSocialMediaLinks
+	updateSocialMediaLinks,
+	suspendUser
 } from '../controllers/adminController';
 
 const router = Router();
@@ -45,6 +46,7 @@ router.get('/tradespeople', getAllTradespeople);
 router.patch('/users/:userId/status', updateUserStatus);
 router.patch('/users/:userId', updateUser);
 router.delete('/users/:userId', deleteUser);
+router.put('/users/:userId/suspend', suspendUser);
 
 // Transactions
 router.get('/transactions', getTransactions);

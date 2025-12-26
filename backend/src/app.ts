@@ -10,6 +10,8 @@ import quoteRoutes from './routes/quoteRoutes';
 import conversationRoutes from './routes/conversationRoutes';
 import adminRoutes from './routes/adminRoutes';
 import paymentRoutes from './routes/paymentRoutes';
+import analyticsRoutes from './routes/analyticsRoutes';
+import settingsRoutes from './routes/settingsRoutes';
 import ChatServer from './websocket/chatServer';
 
 const allowedOrigins = [
@@ -40,7 +42,7 @@ app.use(
 				callback(new Error('CORS not allowed'));
 			}
 		},
-		methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+		methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
 		allowedHeaders: ['Content-Type', 'Authorization'],
 		credentials: true,
 	})
@@ -83,6 +85,8 @@ app.use('/api/quotes', quoteRoutes);
 app.use('/api/conversations', conversationRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/analytics', analyticsRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {

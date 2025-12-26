@@ -63,14 +63,32 @@ export const createConversation = async (req: Request, res: Response) => {
 			});
 		}
 
-		// Get job details for the title
+		// Get job details for the title - first check JobLead, then QuoteRequest
+		let jobTitle: string | null = null;
+		let isQuote = false;
+		
 		const job = await prisma.jobLead.findUnique({
 			where: { id: jobId },
 			select: { title: true }
 		});
 
-		if (!job) {
-			return res.status(404).json({ error: 'Job not found' });
+		if (job) {
+			jobTitle = job.title;
+		} else {
+			// Check if it's a quote request instead
+			const quote = await prisma.quoteRequest.findUnique({
+				where: { id: jobId },
+				select: { projectTitle: true }
+			});
+			
+			if (quote) {
+				jobTitle = quote.projectTitle;
+				isQuote = true;
+			}
+		}
+
+		if (!jobTitle) {
+			return res.status(404).json({ error: 'Job or Quote not found' });
 		}
 
 		// Verify both users exist
@@ -83,11 +101,12 @@ export const createConversation = async (req: Request, res: Response) => {
 			return res.status(404).json({ error: 'User not found' });
 		}
 
-		// Create new conversation
+		// Create new conversation - use jobId or quoteId based on what we found
 		const newConversation = await prisma.conversation.create({
 			data: {
-				jobId,
-				jobTitle: job.title,
+				jobId: isQuote ? null : jobId,
+				quoteId: isQuote ? jobId : null,
+				jobTitle,
 				homeownerId,
 				tradespersonId
 			},

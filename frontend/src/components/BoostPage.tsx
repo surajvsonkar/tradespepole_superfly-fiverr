@@ -2,11 +2,9 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
 	ArrowLeft,
-	User,
 	Zap,
 	Star,
 	TrendingUp,
-	BarChart3,
 	Headphones,
 	Award,
 	Infinity,
@@ -17,10 +15,11 @@ import {
 import { useApp } from '../context/AppContext';
 import BoostPaymentModal from './BoostPaymentModal';
 import { paymentService } from '../services/paymentService';
+import { settingsService, analyticsService } from '../services';
 
 export default function BoostPage() {
 	const navigate = useNavigate();
-	const { state, dispatch } = useApp();
+	const { state } = useApp();
 	const [showPaymentModal, setShowPaymentModal] = useState(false);
 	const [membershipStatus, setMembershipStatus] = useState<{
 		membershipType: string | null;
@@ -28,9 +27,11 @@ export default function BoostPage() {
 		isActive: boolean;
 		daysRemaining: number;
 	} | null>(null);
-	const [loadingStatus, setLoadingStatus] = useState(true);
 
 	useEffect(() => {
+		// Track view
+		analyticsService.trackView('boost_page_view');
+
 		const fetchMembershipStatus = async () => {
 			if (state.currentUser?.type === 'tradesperson') {
 				try {
@@ -38,64 +39,122 @@ export default function BoostPage() {
 					setMembershipStatus(status);
 				} catch (error) {
 					console.error('Error fetching membership status:', error);
-				} finally {
-					setLoadingStatus(false);
 				}
-			} else {
-				setLoadingStatus(false);
 			}
 		};
+
+		const fetchPrices = async () => {
+			try {
+				const response = await settingsService.getPublicSettings();
+				if (response.settings?.boost_plan_prices) {
+					const prices = response.settings.boost_plan_prices;
+					
+					// Update local plans state based on fetched prices
+					const newPlans = [
+						{ 
+							name: prices['1_week_boost']?.name || '1 Week Boost', 
+							price: `£${prices['1_week_boost']?.price || '19.99'}`, 
+							savings: null 
+						},
+						{ 
+							name: prices['1_month_boost']?.name || '1 Month Boost', 
+							price: `£${prices['1_month_boost']?.price || '49.99'}`, 
+							savings: '37%' // Should calculate this dynamically if possible, roughly valid
+						},
+						{ 
+							name: prices['3_month_boost']?.name || '3 Month Boost', 
+							price: `£${prices['3_month_boost']?.price || '99.99'}`, 
+							savings: '58%'
+						},
+					];
+					setPlanData(newPlans);
+					
+					if (prices['5_year_unlimited']) {
+						setUnlimitedPrice(prices['5_year_unlimited'].price);
+					}
+				}
+			} catch (error) {
+				console.error('Error fetching boost prices:', error);
+			}
+		};
+
 		fetchMembershipStatus();
+		fetchPrices();
 	}, [state.currentUser]);
 
-	// Redirect non-tradespeople
-	if (!state.currentUser || state.currentUser.type !== 'tradesperson') {
+	const [planData, setPlanData] = useState([
+		{ name: '1 Week Boost', price: '£19.99', savings: null },
+		{ name: '1 Month Boost', price: '£49.99', savings: '37%' },
+		{ name: '3 Month Boost', price: '£99.99', savings: '58%' },
+	]);
+	const [unlimitedPrice, setUnlimitedPrice] = useState(995);
+	const [pageSettings, setPageSettings] = useState<any>(null);
+
+	useEffect(() => {
+		// Track view
+		analyticsService.trackView('boost_page_view');
+
+		const fetchMembershipStatus = async () => {
+			if (state.currentUser?.type === 'tradesperson') {
+				try {
+					const status = await paymentService.getMembershipStatus();
+					setMembershipStatus(status);
+				} catch (error) {
+					console.error('Error fetching membership status:', error);
+				}
+			}
+		};
+
+		const fetchPricesAndSettings = async () => {
+			try {
+				const response = await settingsService.getPublicSettings();
+				const settings = response.settings || {};
+				setPageSettings(settings);
+
+				if (settings.boost_plan_prices) {
+					const prices = settings.boost_plan_prices;
+					
+					// Update local plans state based on fetched prices
+					const newPlans = [
+						{ 
+							name: prices['1_week_boost']?.name || '1 Week Boost', 
+							price: `£${prices['1_week_boost']?.price || '19.99'}`, 
+							savings: null 
+						},
+						{ 
+							name: prices['1_month_boost']?.name || '1 Month Boost', 
+							price: `£${prices['1_month_boost']?.price || '49.99'}`, 
+							savings: '37%' 
+						},
+						{ 
+							name: prices['3_month_boost']?.name || '3 Month Boost', 
+							price: `£${prices['3_month_boost']?.price || '99.99'}`, 
+							savings: '58%'
+						},
+					];
+					setPlanData(newPlans);
+					
+					if (prices['5_year_unlimited']) {
+						setUnlimitedPrice(prices['5_year_unlimited'].price);
+					}
+				}
+			} catch (error) {
+				console.error('Error fetching boost prices:', error);
+			}
+		};
+
+		fetchMembershipStatus();
+		fetchPricesAndSettings();
+	}, [state.currentUser]);
+
+	// Redirect if page is hidden by admin
+	if (pageSettings?.hide_boost_page === 'true' || pageSettings?.hide_boost_page === true) {
 		return (
-			<div className="min-h-screen bg-gray-50 py-8">
-				<div className="max-w-3xl mx-auto p-6 text-center">
-					<div className="mb-6">
-						<button
-							onClick={() => navigate('/')}
-							className="flex items-center text-blue-600 hover:text-blue-700 mb-4"
-						>
-							<ArrowLeft className="w-5 h-5 mr-2" />
-							Back to Home
-						</button>
-					</div>
-					<div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
-						<User className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-						<h1 className="text-2xl font-bold text-gray-900 mb-4">
-							Tradespeople Only
-						</h1>
-						<p className="text-gray-600 mb-6">
-							Profile boosting is exclusively available for tradespeople. Please
-							sign in as a tradesperson to access this feature.
-						</p>
-						<div className="space-x-4">
-							<button
-								onClick={() =>
-									dispatch({
-										type: 'SHOW_AUTH_MODAL',
-										payload: { mode: 'login', userType: 'tradesperson' },
-									})
-								}
-								className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
-							>
-								Sign In as Tradesperson
-							</button>
-							<button
-								onClick={() =>
-									dispatch({
-										type: 'SHOW_AUTH_MODAL',
-										payload: { mode: 'signup', userType: 'tradesperson' },
-									})
-								}
-								className="bg-gray-100 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-200 transition-colors"
-							>
-								Join as Tradesperson
-							</button>
-						</div>
-					</div>
+			<div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+				<div className="text-center">
+					<h2 className="text-2xl font-bold text-gray-900 mb-2">Page Unavailable</h2>
+					<p className="text-gray-600 mb-6">The boost profile feature is currently unavailable.</p>
+					<button onClick={() => navigate('/')} className="text-blue-600 font-medium">Back to Home</button>
 				</div>
 			</div>
 		);
@@ -106,7 +165,12 @@ export default function BoostPage() {
 		paymentService.getMembershipStatus().then(setMembershipStatus);
 	};
 
-	const features = [
+	const features = pageSettings?.boost_page_content?.features?.map((f: any, i: number) => ({
+		...f,
+		icon: [TrendingUp, Star, Award, Zap, Headphones][i] || Sparkles,
+		color: ['text-blue-600', 'text-yellow-600', 'text-purple-600', 'text-green-600', 'text-indigo-600'][i] || 'text-gray-600',
+		bg: ['bg-blue-100', 'bg-yellow-100', 'bg-purple-100', 'bg-green-100', 'bg-indigo-100'][i] || 'bg-gray-100',
+	})) || [
 		{
 			icon: TrendingUp,
 			title: 'Top Search Placement',
@@ -129,9 +193,9 @@ export default function BoostPage() {
 			bg: 'bg-purple-100',
 		},
 		{
-			icon: BarChart3,
-			title: 'Advanced Analytics',
-			description: 'Track views, clicks, and leads with detailed insights',
+			icon: Zap,
+			title: '20% Cheaper Job Leads',
+			description: 'Pay less for every job lead you purchase while boosted',
 			color: 'text-green-600',
 			bg: 'bg-green-100',
 		},
@@ -142,12 +206,6 @@ export default function BoostPage() {
 			color: 'text-indigo-600',
 			bg: 'bg-indigo-100',
 		},
-	];
-
-	const plans = [
-		{ name: '1 Week Boost', price: '£19.99', savings: null },
-		{ name: '1 Month Boost', price: '£49.99', savings: '37%' },
-		{ name: '3 Month Boost', price: '£99.99', savings: '58%' },
 	];
 
 	return (
@@ -200,11 +258,10 @@ export default function BoostPage() {
 						<Zap className="w-10 h-10 text-white" />
 					</div>
 					<h1 className="text-4xl font-bold text-gray-900 mb-4">
-						🚀 Supercharge Your Profile
+						{pageSettings?.boost_page_content?.title || '🚀 Supercharge Your Profile'}
 					</h1>
 					<p className="text-xl text-gray-600 max-w-2xl mx-auto">
-						Get noticed, win more jobs, and grow your business faster with{' '}
-						<span className="font-bold text-blue-600">BOOST</span>
+						{pageSettings?.boost_page_content?.subtitle || 'Get more leads and grow your business faster with BOOST'}
 					</p>
 				</div>
 
@@ -215,7 +272,7 @@ export default function BoostPage() {
 						What You Get with BOOST
 					</h2>
 					<div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-						{features.map((feature, index) => (
+						{features.map((feature: any, index: number) => (
 							<div
 								key={index}
 								className="flex items-start p-4 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors"
@@ -256,8 +313,8 @@ export default function BoostPage() {
 									</th>
 								</tr>
 							</thead>
-							<tbody>
-								{plans.map((plan, index) => (
+						<tbody>
+								{planData.map((plan, index) => (
 									<tr
 										key={index}
 										className={index % 2 === 1 ? 'bg-gray-50' : ''}
@@ -300,7 +357,7 @@ export default function BoostPage() {
 									5 YEARS. VIP MEMBER (UNLIMITED).
 								</h3>
 								<p className="text-4xl font-bold text-yellow-800 mb-4">
-									£995{' '}
+									£{unlimitedPrice}{' '}
 									<span className="text-lg font-normal">One-Time Payment</span>
 								</p>
 							</div>

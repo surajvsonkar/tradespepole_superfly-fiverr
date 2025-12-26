@@ -315,8 +315,6 @@ export const submitQuoteResponse = async (
 			quotedPrice,
 			description,
 			timeline,
-			paidAmount,
-			membershipDiscount,
 		} = req.body;
 
 		if (!userId) {
@@ -324,10 +322,10 @@ export const submitQuoteResponse = async (
 			return;
 		}
 
-		// Get tradesperson info
+		// Get tradesperson info including credits and membership
 		const tradesperson = await prisma.user.findUnique({
 			where: { id: userId },
-			select: { name: true, type: true },
+			select: { name: true, type: true, credits: true, membershipType: true },
 		});
 
 		if (!tradesperson || tradesperson.type !== 'tradesperson') {
@@ -373,6 +371,63 @@ export const submitQuoteResponse = async (
 			return;
 		}
 
+		// Calculate quote response price
+		// Base price: £5.99 + 20% VAT = £7.19
+		const basePrice = 5.99;
+		const vat = basePrice * 0.20;
+		const totalWithVat = basePrice + vat; // £7.19
+		let quoteResponsePrice = totalWithVat;
+		let discountPercent = 0;
+		
+		// Apply membership-specific discounts
+		switch (tradesperson.membershipType) {
+			case 'unlimited_5_year': // VIP
+				quoteResponsePrice = 0;
+				discountPercent = 100;
+				break;
+			case 'premium':
+				discountPercent = 25;
+				quoteResponsePrice = totalWithVat * 0.75; // 25% discount = £5.39
+				break;
+			case 'basic':
+				discountPercent = 10;
+				quoteResponsePrice = totalWithVat * 0.90; // 10% discount = £6.47
+				break;
+			default:
+				// No membership - full price £7.19
+				discountPercent = 0;
+				quoteResponsePrice = totalWithVat;
+		}
+
+		// Check if tradesperson has enough credits
+		const currentCredits = Number(tradesperson.credits) || 0;
+		if (quoteResponsePrice > 0 && currentCredits < quoteResponsePrice) {
+			res.status(400).json({ 
+				error: `Insufficient credits. Quote response costs £${quoteResponsePrice.toFixed(2)}. You have £${currentCredits.toFixed(2)}.` 
+			});
+			return;
+		}
+
+		// Deduct credits if price > 0
+		if (quoteResponsePrice > 0) {
+			await prisma.user.update({
+				where: { id: userId },
+				data: { credits: currentCredits - quoteResponsePrice }
+			});
+
+			// Create transaction record
+			await prisma.transaction.create({
+				data: {
+					userId,
+					amount: quoteResponsePrice,
+					type: 'debit',
+					description: `Quote response: ${quoteRequest.projectTitle}`,
+					referenceId: id,
+					status: 'completed'
+				}
+			});
+		}
+
 		// Create response object
 		const response = {
 			id: crypto.randomUUID(),
@@ -381,8 +436,8 @@ export const submitQuoteResponse = async (
 			quotedPrice,
 			description,
 			timeline,
-			paidAmount: paidAmount || 0,
-			membershipDiscount: membershipDiscount || 0,
+			paidAmount: quoteResponsePrice,
+			membershipDiscount: discountPercent,
 			createdAt: new Date().toISOString(),
 			status: 'pending',
 		};
@@ -400,6 +455,8 @@ export const submitQuoteResponse = async (
 		res.status(200).json({
 			message: 'Quote response submitted successfully',
 			response,
+			paidAmount: quoteResponsePrice,
+			remainingCredits: currentCredits - quoteResponsePrice,
 		});
 	} catch (error) {
 		console.error('Submit quote response error:', error);

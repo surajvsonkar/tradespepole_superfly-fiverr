@@ -1,5 +1,3 @@
-// src/contexts/ChatContext.tsx
-
 import React, {
 	createContext,
 	useContext,
@@ -61,8 +59,12 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
 	children,
 }) => {
 	const wsRef = useRef<WebSocket | null>(null);
-	const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-	const heartbeatIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+	const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+		null
+	);
+	const heartbeatIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
+		null
+	);
 
 	const [isConnected, setIsConnected] = useState(false);
 	const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -103,85 +105,88 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
 		currentConversationIdRef.current = conversationId;
 
 		// Build WebSocket URL with token
-		// Use the API URL from environment or fall back to current origin
 		const apiUrl = import.meta.env.VITE_API_URL || '';
 		let wsHost: string;
-		
+
 		if (apiUrl) {
-			// Extract host from API URL (e.g., https://api.example.com -> api.example.com)
 			try {
 				const url = new URL(apiUrl);
+				// Extract just the hostname, no protocol
 				wsHost = url.host;
 			} catch {
-				// If API_URL is relative, use current window location
-				wsHost = window.location.host;
+				// If API_URL is invalid, use backend URL directly
+				wsHost = 'two47tradespeople-backend.onrender.com';
 			}
 		} else {
-			// Development fallback
-			wsHost = window.location.hostname + ':3001';
+			// Production backend
+			wsHost = 'two47tradespeople-backend.onrender.com';
 		}
-		
-		const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+
+		// Determine protocol (wss for production, ws for local dev)
+		const protocol = wsHost.includes('localhost') ? 'ws:' : 'wss:';
 		const wsUrl = `${protocol}//${wsHost}/ws/chat?token=${encodeURIComponent(
 			token
 		)}`;
 
 		console.log('🔌 Connecting to:', wsUrl.replace(token, 'TOKEN_HIDDEN'));
-		
+
 		try {
-		const ws = new WebSocket(wsUrl);
+			const ws = new WebSocket(wsUrl);
 
-		ws.onopen = () => {
-			console.log('✅ WebSocket connected');
-			setIsConnected(true);
-			setError(null);
+			ws.onopen = () => {
+				console.log('✅ WebSocket connected');
+				setIsConnected(true);
+				setError(null);
 
-			// Join conversation after connection
-			ws.send(
-				JSON.stringify({
-					type: 'join',
-					payload: { conversationId },
-					timestamp: Date.now(),
-				})
-			);
+				// Join conversation after connection
+				ws.send(
+					JSON.stringify({
+						type: 'join',
+						payload: { conversationId },
+						timestamp: Date.now(),
+					})
+				);
 
-			startHeartbeat(ws);
-		};
+				startHeartbeat(ws);
+			};
 
-		ws.onmessage = (event) => {
-			handleMessage(event.data);
-		};
+			ws.onmessage = (event) => {
+				handleMessage(event.data);
+			};
 
-		ws.onerror = (event) => {
-			console.error('❌ WebSocket error:', event);
+			ws.onerror = (event) => {
+				console.error('❌ WebSocket error:', event);
 				setError('Connection error. Attempting to reconnect...');
-		};
+			};
 
-		ws.onclose = (event) => {
-			console.log('🔌 WebSocket disconnected', event.code, event.reason);
-			setIsConnected(false);
-			stopHeartbeat();
+			ws.onclose = (event) => {
+				console.log('🔌 WebSocket disconnected', event.code, event.reason);
+				setIsConnected(false);
+				stopHeartbeat();
 
-			// Handle different close codes
-			if (event.code === 1006) {
-				setError('Connection lost. Reconnecting...');
+				// Handle different close codes
+				if (event.code === 1006) {
+					setError('Connection lost. Reconnecting...');
 				} else if (event.code === 401 || event.code === 403) {
-				setError('Authentication failed. Please login again.');
-				return; // Don't reconnect on auth failure
-			}
+					setError('Authentication failed. Please login again.');
+					return; // Don't reconnect on auth failure
+				}
 
-			// Auto-reconnect after 3 seconds (except for auth failures)
+				// Auto-reconnect after 3 seconds (except for auth failures)
 				if (event.code !== 401 && event.code !== 403) {
-				reconnectTimeoutRef.current = setTimeout(() => {
-					if (currentUserIdRef.current && currentConversationIdRef.current) {
-						console.log('🔄 Reconnecting...');
-						connect(currentUserIdRef.current, currentConversationIdRef.current);
-					}
-				}, 3000);
-			}
-		};
+					reconnectTimeoutRef.current = setTimeout(() => {
+						if (currentUserIdRef.current && currentConversationIdRef.current) {
+							console.log('🔄 Reconnecting...');
+							connect(
+								currentUserIdRef.current,
+								currentConversationIdRef.current
+							);
+						}
+					}, 3000);
+				}
+			};
 
-		wsRef.current = ws;
+			wsRef.current = ws;
 		} catch (err) {
 			console.error('❌ Failed to create WebSocket:', err);
 			setError('Failed to connect. Please try again.');
@@ -247,12 +252,12 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({
 
 				case 'user_online':
 					// Update other user's online status
-					setOtherUser((prev) => prev ? { ...prev, isOnline: true } : null);
+					setOtherUser((prev) => (prev ? { ...prev, isOnline: true } : null));
 					break;
 
 				case 'user_offline':
 					// Update other user's online status
-					setOtherUser((prev) => prev ? { ...prev, isOnline: false } : null);
+					setOtherUser((prev) => (prev ? { ...prev, isOnline: false } : null));
 					break;
 
 				case 'error':

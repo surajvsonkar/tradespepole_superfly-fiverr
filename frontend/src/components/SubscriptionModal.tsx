@@ -35,7 +35,7 @@ const SUBSCRIPTION_DETAILS = {
     period: 'month',
     description: 'For tradespeople getting started',
     features: [
-      '10% discount on job leads',
+      '20% discount on job leads',
       'Priority listing in search results',
       'Basic profile verification badge',
       'Monthly performance reports',

@@ -21,6 +21,7 @@ export const getUserById = async (req: AuthRequest, res: Response): Promise<void
         id: true,
         name: true,
         email: true,
+        phone: true,
         type: true,
         avatar: true,
         location: true,
@@ -29,10 +30,20 @@ export const getUserById = async (req: AuthRequest, res: Response): Promise<void
         reviews: true,
         verified: true,
         membershipType: true,
+        membershipExpiry: true,
         verificationStatus: true,
         accountStatus: true,
         workingArea: true,
-        createdAt: true
+        workPostcode: true,
+        companyDescription: true,
+        businessName: true,
+        hourlyRate: true,
+        completedJobs: true,
+        hasDirectoryListing: true,
+        directoryListingExpiry: true,
+        directoryStatus: true,
+        createdAt: true,
+        credits: req.userId === id // Only show credits to the owner
       }
     });
 
@@ -70,7 +81,11 @@ export const updateProfile = async (req: AuthRequest, res: Response): Promise<vo
       location,
       trades,
       workingArea,
-      hourlyRate
+      hourlyRate,
+      companyDescription,
+      phone,
+      businessName,
+      workPostcode
     } = req.body;
 
     const updatedUser = await prisma.user.update({
@@ -81,12 +96,17 @@ export const updateProfile = async (req: AuthRequest, res: Response): Promise<vo
         ...(location !== undefined && { location }),
         ...(trades !== undefined && { trades }),
         ...(workingArea !== undefined && { workingArea }),
-        ...(hourlyRate !== undefined && { hourlyRate: hourlyRate ? parseFloat(hourlyRate) : null })
+        ...(hourlyRate !== undefined && { hourlyRate: hourlyRate ? parseFloat(hourlyRate) : null }),
+        ...(companyDescription !== undefined && { companyDescription }),
+        ...(phone !== undefined && { phone }),
+        ...(businessName !== undefined && { businessName }),
+        ...(workPostcode !== undefined && { workPostcode })
       },
       select: {
         id: true,
         name: true,
         email: true,
+        phone: true,
         type: true,
         avatar: true,
         location: true,
@@ -100,8 +120,14 @@ export const updateProfile = async (req: AuthRequest, res: Response): Promise<vo
         verificationStatus: true,
         accountStatus: true,
         workingArea: true,
+        workPostcode: true,
+        companyDescription: true,
+        businessName: true,
         hourlyRate: true,
         completedJobs: true,
+        hasDirectoryListing: true,
+        directoryListingExpiry: true,
+        directoryStatus: true,
         createdAt: true,
         updatedAt: true
       }
@@ -132,7 +158,8 @@ export const getTradespeople = async (req: AuthRequest, res: Response): Promise<
 
     const where: any = {
       type: 'tradesperson',
-      accountStatus: 'active'
+      accountStatus: 'active',
+      isSuspended: false
     };
 
     // Only show tradespeople with active directory listings (unless admin override)
@@ -361,7 +388,8 @@ export const manageDirectoryListing = async (req: AuthRequest, res: Response): P
       select: {
         id: true,
         hasDirectoryListing: true,
-        directoryStatus: true
+        directoryStatus: true,
+        directoryListingExpiry: true
       }
     });
 

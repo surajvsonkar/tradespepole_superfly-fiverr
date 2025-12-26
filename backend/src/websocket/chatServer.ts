@@ -1,5 +1,3 @@
-// src/websocket/chatServer.ts
-
 import WebSocket from 'ws';
 import { Server } from 'http';
 import { IncomingMessage } from 'http';
@@ -54,15 +52,25 @@ class ChatServer {
 	private userSockets: Map<string, string[]> = new Map();
 	private conversations: Map<string, Set<string>> = new Map();
 	private jwtSecret: string;
+	private allowedOrigins: string[];
 
 	constructor(server: Server) {
 		// Get JWT secret from environment
 		this.jwtSecret = process.env.JWT_SECRET || '';
-        console.log(this.jwtSecret)
+		console.log('JWT Secret loaded:', this.jwtSecret ? '✅' : '❌');
 
 		if (!this.jwtSecret) {
 			throw new Error('JWT_SECRET is not defined in environment variables');
 		}
+
+		// Define allowed origins for CORS
+		this.allowedOrigins = [
+			'https://www.247tradespeople.com',
+			'https://247tradespeople.com',
+			'http://localhost:5173',
+			'http://localhost:3000',
+			'http://localhost:3001',
+		];
 
 		this.wss = new WebSocket.WebSocketServer({
 			server,
@@ -72,10 +80,11 @@ class ChatServer {
 
 		this.wss.on('connection', this.handleConnection.bind(this));
 		console.log('✅ WebSocket Chat Server initialized with JWT authentication');
+		console.log('✅ Allowed origins:', this.allowedOrigins.join(', '));
 	}
 
 	// ========================================================================
-	// TOKEN VERIFICATION
+	// TOKEN & ORIGIN VERIFICATION
 	// ========================================================================
 
 	private verifyClient(
@@ -83,6 +92,41 @@ class ChatServer {
 		callback: (res: boolean, code?: number, message?: string) => void
 	) {
 		try {
+			// Check origin first
+			const origin =
+				info.origin || info.req.headers.origin || info.req.headers.referer;
+			console.log('🔍 WebSocket connection attempt from origin:', origin);
+
+			// Verify origin is allowed
+			let isOriginAllowed = false;
+			if (origin) {
+				isOriginAllowed = this.allowedOrigins.some((allowed) => {
+					if (origin === allowed) return true;
+					// Also check if origin starts with allowed origin (for subdomains)
+					try {
+						const originUrl = new URL(origin);
+						const allowedUrl = new URL(allowed);
+						return originUrl.hostname === allowedUrl.hostname;
+					} catch {
+						return false;
+					}
+				});
+			} else {
+				// If no origin header (some tools/clients don't send it), allow it
+				// This is common for native apps or some testing tools
+				isOriginAllowed = true;
+				console.log('⚠️ No origin header, allowing connection');
+			}
+
+			if (!isOriginAllowed) {
+				console.error('❌ Origin not allowed:', origin);
+				callback(false, 403, 'Forbidden: Origin not allowed');
+				return;
+			}
+
+			console.log('✅ Origin verified:', origin);
+
+			// Now verify JWT token
 			const url = new URL(
 				info.req.url || '',
 				`http://${info.req.headers.host}`
@@ -330,7 +374,11 @@ class ChatServer {
 	// CHAT MESSAGE
 	// ========================================================================
 
-	private async handleChatMessage(socketId: string, client: Client, payload: any) {
+	private async handleChatMessage(
+		socketId: string,
+		client: Client,
+		payload: any
+	) {
 		const { content, receiverId } = payload;
 
 		if (!content || !receiverId) {
@@ -347,7 +395,7 @@ class ChatServer {
 			// Get sender info from database
 			const sender = await prisma.user.findUnique({
 				where: { id: client.userId },
-				select: { name: true }
+				select: { name: true },
 			});
 
 			if (!sender) {
@@ -398,7 +446,9 @@ class ChatServer {
 				timestamp: Date.now(),
 			});
 
-			console.log(`💬 Message saved and sent from ${client.userId} to ${receiverId}`);
+			console.log(
+				`💬 Message saved and sent from ${client.userId} to ${receiverId}`
+			);
 		} catch (error) {
 			console.error('❌ Error saving message:', error);
 			this.sendError(socketId, 'Failed to send message');
@@ -452,7 +502,9 @@ class ChatServer {
 
 						// Notify users in the same conversation that this user is offline
 						if (client.conversationId) {
-							const conversation = this.conversations.get(client.conversationId);
+							const conversation = this.conversations.get(
+								client.conversationId
+							);
 							if (conversation) {
 								conversation.forEach((userId) => {
 									if (userId !== client.userId) {

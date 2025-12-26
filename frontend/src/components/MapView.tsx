@@ -229,7 +229,7 @@ const MapView = ({ viewType }: MapViewProps) => {
 
     switch (membershipType) {
       case 'basic':
-        discount = 0.1; // 10% discount
+        discount = 0.2; // 20% discount
         finalPrice = basePrice * (1 - discount);
         break;
       case 'premium':

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft,
+	ArrowLeft,
 	MapPin,
 	Calendar,
 	DollarSign,
@@ -16,13 +16,12 @@ import {
 	Star,
 	X,
 	MessageCircle,
-	Briefcase,
-	Lock,
+	Briefcase
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Interest, Review, Conversation, JobLead } from '../types';
 import MapView from './MapView';
-import {ChatModal as MessagingModal} from './MessagingModal';
+import { ChatModal as MessagingModal } from './MessagingModal';
 import ConversationsList from './ConversationsList';
 import { jobService } from '../services/jobService';
 import { conversationService } from '../services/conversationService';
@@ -35,6 +34,8 @@ const JobLeads = () => {
 	const [selectedLead, setSelectedLead] = useState<string | null>(null);
 	const [interestMessage, setInterestMessage] = useState('');
 	const [showInterestModal, setShowInterestModal] = useState(false);
+	const [messageLoading, setMessageLoading] = useState<string | null>(null);
+
 	const [showReviewModal, setShowReviewModal] = useState(false);
 	const [reviewData, setReviewData] = useState({
 		jobId: '',
@@ -56,14 +57,18 @@ const JobLeads = () => {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [showPurchaseModal, setShowPurchaseModal] = useState(false);
-	const [selectedLeadForPurchase, setSelectedLeadForPurchase] = useState<string | null>(null);
+	const [selectedLeadForPurchase, setSelectedLeadForPurchase] = useState<
+		string | null
+	>(null);
 	const [isPurchasing, setIsPurchasing] = useState(false);
 	const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
 
 	// Check if tradesperson has directory listing subscription
-	const hasSubscription = state.currentUser?.type === 'homeowner' || 
-		(state.currentUser?.hasDirectoryListing && 
-		(!state.currentUser?.directoryListingExpiry || new Date(state.currentUser.directoryListingExpiry) > new Date()));
+	const hasSubscription =
+		state.currentUser?.type === 'homeowner' ||
+		(state.currentUser?.hasDirectoryListing &&
+			(!state.currentUser?.directoryListingExpiry ||
+				new Date(state.currentUser.directoryListingExpiry) > new Date()));
 
 	// Fetch job leads from API
 	useEffect(() => {
@@ -85,7 +90,7 @@ const JobLeads = () => {
 					// Fetch available job leads for tradespeople
 					const response = await jobService.getJobLeads({
 						category: categoryFilter !== 'all' ? categoryFilter : undefined,
-						isActive: true
+						isActive: true,
 					});
 					leads = response.jobLeads; // Backend returns 'jobLeads' not 'jobs'
 				}
@@ -116,7 +121,7 @@ const JobLeads = () => {
 
 		switch (membershipType) {
 			case 'basic':
-				discount = 0.1; // 10% discount
+				discount = 0.2; // 20% discount
 				finalPrice = basePrice * (1 - discount);
 				break;
 			case 'premium':
@@ -173,7 +178,7 @@ const JobLeads = () => {
 	};
 
 	// Filter job leads based on user's trades if they're a tradesperson
-	const filteredJobLeads = (jobLeads || []).filter(lead => {
+	const filteredJobLeads = (jobLeads || []).filter((lead) => {
 		if (isHomeowner) {
 			// For homeowners, show only their own jobs
 			return lead.postedBy === state.currentUser?.id;
@@ -182,19 +187,22 @@ const JobLeads = () => {
 			if (!lead.isActive) {
 				return false;
 			}
-			
+
 			// Filter out dismissed jobs
 			if (lead.dismissedBy?.includes(state.currentUser?.id || '')) {
 				return false;
 			}
-			
+
 			// Filter out jobs they've already expressed interest in
-			if (lead.interests.some(interest => interest.tradespersonId === state.currentUser?.id)) {
+			if (
+				lead.interests.some(
+					(interest) => interest.tradespersonId === state.currentUser?.id
+				)
+			) {
 				return false;
 			}
 		}
-		
-		
+
 		if (categoryFilter === 'all') {
 			return true;
 		}
@@ -202,7 +210,10 @@ const JobLeads = () => {
 	});
 
 	// Get unique categories for filter dropdown
-	const availableCategories = ['all', ...Array.from(new Set((jobLeads || []).map(lead => lead.category)))];
+	const availableCategories = [
+		'all',
+		...Array.from(new Set((jobLeads || []).map((lead) => lead.category))),
+	];
 
 	const handlePurchaseLead = (leadId: string) => {
 		if (!state.currentUser) {
@@ -303,7 +314,7 @@ const JobLeads = () => {
 		try {
 			await jobService.expressInterest(selectedLead, {
 				message: interestMessage,
-				price: pricing.finalPrice
+				price: pricing.finalPrice,
 			});
 
 			const interest: Interest = {
@@ -327,11 +338,13 @@ const JobLeads = () => {
 			});
 
 			// Update local state
-			setJobLeads(prev => prev.map(lead => 
-				lead.id === selectedLead 
-					? { ...lead, interests: [...lead.interests, interest] }
-					: lead
-			));
+			setJobLeads((prev) =>
+				prev.map((lead) =>
+					lead.id === selectedLead
+						? { ...lead, interests: [...lead.interests, interest] }
+						: lead
+				)
+			);
 
 			setShowInterestModal(false);
 			setInterestMessage('');
@@ -571,10 +584,13 @@ const JobLeads = () => {
 								<Briefcase className="w-8 h-8" />
 							</div>
 							<div className="flex-1">
-								<h3 className="text-xl font-bold mb-2">Get Listed in the Directory</h3>
+								<h3 className="text-xl font-bold mb-2">
+									Get Listed in the Directory
+								</h3>
 								<p className="text-emerald-100 mb-4">
-									Subscribe for just £0.99/month to appear in the public directory and let homeowners contact you directly.
-									Job leads are always free to view - purchase only the ones you want!
+									Subscribe for just £0.99/month to appear in the public
+									directory and let homeowners contact you directly. Job leads
+									are always free to view - purchase only the ones you want!
 								</p>
 								<div className="flex flex-wrap gap-3 mb-4">
 									<div className="flex items-center text-sm">
@@ -624,13 +640,15 @@ const JobLeads = () => {
 				) : filteredJobLeads.length === 0 ? (
 					<div className="text-center py-20 bg-white rounded-xl shadow-sm border border-gray-200">
 						<p className="text-gray-600 text-lg mb-4">
-							{isHomeowner 
-								? "You haven't posted any jobs yet." 
-								: "No job leads matching your selected trades available at the moment."}
+							{isHomeowner
+								? "You haven't posted any jobs yet."
+								: 'No job leads matching your selected trades available at the moment.'}
 						</p>
 						{isHomeowner && (
 							<button
-								onClick={() => dispatch({ type: 'SET_VIEW', payload: 'submit-project' })}
+								onClick={() =>
+									dispatch({ type: 'SET_VIEW', payload: 'submit-project' })
+								}
 								className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
 							>
 								Post a Job
@@ -701,7 +719,11 @@ const JobLeads = () => {
 										<div className="flex items-center text-sm text-gray-500">
 											<MapPin className="w-4 h-4 mr-2" />
 											{lead.location}
-											{lead.postcode && <span className="ml-1 text-gray-400">({lead.postcode})</span>}
+											{lead.postcode && (
+												<span className="ml-1 text-gray-400">
+													({lead.postcode})
+												</span>
+											)}
 											{lead.distanceFromTradesperson !== undefined && (
 												<span className="ml-2 text-blue-600 font-medium">
 													{lead.distanceFromTradesperson} miles away
@@ -723,9 +745,20 @@ const JobLeads = () => {
 									</div>
 
 									<div className="flex items-center justify-between mb-4">
-										<span className="text-lg font-bold text-blue-600">
-											£{lead.price}
-										</span>
+										<div className="flex flex-col items-end">
+											<span className="text-lg font-bold text-blue-600">
+												£
+												{(lead as any).userPrice !== undefined
+													? (lead as any).userPrice
+													: lead.price}
+											</span>
+											{(lead as any).userPrice !== undefined &&
+												(lead as any).userPrice < lead.price && (
+													<span className="text-xs text-gray-400 line-through">
+														£{lead.price}
+													</span>
+												)}
+										</div>
 										<span className="text-sm text-gray-500">
 											{lead.category}
 										</span>
@@ -788,11 +821,10 @@ const JobLeads = () => {
 											</h4>
 											{lead.purchasedBy.map((tradespersonId) => {
 												// First try to get from purchasedByDetails, then fall back to state.users
-												const tradesperson = lead.purchasedByDetails?.find(
-													(u) => u.id === tradespersonId
-												) || state.users.find(
-													(u) => u.id === tradespersonId
-												);
+												const tradesperson =
+													lead.purchasedByDetails?.find(
+														(u) => u.id === tradespersonId
+													) || state.users.find((u) => u.id === tradespersonId);
 												if (!tradesperson) {
 													// Show a placeholder for users we don't have details for
 													return (
@@ -932,17 +964,28 @@ const JobLeads = () => {
 																		onClick={async () => {
 																			try {
 																				// Create conversation via API (or get existing)
-																				const response = await conversationService.createConversation({
-																					jobId: lead.id,
-																					homeownerId: lead.postedBy,
-																					tradespersonId: state.currentUser!.id,
-																				});
+																				const response =
+																					await conversationService.createConversation(
+																						{
+																							jobId: lead.id,
+																							homeownerId: lead.postedBy,
+																							tradespersonId:
+																								state.currentUser!.id,
+																						}
+																					);
 
-																				setSelectedConversation(response.conversation);
+																				setSelectedConversation(
+																					response.conversation
+																				);
 																				setShowMessaging(true);
 																			} catch (error) {
-																				console.error('Failed to create conversation:', error);
-																				alert('Failed to start conversation. Please try again.');
+																				console.error(
+																					'Failed to create conversation:',
+																					error
+																				);
+																				alert(
+																					'Failed to start conversation. Please try again.'
+																				);
 																			}
 																		}}
 																		className="bg-blue-600 text-white px-3 py-1 rounded text-xs hover:bg-blue-700 flex items-center"
@@ -990,12 +1033,13 @@ const JobLeads = () => {
 																state.currentUser?.membershipType
 															).finalPrice.toFixed(2)}
 															{state.currentUser?.membershipType &&
-																state.currentUser?.membershipType !== 'none' && (
+																state.currentUser?.membershipType !==
+																	'none' && (
 																	<span className="ml-1 text-xs">
 																		(Save{' '}
 																		{
 																			calculateLeadPrice(
-																				state.currentUser.membershipType
+																				state.currentUser?.membershipType
 																			).discount
 																		}
 																		%)
@@ -1019,7 +1063,7 @@ const JobLeads = () => {
 										{/* Express Interest Button */}
 										{!isHomeowner && !hasExpressedInterest && lead.isActive && (
 											<>
-												{state.currentUser.membershipType ===
+												{state.currentUser?.membershipType ===
 												'unlimited_5_year' ? (
 													<button
 														onClick={() => handleExpressInterest(lead.id)}
@@ -1051,7 +1095,6 @@ const JobLeads = () => {
 											</button>
 										)}
 
-
 										{/* Status Messages */}
 										{!canPurchase && !hasPurchased && lead.isActive && (
 											<div className="flex-1 bg-gray-100 text-gray-500 px-4 py-2 rounded-lg text-center">
@@ -1073,25 +1116,44 @@ const JobLeads = () => {
 										{!isHomeowner && hasPurchased && (
 											<button
 												onClick={async () => {
+													setMessageLoading(lead.id); // Set loading state
 													try {
 														// Create conversation via API (or get existing)
-														const response = await conversationService.createConversation({
-															jobId: lead.id,
-															homeownerId: lead.postedBy,
-															tradespersonId: state.currentUser!.id,
-														});
+														const response =
+															await conversationService.createConversation({
+																jobId: lead.id,
+																homeownerId: lead.postedBy,
+																tradespersonId: state.currentUser!.id,
+															});
 
 														setSelectedConversation(response.conversation);
 														setShowMessaging(true);
 													} catch (error) {
-														console.error('Failed to create conversation:', error);
-														alert('Failed to start conversation. Please try again.');
+														console.error(
+															'Failed to create conversation:',
+															error
+														);
+														alert(
+															'Failed to start conversation. Please try again.'
+														);
+													} finally {
+														setMessageLoading(null); // Clear loading state
 													}
 												}}
 												className="flex-1 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center"
+												disabled={messageLoading === lead.id}
 											>
-												<MessageCircle className="w-4 h-4 mr-2" />
-												Message Homeowner
+												{messageLoading === lead.id ? (
+													<>
+														<div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+														Opening Chat...
+													</>
+												) : (
+													<>
+														<MessageCircle className="w-4 h-4 mr-2" />
+														Message Homeowner
+													</>
+												)}
 											</button>
 										)}
 
@@ -1349,11 +1411,12 @@ const JobLeads = () => {
 				<MessagingModal
 					isOpen={showMessaging}
 					onClose={() => setShowMessaging(false)}
-					conversation={
-						selectedConversation?.id ? selectedConversation : undefined
+					conversation={selectedConversation || undefined}
+					otherUserId={
+						isHomeowner
+							? selectedConversation?.tradespersonId
+							: selectedConversation?.homeownerId
 					}
-					jobId={selectedConversation?.jobId}
-					otherUserId={selectedConversation?.otherUserId}
 				/>
 
 				{/* Subscription Modal */}
@@ -1369,8 +1432,10 @@ const JobLeads = () => {
 								payload: {
 									...state.currentUser,
 									hasDirectoryListing: true,
-									directoryListingExpiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-								}
+									directoryListingExpiry: new Date(
+										Date.now() + 30 * 24 * 60 * 60 * 1000
+									).toISOString(),
+								},
 							});
 						}
 						setShowSubscriptionModal(false);

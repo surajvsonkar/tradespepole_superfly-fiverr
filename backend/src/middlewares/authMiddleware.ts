@@ -64,3 +64,33 @@ export const requireHomeowner = (
   }
   next();
 };
+
+export const optionalAuth = (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): void => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    next();
+    return;
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret') as {
+      userId: string;
+      userType: 'homeowner' | 'tradesperson';
+      email?: string;
+    };
+    
+    req.userId = decoded.userId;
+    req.userType = decoded.userType;
+    req.userEmail = decoded.email;
+    next();
+  } catch (error) {
+    // If token is invalid, just proceed as guest
+    next();
+  }
+};

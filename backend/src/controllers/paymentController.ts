@@ -522,9 +522,11 @@ export const purchaseJobLead = async (req: AuthRequest, res: Response): Promise<
 
 		// Calculate price based on membership
 		let price = Number(jobLead.price);
-		if (user.membershipType === 'basic') price *= 0.9;
-		else if (user.membershipType === 'premium') price *= 0.75;
-		else if (user.membershipType === 'unlimited_5_year') price = 0;
+		if (user.membershipType === 'basic' || user.membershipType === 'premium') {
+			price = 7.99;
+		} else if (user.membershipType === 'unlimited_5_year') {
+			price = 0;
+		}
 
 		// If free with membership, just add to purchased
 		if (price === 0) {

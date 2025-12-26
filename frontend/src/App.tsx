@@ -16,6 +16,7 @@ import TradespersonProfile from './components/TradespersonProfile';
 import Membership from './components/Membership';
 import QuoteRequest from './components/QuoteRequest';
 import BoostPage from './components/BoostPage';
+import DirectoryPage from './components/DirectoryPage';
 import PrivacyPolicy from './components/PrivacyPolicy';
 import ProfileMockup from './components/ProfileMockup';
 import TermsOfUse from './components/TermsOfUse';
@@ -132,6 +133,7 @@ const AppContent = () => {
         <Route path="/membership" element={<ProtectedRoute><Membership /></ProtectedRoute>} />
         <Route path="/quote-requests" element={<ProtectedRoute><QuoteRequest /></ProtectedRoute>} />
         <Route path="/boost" element={<ProtectedRoute><BoostPage /></ProtectedRoute>} />
+        <Route path="/directory" element={<ProtectedRoute><DirectoryPage /></ProtectedRoute>} />
         
         {/* Catch all - redirect to home */}
         <Route path="*" element={<Navigate to="/" replace />} />

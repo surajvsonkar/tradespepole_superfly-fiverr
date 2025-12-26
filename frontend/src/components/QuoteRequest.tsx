@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, MapPin, Calendar, DollarSign, Users, MessageCircle, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { QuoteRequest as QuoteRequestType } from '../types';
+import { QuoteRequest as QuoteRequestType, Conversation } from '../types';
 import { quoteService } from '../services/quoteService';
-// MessagingModal removed - unused
+import { conversationService } from '../services/conversationService';
+import { ChatModal as MessagingModal } from './MessagingModal';
 
 const QuoteRequest = () => {
   const navigate = useNavigate();
@@ -20,6 +21,10 @@ const QuoteRequest = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  
+  // Messaging state for accepted quotes
+  const [showMessaging, setShowMessaging] = useState(false);
+  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
 
   // Fetch quote requests from API
   useEffect(() => {
@@ -162,6 +167,36 @@ const QuoteRequest = () => {
     } catch (err: any) {
       console.error('Failed to accept quote:', err);
       alert(err.response?.data?.error || 'Failed to accept quote. Please try again.');
+    }
+  };
+
+  // Handle starting a conversation for an accepted quote
+  const handleStartQuoteConversation = async (quote: QuoteRequestType, tradespersonId: string) => {
+    if (!state.currentUser) return;
+    
+    try {
+      // Use the quote ID as the job ID for the conversation
+      // This allows linking the conversation to the specific quote
+      const homeownerId = quote.homeownerId;
+      
+      // Create or get existing conversation
+      const result = await conversationService.createConversation({
+        jobId: quote.id, // Using quote ID as reference
+        homeownerId,
+        tradespersonId
+      });
+      
+      // Set the conversation with enriched data
+      const conversationWithTitle = {
+        ...result.conversation,
+        jobTitle: quote.projectTitle, // Use project title for conversation context
+      };
+      
+      setSelectedConversation(conversationWithTitle as Conversation);
+      setShowMessaging(true);
+    } catch (err) {
+      console.error('Failed to start conversation:', err);
+      alert('Failed to start conversation. Please try again.');
     }
   };
 
@@ -332,22 +367,34 @@ const QuoteRequest = () => {
                             }`}>
                               {response.status || 'pending'}
                             </span>
-                            {response.membershipDiscount && response.membershipDiscount > 0 && (
-                              <p className="text-xs text-blue-600 mt-1">
-                                {response.membershipDiscount}% member discount
-                              </p>
-                            )}
+                            {/* {response.membershipDiscount && response.membershipDiscount > 0 && (
+                              // <p className="text-xs text-blue-600 mt-1">
+                              //   {response.membershipDiscount}% member discount
+                              // </p>
+                            )} */}
                           </div>
                         </div>
                         <p className="text-sm text-gray-600 mb-2">{response.description || 'No description provided'}</p>
-                        {isOwner && response.status === 'pending' && (
-                          <button
-                            onClick={() => handleAcceptQuote(quote.id, response.id)}
-                            className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700"
-                          >
-                            Accept Quote
-                          </button>
-                        )}
+                        <div className="flex space-x-2">
+                          {isOwner && response.status === 'pending' && (
+                            <button
+                              onClick={() => handleAcceptQuote(quote.id, response.id)}
+                              className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700"
+                            >
+                              Accept Quote
+                            </button>
+                          )}
+                          {/* Message button for accepted quotes - shown to both homeowner and tradesperson */}
+                          {response.status === 'accepted' && (
+                            <button
+                              onClick={() => handleStartQuoteConversation(quote, response.tradespersonId)}
+                              className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700 flex items-center"
+                            >
+                              <MessageCircle className="w-4 h-4 mr-1" />
+                              Message
+                            </button>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -486,6 +533,18 @@ const QuoteRequest = () => {
           </div>
         )}
       </div>
+      
+      {/* Messaging Modal for accepted quotes */}
+      {showMessaging && selectedConversation && (
+        <MessagingModal
+          isOpen={showMessaging}
+          onClose={() => {
+            setShowMessaging(false);
+            setSelectedConversation(null);
+          }}
+          conversation={selectedConversation}
+        />
+      )}
     </div>
   );
 };
